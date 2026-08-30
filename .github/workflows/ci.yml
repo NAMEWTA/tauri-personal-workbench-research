@@ -129,7 +129,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:sidecar
       - run: pnpm --dir apps/desktop build
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm --dir apps/desktop exec playwright install --with-deps chromium
       - run: pnpm test:smoke
       - run: cargo check --workspace --all-targets
   required:

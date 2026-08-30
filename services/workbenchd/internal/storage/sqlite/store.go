@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/personal-workbench/workbenchd/internal/platform"
@@ -16,6 +17,8 @@ import (
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 )
+
+var gooseMigrationMu sync.Mutex
 
 type Store struct {
 	db        *sql.DB
@@ -67,20 +70,28 @@ func (s *Store) initialize(ctx context.Context, workspaceName, appVersion string
 			return fmt.Errorf("sqlite configure: %w", err)
 		}
 	}
-	goose.SetBaseFS(migrations.FS)
-	goose.SetLogger(goose.NopLogger())
-	if err := goose.SetDialect("sqlite3"); err != nil {
-		return fmt.Errorf("migration dialect: %w", err)
-	}
-	currentVersion, err := goose.GetDBVersionContext(ctx, s.db)
-	if err != nil {
-		return fmt.Errorf("read migration version: %w", err)
-	}
-	if currentVersion > migrations.CurrentVersion {
-		return fmt.Errorf("workspace schema %d is incompatible with V2 development schema %d", currentVersion, migrations.CurrentVersion)
-	}
-	if err := goose.UpContext(ctx, s.db, "."); err != nil {
-		return fmt.Errorf("migrate workspace: %w", err)
+	gooseMigrationMu.Lock()
+	migrationErr := func() error {
+		defer gooseMigrationMu.Unlock()
+		goose.SetBaseFS(migrations.FS)
+		goose.SetLogger(goose.NopLogger())
+		if err := goose.SetDialect("sqlite3"); err != nil {
+			return fmt.Errorf("migration dialect: %w", err)
+		}
+		currentVersion, err := goose.GetDBVersionContext(ctx, s.db)
+		if err != nil {
+			return fmt.Errorf("read migration version: %w", err)
+		}
+		if currentVersion > migrations.CurrentVersion {
+			return fmt.Errorf("workspace schema %d is incompatible with V2 development schema %d", currentVersion, migrations.CurrentVersion)
+		}
+		if err := goose.UpContext(ctx, s.db, "."); err != nil {
+			return fmt.Errorf("migrate workspace: %w", err)
+		}
+		return nil
+	}()
+	if migrationErr != nil {
+		return migrationErr
 	}
 	var check string
 	if err := s.db.QueryRowContext(ctx, "PRAGMA quick_check").Scan(&check); err != nil || check != "ok" {
