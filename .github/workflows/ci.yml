@@ -1,6 +1,11 @@
 name: CI
 on:
   workflow_call:
+    inputs:
+      force_all:
+        description: Run every verification job regardless of changed paths
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
@@ -23,7 +28,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
-        if: github.event_name != 'workflow_call'
+        if: ${{ !inputs.force_all }}
         with:
           filters: |
             frontend:
@@ -52,7 +57,7 @@ jobs:
               - 'pnpm-lock.yaml'
   frontend:
     needs: changes
-    if: github.event_name == 'workflow_call' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.contract == 'true'
+    if: inputs.force_all || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.contract == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -63,7 +68,7 @@ jobs:
       - run: pnpm check:frontend
   go:
     needs: changes
-    if: github.event_name == 'workflow_call' || needs.changes.outputs.go == 'true' || needs.changes.outputs.contract == 'true'
+    if: inputs.force_all || needs.changes.outputs.go == 'true' || needs.changes.outputs.contract == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -81,7 +86,7 @@ jobs:
       - run: go -C services/workbenchd test -race ./...
   contract:
     needs: changes
-    if: github.event_name == 'workflow_call' || needs.changes.outputs.contract == 'true'
+    if: inputs.force_all || needs.changes.outputs.contract == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -98,7 +103,7 @@ jobs:
       - run: git diff --exit-code -- api/openapi.yaml apps/desktop/src/generated services/workbenchd/internal/api/generated
   rust:
     needs: changes
-    if: github.event_name == 'workflow_call' || needs.changes.outputs.rust == 'true'
+    if: inputs.force_all || needs.changes.outputs.rust == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -115,7 +120,7 @@ jobs:
       - run: cargo test --workspace
   windows-smoke:
     needs: changes
-    if: github.event_name == 'workflow_call' || needs.changes.outputs.windows == 'true' || needs.changes.outputs.contract == 'true'
+    if: inputs.force_all || needs.changes.outputs.windows == 'true' || needs.changes.outputs.contract == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

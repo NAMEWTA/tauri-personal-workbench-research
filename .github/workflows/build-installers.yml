@@ -9,6 +9,8 @@ permissions:
 jobs:
   verify:
     uses: ./.github/workflows/ci.yml
+    with:
+      force_all: true
 
   build:
     needs: verify

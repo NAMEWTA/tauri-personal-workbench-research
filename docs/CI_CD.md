@@ -8,6 +8,8 @@
 | `build-installers.yml` | 手动执行                                  | 构建两种原生安装包并保存为 Actions artifacts，不创建 Release         |
 | `release.yml`          | 推送 `vX.Y.Z` 标签                        | 复用 CI，构建两种安装包，生成 SBOM、SHA-256 和 provenance 后公开发布 |
 
+手动构建与标签发布调用可复用 CI 时都会传入 `force_all: true`，因此即使标签本身没有文件差异，也会执行全部验证任务。
+
 所有外部 Actions 固定到完整 commit SHA。Dependabot 每周检查 npm、Go Modules、Cargo 和 GitHub Actions 更新。
 
 ## 发布矩阵
