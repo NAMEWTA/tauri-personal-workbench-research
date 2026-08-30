@@ -56,11 +56,16 @@ pub fn run() {
 
     let exiting = Arc::new(AtomicBool::new(false));
     app.run(move |handle, event| {
-        if let tauri::RunEvent::ExitRequested { .. } = event {
+        if let tauri::RunEvent::ExitRequested { api, .. } = event {
             if exiting.swap(true, Ordering::SeqCst) {
                 return;
             }
-            tauri::async_runtime::block_on(handle.state::<SidecarManager>().stop());
+            api.prevent_exit();
+            let app_handle = handle.clone();
+            std::thread::spawn(move || {
+                tauri::async_runtime::block_on(app_handle.state::<SidecarManager>().stop());
+                app_handle.exit(0);
+            });
         }
     });
 }
