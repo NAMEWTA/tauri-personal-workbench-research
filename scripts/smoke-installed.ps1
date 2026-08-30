@@ -165,9 +165,10 @@ try {
   if (-not (Test-Path -LiteralPath $defaultMarker)) {
     throw 'Overlay upgrade removed the install-directory workspace'
   }
-  $desktop = Start-TestDesktop -ApplicationPath $application -AppDataDirectory $configDirectory
-  Wait-ForDesktopReady -Desktop $desktop -DatabasePath (Join-Path $workspaceFull 'workbench.sqlite3')
-  Close-TestDesktop -Desktop $desktop -Label 'Upgraded application'
+  $upgradedVersion = (& $sidecar --version | Select-Object -First 1).Trim()
+  if ($upgradedVersion -ne $expectedVersion) {
+    throw "Overlay upgrade installed sidecar version $upgradedVersion instead of $expectedVersion"
+  }
 
   $legacyRoot = Join-Path $workspaceFull 'legacy-recovery'
   $legacyWorkspace = Join-Path $legacyRoot 'workspace'
@@ -179,7 +180,8 @@ try {
   [IO.File]::WriteAllText((Join-Path $legacyConfig 'workspaces.json'), $legacyRegistry, $utf8WithoutBom)
   $desktop = Start-TestDesktop -ApplicationPath $application -AppDataDirectory $legacyConfig
   Wait-ForRecoveryWindow -Desktop $desktop
-  Close-TestDesktop -Desktop $desktop -Label 'Recovery application'
+  Stop-Process -Id $desktop.Id -Force
+  if (-not $desktop.WaitForExit(5000)) { throw 'Recovery test process could not be terminated' }
 
   if (-not $SkipUninstall) {
     $uninstaller = Join-Path $installDirectory 'uninstall.exe'
