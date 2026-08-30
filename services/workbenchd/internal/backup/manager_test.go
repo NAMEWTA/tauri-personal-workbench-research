@@ -45,6 +45,10 @@ func TestOnlineBackupIncludesDatabaseAndAttachments(t *testing.T) {
 		t.Fatal(err)
 	}
 	manager := backup.New(store.DB(), workspace)
+	configured := t.TempDir()
+	if _, err := manager.Configure(ctx, configured); err != nil {
+		t.Fatal(err)
+	}
 	run, err := manager.Create(ctx, "", func(int, string) {})
 	if err != nil {
 		t.Fatal(err)
@@ -91,6 +95,9 @@ func TestPreflightAndRestoreToNewWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	manager := backup.New(store.DB(), workspace)
+	if _, err := manager.Configure(ctx, t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
 	run, err := manager.Create(ctx, "", func(int, string) {})
 	if err != nil {
 		t.Fatal(err)
@@ -167,6 +174,10 @@ func TestSuccessfulBackupRetentionAndFailureSafety(t *testing.T) {
 	}
 	defer func() { _ = store.Close() }()
 	manager := backup.New(store.DB(), workspace)
+	backupDirectory := t.TempDir()
+	if _, err := manager.Configure(ctx, backupDirectory); err != nil {
+		t.Fatal(err)
+	}
 	for index := 0; index < 11; index++ {
 		run, err := manager.Create(ctx, "", func(int, string) {})
 		if err != nil {
@@ -176,9 +187,9 @@ func TestSuccessfulBackupRetentionAndFailureSafety(t *testing.T) {
 			t.Fatalf("backup %d missing immediately at %q: %v", index, run.Path, err)
 		}
 	}
-	archives, err := filepath.Glob(filepath.Join(workspace, "backups", "workbench-backup-*.zip"))
+	archives, err := filepath.Glob(filepath.Join(backupDirectory, "workbench-backup-*.zip"))
 	if err != nil || len(archives) != 10 {
-		entries, readErr := os.ReadDir(filepath.Join(workspace, "backups"))
+		entries, readErr := os.ReadDir(backupDirectory)
 		names := make([]string, 0, len(entries))
 		for _, entry := range entries {
 			names = append(names, entry.Name())
@@ -196,7 +207,7 @@ func TestSuccessfulBackupRetentionAndFailureSafety(t *testing.T) {
 	if _, err := manager.Create(ctx, blockedDestination, func(int, string) {}); err == nil {
 		t.Fatal("expected backup failure")
 	}
-	archives, _ = filepath.Glob(filepath.Join(workspace, "backups", "workbench-backup-*.zip"))
+	archives, _ = filepath.Glob(filepath.Join(backupDirectory, "workbench-backup-*.zip"))
 	if len(archives) != 10 {
 		t.Fatalf("failed backup removed successful archives: %d", len(archives))
 	}
@@ -213,8 +224,20 @@ func TestAutomaticBackupDueWindow(t *testing.T) {
 	manager := backup.New(store.DB(), workspace)
 	now := time.Now().UTC()
 	due, err := manager.NeedsAutomaticBackup(ctx, now)
+	if err != nil || due {
+		t.Fatalf("unconfigured workspace should not back up: due=%v err=%v", due, err)
+	}
+	if _, err := manager.Create(ctx, "", func(int, string) {}); err == nil {
+		t.Fatal("unconfigured manual backup should fail")
+	}
+	configured := t.TempDir()
+	settings, err := manager.Configure(ctx, configured)
+	if err != nil || settings.BackupDirectory != configured {
+		t.Fatalf("settings=%#v err=%v", settings, err)
+	}
+	due, err = manager.NeedsAutomaticBackup(ctx, now)
 	if err != nil || !due {
-		t.Fatalf("new workspace should need backup: due=%v err=%v", due, err)
+		t.Fatalf("configured new workspace should need backup: due=%v err=%v", due, err)
 	}
 	if _, err := manager.Create(ctx, "", func(int, string) {}); err != nil {
 		t.Fatal(err)

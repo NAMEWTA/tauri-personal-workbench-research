@@ -30,6 +30,10 @@ type Run struct {
 	Error      string     `json:"error"`
 }
 
+type Settings struct {
+	BackupDirectory string `json:"backupDirectory"`
+}
+
 type manifestFile struct {
 	Path   string `json:"path"`
 	Size   int64  `json:"size"`
@@ -57,6 +61,31 @@ func New(db *sql.DB, workspace string) *Manager {
 }
 
 func (m *Manager) DB() *sql.DB { return m.db }
+
+func (m *Manager) Settings(ctx context.Context) (Settings, error) {
+	var result Settings
+	err := m.db.QueryRowContext(ctx, `SELECT backup_directory FROM workspace_settings WHERE singleton=1`).Scan(&result.BackupDirectory)
+	return result, err
+}
+
+func (m *Manager) Configure(ctx context.Context, directory string) (Settings, error) {
+	directory = strings.TrimSpace(directory)
+	if directory != "" {
+		absolute, err := filepath.Abs(directory)
+		if err != nil {
+			return Settings{}, fmt.Errorf("invalid backup directory: %w", err)
+		}
+		if err := os.MkdirAll(absolute, 0o700); err != nil {
+			return Settings{}, fmt.Errorf("create backup directory: %w", err)
+		}
+		directory = absolute
+	}
+	_, err := m.db.ExecContext(ctx, `UPDATE workspace_settings SET backup_directory=? WHERE singleton=1`, directory)
+	if err != nil {
+		return Settings{}, err
+	}
+	return Settings{BackupDirectory: directory}, nil
+}
 
 func (m *Manager) List(ctx context.Context) ([]Run, error) {
 	rows, err := m.db.QueryContext(ctx, `SELECT id,state,path,byte_size,started_at,finished_at,error FROM backup_runs ORDER BY started_at DESC LIMIT 100`)
@@ -89,6 +118,10 @@ func (m *Manager) List(ctx context.Context) ([]Run, error) {
 }
 
 func (m *Manager) NeedsAutomaticBackup(ctx context.Context, now time.Time) (bool, error) {
+	settings, err := m.Settings(ctx)
+	if err != nil || settings.BackupDirectory == "" {
+		return false, err
+	}
 	var latest sql.NullString
 	if err := m.db.QueryRowContext(ctx, `SELECT max(finished_at) FROM backup_runs WHERE state='succeeded'`).Scan(&latest); err != nil {
 		return false, err
@@ -104,6 +137,16 @@ func (m *Manager) NeedsAutomaticBackup(ctx context.Context, now time.Time) (bool
 }
 
 func (m *Manager) Create(ctx context.Context, destination string, progress func(int, string)) (run Run, finalErr error) {
+	if strings.TrimSpace(destination) == "" {
+		settings, err := m.Settings(ctx)
+		if err != nil {
+			return run, err
+		}
+		destination = settings.BackupDirectory
+	}
+	if destination == "" {
+		return run, fmt.Errorf("backup directory is not configured")
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.markOperation("backup"); err != nil {
@@ -128,9 +171,6 @@ func (m *Manager) Create(ctx context.Context, destination string, progress func(
 			m.pruneSuccessful(context.Background(), destination, 10)
 		}
 	}()
-	if destination == "" {
-		destination = filepath.Join(m.workspace, "backups")
-	}
 	destination, finalErr = filepath.Abs(destination)
 	if finalErr != nil {
 		return run, finalErr

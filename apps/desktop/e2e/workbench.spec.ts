@@ -1,11 +1,27 @@
 import { expect, test } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 
-test('V2 统一任务、自定义档案与响应式主流程', async ({ page }, testInfo) => {
+test('V2 统一任务、自定义档案与响应式主流程', async ({ page, request }, testInfo) => {
   const unique = `${testInfo.project.name}-${Date.now()}`
   const taskTitle = `统一任务-${unique}`
   const archiveTitle = `个人档案-${unique}`
   const identityNumber = `3101011990${String(Date.now()).slice(-8)}`
   const typeName = `项目-${unique}`
+  const server = JSON.parse(readFileSync(resolve('test-results/.e2e-server.json'), 'utf8')) as {
+    backendUrl: string
+    token: string
+    workspace: string
+  }
+  const backupDirectory = join(server.workspace, 'configured-backups')
+  const configured = await request.put(`${server.backendUrl}/api/v2/backup-settings`, {
+    headers: {
+      Authorization: `Bearer ${server.token}`,
+      Origin: 'http://127.0.0.1:1420',
+    },
+    data: { backupDirectory },
+  })
+  expect(configured.ok()).toBeTruthy()
 
   await page.goto('/today')
   await expect(page.getByRole('heading', { name: '今日' })).toBeVisible()
@@ -67,6 +83,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page }, 
   await expect(page.getByText('创建档案')).toBeVisible()
 
   await page.locator('.sidebar').getByRole('link', { name: '备份', exact: true }).click()
+  await expect(page.getByText(backupDirectory)).toBeVisible()
   await page.getByRole('button', { name: '立即备份' }).click()
   await expect(page.getByText('备份成功').first()).toBeVisible({ timeout: 20_000 })
 

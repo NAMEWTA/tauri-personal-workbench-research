@@ -3,6 +3,7 @@ import { createInterface } from "node:readline";
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   rmSync,
   writeFileSync,
@@ -12,6 +13,9 @@ import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
+const appVersion = JSON.parse(
+  readFileSync(join(root, "package.json"), "utf8"),
+).version;
 const binariesDirectory = join(
   root,
   "apps",
@@ -45,7 +49,7 @@ backend.stdin.end(
     token,
     workspacePath: workspace,
     workspaceName: "E2E 临时工作区",
-    appVersion: "0.2.0-e2e",
+    appVersion: `${appVersion}-e2e`,
     allowedOrigins: ["http://127.0.0.1:1420"],
   })}\n`,
 );

@@ -3,32 +3,35 @@ use crate::error::WorkbenchError;
 use crate::sidecar_manager::SidecarManager;
 use crate::workspace_registry::WorkspaceRegistry;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
-use tauri_plugin_dialog::DialogExt;
 
 pub async fn start_backend(app: &AppHandle) -> Result<(), WorkbenchError> {
-    let app_data = match std::env::var_os("WORKBENCH_DEV_APP_DATA_DIR") {
-        Some(path) if !path.is_empty() => PathBuf::from(path),
-        _ => app
+    let app_data_override = std::env::var_os("WORKBENCH_DEV_APP_DATA_DIR")
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from);
+    let app_data = match &app_data_override {
+        Some(path) => path.clone(),
+        None => app
             .path()
             .app_local_data_dir()
             .map_err(|_| WorkbenchError::AppDataUnavailable)?,
     };
+    let config_directory = std::env::var_os("WORKBENCH_DEV_CONFIG_DIR")
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| app_data.clone());
     let registry = app.state::<WorkspaceRegistry>();
-    registry.initialize(app_data.join("workspaces.json"))?;
-    let default_workspace = app_data.join("workspace");
+    registry.initialize(config_directory.join("workspaces.json"))?;
+    let default_workspace = if app_data_override.is_some() {
+        app_data.join("workspace")
+    } else {
+        platform_default_workspace(&app_data)?
+    };
     let workspace = if let Some(recent) = registry.current_path() {
         recent
-    } else if cfg!(debug_assertions) || default_workspace.join("workbench.sqlite3").exists() {
-        default_workspace
     } else {
-        app.dialog()
-            .file()
-            .set_title("选择个人工作台目录")
-            .blocking_pick_folder()
-            .map(|path| std::path::PathBuf::from(path.to_string()))
-            .unwrap_or(default_workspace)
+        default_workspace
     };
     fs::create_dir_all(&workspace).map_err(|error| WorkbenchError::Operation(error.to_string()))?;
     let entry = registry.record(&workspace)?;
@@ -51,4 +54,19 @@ pub async fn start_backend(app: &AppHandle) -> Result<(), WorkbenchError> {
             .map_err(|error| WorkbenchError::Operation(error.to_string()))?;
     }
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn platform_default_workspace(_app_data: &Path) -> Result<PathBuf, WorkbenchError> {
+    let executable =
+        std::env::current_exe().map_err(|error| WorkbenchError::Operation(error.to_string()))?;
+    executable
+        .parent()
+        .map(|directory| directory.join("workspace"))
+        .ok_or_else(|| WorkbenchError::Operation("无法定位程序安装目录".into()))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn platform_default_workspace(app_data: &Path) -> Result<PathBuf, WorkbenchError> {
+    Ok(app_data.join("workspace"))
 }

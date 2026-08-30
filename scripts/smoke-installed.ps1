@@ -1,5 +1,6 @@
 param(
-  [string]$TargetTriple = ''
+  [string]$TargetTriple = '',
+  [switch]$SkipUninstall
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,6 +35,19 @@ function Get-DesktopSidecars([int]$DesktopId) {
   )
 }
 
+function Get-InstalledDirectory([string]$Fallback) {
+  $uninstallRoot = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
+  if (Test-Path -LiteralPath $uninstallRoot) {
+    foreach ($key in Get-ChildItem -LiteralPath $uninstallRoot) {
+      $entry = Get-ItemProperty -LiteralPath $key.PSPath
+      if ($entry.DisplayName -eq $tauriConfig.productName -and $entry.InstallLocation) {
+        return $entry.InstallLocation.Trim('"')
+      }
+    }
+  }
+  return $Fallback
+}
+
 function Wait-ForDesktopReady($Desktop, [string]$DatabasePath) {
   $deadline = [DateTime]::UtcNow.AddSeconds(20)
   do {
@@ -45,6 +59,23 @@ function Wait-ForDesktopReady($Desktop, [string]$DatabasePath) {
 
   if ($Desktop.HasExited -or $Desktop.MainWindowHandle -eq 0 -or $sidecars.Count -eq 0 -or -not $databaseReady) {
     throw "Installed application was not ready (exited=$($Desktop.HasExited), window=$($Desktop.MainWindowHandle), sidecars=$($sidecars.Count), database=$databaseReady)"
+  }
+}
+
+function Wait-ForRecoveryWindow($Desktop) {
+  $deadline = [DateTime]::UtcNow.AddSeconds(20)
+  do {
+    Start-Sleep -Milliseconds 250
+    $Desktop.Refresh()
+  } while ((-not $Desktop.HasExited) -and $Desktop.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
+
+  if ($Desktop.HasExited -or $Desktop.MainWindowHandle -eq 0) {
+    throw "Recovery window was not visible (exited=$($Desktop.HasExited), window=$($Desktop.MainWindowHandle))"
+  }
+  Start-Sleep -Seconds 1
+  $Desktop.Refresh()
+  if ($Desktop.HasExited) {
+    throw 'Recovery application exited after showing its window'
   }
 }
 
@@ -61,11 +92,20 @@ function Close-TestDesktop($Desktop, [string]$Label) {
   if ($sidecars.Count -gt 0) { throw "$Label left its sidecar running" }
 }
 
-function Start-TestDesktop([string]$ApplicationPath, [string]$AppDataDirectory) {
+function Start-TestDesktop(
+  [string]$ApplicationPath,
+  [string]$AppDataDirectory = '',
+  [string]$ConfigDirectory = ''
+) {
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = $ApplicationPath
   $startInfo.UseShellExecute = $false
-  $startInfo.EnvironmentVariables['WORKBENCH_DEV_APP_DATA_DIR'] = $AppDataDirectory
+  if ($AppDataDirectory) {
+    $startInfo.EnvironmentVariables['WORKBENCH_DEV_APP_DATA_DIR'] = $AppDataDirectory
+  }
+  if ($ConfigDirectory) {
+    $startInfo.EnvironmentVariables['WORKBENCH_DEV_CONFIG_DIR'] = $ConfigDirectory
+  }
   [Diagnostics.Process]::Start($startInfo)
 }
 
@@ -77,14 +117,29 @@ $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
 
 try {
   $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
-  if ($install.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $application) -or -not (Test-Path -LiteralPath $sidecar)) {
+  if ($install.ExitCode -ne 0) {
     throw "NSIS installation failed with exit code $($install.ExitCode)"
+  }
+  $installDirectory = Get-InstalledDirectory -Fallback $installDirectory
+  $application = Join-Path $installDirectory 'personal-workbench.exe'
+  $sidecar = Join-Path $installDirectory 'workbenchd.exe'
+  if (-not (Test-Path -LiteralPath $application) -or -not (Test-Path -LiteralPath $sidecar)) {
+    throw "NSIS installation did not produce application files in $installDirectory"
   }
   $installedVersion = (& $sidecar --version | Select-Object -First 1).Trim()
   $expectedVersion = (Get-Content -Raw -LiteralPath (Join-Path $root 'package.json') | ConvertFrom-Json).version
   if ($installedVersion -ne $expectedVersion) {
     throw "Installed sidecar version $installedVersion does not match $expectedVersion"
   }
+
+  $defaultWorkspace = Join-Path $installDirectory 'workspace'
+  $isolatedConfig = Join-Path $workspaceFull 'default-config'
+  New-Item -ItemType Directory -Force -Path $isolatedConfig | Out-Null
+  $desktop = Start-TestDesktop -ApplicationPath $application -ConfigDirectory $isolatedConfig
+  Wait-ForDesktopReady -Desktop $desktop -DatabasePath (Join-Path $defaultWorkspace 'workbench.sqlite3')
+  Close-TestDesktop -Desktop $desktop -Label 'Default installed application'
+  $defaultMarker = Join-Path $defaultWorkspace 'install-directory.marker'
+  Set-Content -LiteralPath $defaultMarker -Value 'preserve' -Encoding ascii
 
   $desktop = Start-TestDesktop -ApplicationPath $application -AppDataDirectory $configDirectory
   Wait-ForDesktopReady -Desktop $desktop -DatabasePath (Join-Path $workspaceFull 'workbench.sqlite3')
@@ -96,16 +151,36 @@ try {
   if ($upgrade.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $marker)) {
     throw 'Overlay upgrade did not preserve the workspace'
   }
+  if (-not (Test-Path -LiteralPath $defaultMarker)) {
+    throw 'Overlay upgrade removed the install-directory workspace'
+  }
   $desktop = Start-TestDesktop -ApplicationPath $application -AppDataDirectory $configDirectory
   Wait-ForDesktopReady -Desktop $desktop -DatabasePath (Join-Path $workspaceFull 'workbench.sqlite3')
   Close-TestDesktop -Desktop $desktop -Label 'Upgraded application'
 
-  $uninstaller = Join-Path $installDirectory 'uninstall.exe'
-  if (-not (Test-Path -LiteralPath $uninstaller)) { throw 'NSIS uninstaller was not installed' }
-  $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
-  if ($uninstall.ExitCode -ne 0) { throw "NSIS uninstall failed with exit code $($uninstall.ExitCode)" }
-  if (-not (Test-Path -LiteralPath (Join-Path $workspaceFull 'workbench.sqlite3'))) {
-    throw 'Uninstall removed the user workspace'
+  $legacyRoot = Join-Path $workspaceFull 'legacy-recovery'
+  $legacyWorkspace = Join-Path $legacyRoot 'workspace'
+  $legacyConfig = Join-Path $legacyRoot 'app-data'
+  New-Item -ItemType Directory -Force -Path $legacyWorkspace, $legacyConfig | Out-Null
+  & go -C (Join-Path $root 'services/workbenchd') run (Join-Path $root 'scripts/create-schema-fixture.go') (Join-Path $legacyWorkspace 'workbench.sqlite3') 99
+  if ($LASTEXITCODE -ne 0) { throw 'Could not create incompatible workspace fixture' }
+  $legacyRegistry = ConvertTo-Json -InputObject @(@{ path = $legacyWorkspace; name = 'Legacy Recovery'; lastOpened = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() })
+  [IO.File]::WriteAllText((Join-Path $legacyConfig 'workspaces.json'), $legacyRegistry, $utf8WithoutBom)
+  $desktop = Start-TestDesktop -ApplicationPath $application -AppDataDirectory $legacyConfig
+  Wait-ForRecoveryWindow -Desktop $desktop
+  Close-TestDesktop -Desktop $desktop -Label 'Recovery application'
+
+  if (-not $SkipUninstall) {
+    $uninstaller = Join-Path $installDirectory 'uninstall.exe'
+    if (-not (Test-Path -LiteralPath $uninstaller)) { throw 'NSIS uninstaller was not installed' }
+    $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+    if ($uninstall.ExitCode -ne 0) { throw "NSIS uninstall failed with exit code $($uninstall.ExitCode)" }
+    if (-not (Test-Path -LiteralPath (Join-Path $workspaceFull 'workbench.sqlite3'))) {
+      throw 'Uninstall removed the user workspace'
+    }
+    if (-not (Test-Path -LiteralPath $defaultMarker)) {
+      throw 'Uninstall removed the install-directory workspace'
+    }
   }
 } finally {
   if ($desktop) {

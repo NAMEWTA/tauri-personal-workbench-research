@@ -265,6 +265,11 @@ type BackupRun struct {
 // BackupRunState defines model for BackupRun.State.
 type BackupRunState string
 
+// BackupSettings defines model for BackupSettings.
+type BackupSettings struct {
+	BackupDirectory string `json:"backupDirectory"`
+}
+
 // Dashboard defines model for Dashboard.
 type Dashboard struct {
 	OverdueTasks   []Task    `json:"overdueTasks"`
@@ -450,11 +455,6 @@ type ListArchivesParams struct {
 // ListArchivesParamsSort defines parameters for ListArchives.
 type ListArchivesParamsSort string
 
-// CreateBackupJSONBody defines parameters for CreateBackup.
-type CreateBackupJSONBody struct {
-	Destination *string `json:"destination,omitempty"`
-}
-
 // GetDashboardParams defines parameters for GetDashboard.
 type GetDashboardParams struct {
 	Timezone *Timezone `form:"timezone,omitempty" json:"timezone,omitempty"`
@@ -513,8 +513,8 @@ type ImportArchiveAttachmentsJSONRequestBody = AttachmentImportInput
 // CreateArchiveRelationJSONRequestBody defines body for CreateArchiveRelation for application/json ContentType.
 type CreateArchiveRelationJSONRequestBody = RelationInput
 
-// CreateBackupJSONRequestBody defines body for CreateBackup for application/json ContentType.
-type CreateBackupJSONRequestBody CreateBackupJSONBody
+// UpdateBackupSettingsJSONRequestBody defines body for UpdateBackupSettings for application/json ContentType.
+type UpdateBackupSettingsJSONRequestBody = BackupSettings
 
 // CreateRestoreJSONRequestBody defines body for CreateRestore for application/json ContentType.
 type CreateRestoreJSONRequestBody CreateRestoreJSONBody
@@ -590,6 +590,12 @@ type ServerInterface interface {
 	// Resolve a managed attachment for native opening
 	// (GET /api/v2/attachments/{attachmentId}/open-target)
 	GetAttachmentOpenTarget(w http.ResponseWriter, r *http.Request, attachmentId openapi_types.UUID)
+	// Read backup settings
+	// (GET /api/v2/backup-settings)
+	GetBackupSettings(w http.ResponseWriter, r *http.Request)
+	// Configure or disable backups
+	// (PUT /api/v2/backup-settings)
+	UpdateBackupSettings(w http.ResponseWriter, r *http.Request)
 	// List backup history
 	// (GET /api/v2/backups)
 	ListBackups(w http.ResponseWriter, r *http.Request)
@@ -779,6 +785,18 @@ func (_ Unimplemented) DeleteAttachment(w http.ResponseWriter, r *http.Request, 
 // Resolve a managed attachment for native opening
 // (GET /api/v2/attachments/{attachmentId}/open-target)
 func (_ Unimplemented) GetAttachmentOpenTarget(w http.ResponseWriter, r *http.Request, attachmentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Read backup settings
+// (GET /api/v2/backup-settings)
+func (_ Unimplemented) GetBackupSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Configure or disable backups
+// (PUT /api/v2/backup-settings)
+func (_ Unimplemented) UpdateBackupSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1535,6 +1553,46 @@ func (siw *ServerInterfaceWrapper) GetAttachmentOpenTarget(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAttachmentOpenTarget(w, r, attachmentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBackupSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetBackupSettings(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBackupSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBackupSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBackupSettings(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBackupSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2326,6 +2384,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v2/attachments/{attachmentId}/open-target", wrapper.GetAttachmentOpenTarget)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v2/backup-settings", wrapper.GetBackupSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v2/backup-settings", wrapper.UpdateBackupSettings)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v2/backups", wrapper.ListBackups)
 	})
 	r.Group(func(r chi.Router) {
@@ -2980,6 +3044,63 @@ func (response GetAttachmentOpenTargetdefaultApplicationProblemPlusJSONResponse)
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
+type GetBackupSettingsRequestObject struct {
+}
+
+type GetBackupSettingsResponseObject interface {
+	VisitGetBackupSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetBackupSettings200JSONResponse BackupSettings
+
+func (response GetBackupSettings200JSONResponse) VisitGetBackupSettingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetBackupSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetBackupSettingsdefaultApplicationProblemPlusJSONResponse) VisitGetBackupSettingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type UpdateBackupSettingsRequestObject struct {
+	Body *UpdateBackupSettingsJSONRequestBody
+}
+
+type UpdateBackupSettingsResponseObject interface {
+	VisitUpdateBackupSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateBackupSettings200JSONResponse BackupSettings
+
+func (response UpdateBackupSettings200JSONResponse) VisitUpdateBackupSettingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateBackupSettingsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateBackupSettingsdefaultApplicationProblemPlusJSONResponse) VisitUpdateBackupSettingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 type ListBackupsRequestObject struct {
 }
 
@@ -3009,7 +3130,6 @@ func (response ListBackupsdefaultApplicationProblemPlusJSONResponse) VisitListBa
 }
 
 type CreateBackupRequestObject struct {
-	Body *CreateBackupJSONRequestBody
 }
 
 type CreateBackupResponseObject interface {
@@ -3668,6 +3788,12 @@ type StrictServerInterface interface {
 	// Resolve a managed attachment for native opening
 	// (GET /api/v2/attachments/{attachmentId}/open-target)
 	GetAttachmentOpenTarget(ctx context.Context, request GetAttachmentOpenTargetRequestObject) (GetAttachmentOpenTargetResponseObject, error)
+	// Read backup settings
+	// (GET /api/v2/backup-settings)
+	GetBackupSettings(ctx context.Context, request GetBackupSettingsRequestObject) (GetBackupSettingsResponseObject, error)
+	// Configure or disable backups
+	// (PUT /api/v2/backup-settings)
+	UpdateBackupSettings(ctx context.Context, request UpdateBackupSettingsRequestObject) (UpdateBackupSettingsResponseObject, error)
 	// List backup history
 	// (GET /api/v2/backups)
 	ListBackups(ctx context.Context, request ListBackupsRequestObject) (ListBackupsResponseObject, error)
@@ -4335,6 +4461,61 @@ func (sh *strictHandler) GetAttachmentOpenTarget(w http.ResponseWriter, r *http.
 	}
 }
 
+// GetBackupSettings operation middleware
+func (sh *strictHandler) GetBackupSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetBackupSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBackupSettings(ctx, request.(GetBackupSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBackupSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBackupSettingsResponseObject); ok {
+		if err := validResponse.VisitGetBackupSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateBackupSettings operation middleware
+func (sh *strictHandler) UpdateBackupSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateBackupSettingsRequestObject
+
+	var body UpdateBackupSettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateBackupSettings(ctx, request.(UpdateBackupSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateBackupSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateBackupSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateBackupSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListBackups operation middleware
 func (sh *strictHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 	var request ListBackupsRequestObject
@@ -4362,13 +4543,6 @@ func (sh *strictHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
 // CreateBackup operation middleware
 func (sh *strictHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	var request CreateBackupRequestObject
-
-	var body CreateBackupJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.CreateBackup(ctx, request.(CreateBackupRequestObject))

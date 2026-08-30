@@ -186,6 +186,15 @@ func TestAPISecurityAndArchiveConformance(t *testing.T) {
 func TestJobEventStreamPublishesTerminalState(t *testing.T) {
 	handler := testHandler(t)
 	token := "0123456789012345678901234567890123456789012"
+	settings := httptest.NewRecorder()
+	body, err := json.Marshal(map[string]string{"backupDirectory": t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler.ServeHTTP(settings, request(http.MethodPut, "/api/v2/backup-settings", token, "http://localhost:1420", body))
+	if settings.Code != http.StatusOK {
+		t.Fatalf("settings status=%d body=%s", settings.Code, settings.Body.String())
+	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request(http.MethodPost, "/api/v2/backups", token, "http://localhost:1420", []byte(`{}`)))
 	if response.Code != http.StatusAccepted {
@@ -204,5 +213,27 @@ func TestJobEventStreamPublishesTerminalState(t *testing.T) {
 	}
 	if contentType := stream.Header().Get("Content-Type"); contentType != "text/event-stream" {
 		t.Fatalf("content-type=%q", contentType)
+	}
+}
+
+func TestBackupDirectoryMustBeExplicitlyConfigured(t *testing.T) {
+	handler := testHandler(t)
+	token := "0123456789012345678901234567890123456789012"
+	read := httptest.NewRecorder()
+	handler.ServeHTTP(read, request(http.MethodGet, "/api/v2/backup-settings", token, "http://localhost:1420", nil))
+	if read.Code != http.StatusOK || read.Body.String() != "{\"backupDirectory\":\"\"}\n" {
+		t.Fatalf("default settings status=%d body=%s", read.Code, read.Body.String())
+	}
+	directory := t.TempDir()
+	body, err := json.Marshal(map[string]string{"backupDirectory": directory})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := httptest.NewRecorder()
+	handler.ServeHTTP(updated, request(http.MethodPut, "/api/v2/backup-settings", token, "http://localhost:1420", body))
+	var configured backup.Settings
+	decodeErr := json.Unmarshal(updated.Body.Bytes(), &configured)
+	if updated.Code != http.StatusOK || decodeErr != nil || configured.BackupDirectory != directory {
+		t.Fatalf("updated settings status=%d body=%s", updated.Code, updated.Body.String())
 	}
 }

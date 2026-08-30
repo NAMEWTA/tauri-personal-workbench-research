@@ -12,7 +12,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-发布构建的自动化验证可设置 `WORKBENCH_DEV_APP_DATA_DIR`，将工作区注册表和默认工作区隔离到临时目录；日常使用无需设置。
+发布构建的自动化验证可设置 `WORKBENCH_DEV_APP_DATA_DIR` 或 `WORKBENCH_DEV_CONFIG_DIR`，将默认工作区或工作区注册表隔离到临时目录；日常使用无需设置。
 
 仅调试浏览器界面可运行 `pnpm dev:web`；它需要另行提供 `VITE_BACKEND_URL` 和 `VITE_BACKEND_TOKEN`。常用验证命令：
 
@@ -43,7 +43,7 @@ GitHub Release 会构建 Windows x64 NSIS 和 macOS Apple Silicon DMG。推送�
 
 ## 工作区
 
-正式版首次启动会要求选择工作区目录，之后可在设置中切换并从最近列表打开。工作区内容均为普通文件：
+Windows 正式版默认在程序安装目录的 `workspace` 子目录创建工作区；macOS 使用 Application Support 中的可写应用数据目录。之后可在设置中切换并从最近列表打开。工作区内容均为普通文件：
 
 ```text
 workspace/
@@ -59,7 +59,7 @@ workspace/
 
 ## 备份恢复
 
-备份是普通 ZIP，包含 SQLite 一致快照、活跃托管附件和带 SHA-256 的 manifest。默认每日首次启动 5 分钟后检查一次，成功备份保留最近 10 份。恢复先执行路径、压缩比、总大小、checksum、schema 和 SQLite integrity 预检，并默认恢复到新的空工作区。
+备份是普通 ZIP，包含 SQLite 一致快照、活跃托管附件和带 SHA-256 的 manifest。备份目录由用户显式选择；未配置时不创建手动或自动备份。配置后每日首次启动 5 分钟后检查一次，成功备份保留最近 10 份。恢复先执行路径、压缩比、总大小、checksum、schema 和 SQLite integrity 预检，并默认恢复到新的空工作区。
 
 覆盖安装只替换程序文件，不删除工作区。卸载也不会删除用户数据。当前 V2 仍处于开发阶段，采用全新单基线 schema，不迁移 V1 数据库，也不接受 V1 备份。
 

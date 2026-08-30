@@ -191,6 +191,10 @@ export type BackupRun = {
     error?: string;
 };
 
+export type BackupSettings = {
+    backupDirectory: string;
+};
+
 export type RestoreReport = {
     formatVersion: number;
     fileCount: number;
@@ -1163,9 +1167,7 @@ export type ListBackupsResponses = {
 export type ListBackupsResponse = ListBackupsResponses[keyof ListBackupsResponses];
 
 export type CreateBackupData = {
-    body?: {
-        destination?: string;
-    };
+    body?: never;
     path?: never;
     query?: never;
     url: '/api/v2/backups';
@@ -1188,6 +1190,56 @@ export type CreateBackupResponses = {
 };
 
 export type CreateBackupResponse = CreateBackupResponses[keyof CreateBackupResponses];
+
+export type GetBackupSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v2/backup-settings';
+};
+
+export type GetBackupSettingsErrors = {
+    /**
+     * RFC 9457 compatible problem detail
+     */
+    default: Problem;
+};
+
+export type GetBackupSettingsError = GetBackupSettingsErrors[keyof GetBackupSettingsErrors];
+
+export type GetBackupSettingsResponses = {
+    /**
+     * Backup settings
+     */
+    200: BackupSettings;
+};
+
+export type GetBackupSettingsResponse = GetBackupSettingsResponses[keyof GetBackupSettingsResponses];
+
+export type UpdateBackupSettingsData = {
+    body: BackupSettings;
+    path?: never;
+    query?: never;
+    url: '/api/v2/backup-settings';
+};
+
+export type UpdateBackupSettingsErrors = {
+    /**
+     * RFC 9457 compatible problem detail
+     */
+    default: Problem;
+};
+
+export type UpdateBackupSettingsError = UpdateBackupSettingsErrors[keyof UpdateBackupSettingsErrors];
+
+export type UpdateBackupSettingsResponses = {
+    /**
+     * Updated backup settings
+     */
+    200: BackupSettings;
+};
+
+export type UpdateBackupSettingsResponse = UpdateBackupSettingsResponses[keyof UpdateBackupSettingsResponses];
 
 export type CancelJobData = {
     body?: never;

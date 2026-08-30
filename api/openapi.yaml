@@ -551,15 +551,6 @@ paths:
     post:
       summary: Start a backup job
       operationId: createBackup
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                destination:
-                  type: string
       responses:
         "202":
           description: Backup job accepted
@@ -567,6 +558,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/backup-settings:
+    get:
+      summary: Read backup settings
+      operationId: getBackupSettings
+      responses:
+        "200":
+          description: Backup settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupSettings"
+        default:
+          $ref: "#/components/responses/Problem"
+    put:
+      summary: Configure or disable backups
+      operationId: updateBackupSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupSettings"
+      responses:
+        "200":
+          description: Updated backup settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupSettings"
         default:
           $ref: "#/components/responses/Problem"
   /api/v2/jobs/{jobId}:
@@ -991,6 +1013,11 @@ components:
         finishedAt:
           { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
         error: { type: string }
+    BackupSettings:
+      type: object
+      required: [backupDirectory]
+      properties:
+        backupDirectory: { type: string }
     RestoreReport:
       type: object
       required:

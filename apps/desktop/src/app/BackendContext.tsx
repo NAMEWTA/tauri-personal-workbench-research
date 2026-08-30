@@ -2,11 +2,13 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, FileSearch, FolderOpen, RefreshCw } from 'lucide-react'
 import { getMeta } from '../generated/api/sdk.gen'
 import { clearApi, configureApi, requireData, type BackendConnection } from '../lib/http/client'
 import { BackendContext } from './backend-context'
 import { queryClient } from './queryClient'
+
+type BackendDiagnostics = { state: string; detail?: unknown }
 
 async function connectionInfo(): Promise<BackendConnection> {
   if (
@@ -26,6 +28,7 @@ async function connectionInfo(): Promise<BackendConnection> {
 
 function BackendBootstrap({ children }: { children: ReactNode }) {
   const [generation, setGeneration] = useState(0)
+  const [recoveryError, setRecoveryError] = useState('')
   const query = useQuery({
     queryKey: ['backend', generation],
     queryFn: async () => {
@@ -39,6 +42,28 @@ function BackendBootstrap({ children }: { children: ReactNode }) {
     retry: 1,
     staleTime: Number.POSITIVE_INFINITY,
   })
+  const diagnostics = useQuery({
+    queryKey: ['backend-diagnostics', generation],
+    queryFn: () => invoke<BackendDiagnostics>('backend_diagnostics'),
+    enabled: query.isError,
+  })
+  const recover = async (command: 'retry_backend' | 'open_workspace') => {
+    setRecoveryError('')
+    try {
+      if (command === 'open_workspace') {
+        const path = await invoke<string | null>('select_workspace_directory')
+        if (!path) return
+        await invoke(command, { path })
+      } else {
+        await invoke(command)
+      }
+      queryClient.clear()
+      clearApi()
+      setGeneration((value) => value + 1)
+    } catch (error) {
+      setRecoveryError(typeof error === 'string' ? error : '恢复操作未能完成。')
+    }
+  }
 
   useEffect(() => () => clearApi(), [])
 
@@ -74,15 +99,32 @@ function BackendBootstrap({ children }: { children: ReactNode }) {
     )
   }
   if (query.isError) {
+    const detail =
+      diagnostics.data?.state === 'failed' && typeof diagnostics.data.detail === 'string'
+        ? diagnostics.data.detail
+        : query.error instanceof Error
+          ? query.error.message
+          : '无法连接工作区服务。'
     return (
       <main className="gate-screen diagnostic-screen">
         <AlertTriangle size={28} aria-hidden="true" />
         <h1>本地服务未能启动</h1>
-        <p>{query.error instanceof Error ? query.error.message : '无法连接工作区服务。'}</p>
-        <button className="button primary" onClick={() => void query.refetch()}>
-          <RefreshCw size={16} />
-          重试
-        </button>
+        <p>{detail}</p>
+        <div className="diagnostic-actions">
+          <button className="button primary" onClick={() => void recover('retry_backend')}>
+            <RefreshCw size={16} />
+            重试
+          </button>
+          <button className="button" onClick={() => void recover('open_workspace')}>
+            <FolderOpen size={16} />
+            新建或打开工作区
+          </button>
+          <button className="button" onClick={() => void invoke('reveal_log_directory')}>
+            <FileSearch size={16} />
+            打开日志
+          </button>
+        </div>
+        {recoveryError && <span className="form-error">{recoveryError}</span>}
       </main>
     )
   }

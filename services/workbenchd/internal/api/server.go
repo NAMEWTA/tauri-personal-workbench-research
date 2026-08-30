@@ -82,6 +82,8 @@ func NewHandler(service *app.Service, config Config, logger *slog.Logger) http.H
 			r.Post("/trash/{trashId}/restore", s.restoreTrash)
 			r.Get("/backups", s.listBackups)
 			r.Post("/backups", s.createBackup)
+			r.Get("/backup-settings", s.backupSettings)
+			r.Put("/backup-settings", s.configureBackups)
 			r.Post("/restores/preflight", s.preflightRestore)
 			r.Post("/restores", s.createRestore)
 			r.Get("/jobs/{jobId}", s.getJob)
@@ -470,14 +472,30 @@ func (s *Server) listBackups(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, result)
 }
-func (s *Server) createBackup(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Destination string `json:"destination"`
-	}
-	if r.Body != nil && r.ContentLength != 0 && !decode(w, r, &input) {
+func (s *Server) backupSettings(w http.ResponseWriter, r *http.Request) {
+	result, err := s.service.BackupSettings(r.Context())
+	if err != nil {
+		writeServiceError(w, r, err)
 		return
 	}
-	result, err := s.service.StartBackup(input.Destination)
+	writeJSON(w, http.StatusOK, result)
+}
+func (s *Server) configureBackups(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		BackupDirectory string `json:"backupDirectory"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	result, err := s.service.ConfigureBackups(r.Context(), input.BackupDirectory)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+func (s *Server) createBackup(w http.ResponseWriter, r *http.Request) {
+	result, err := s.service.StartBackup()
 	if err != nil {
 		writeServiceError(w, r, err)
 		return

@@ -1295,6 +1295,13 @@ textarea::placeholder {
 .backup-summary span {
   display: block;
 }
+.backup-summary > div {
+  min-width: 0;
+  flex: 1;
+}
+.backup-summary span {
+  overflow-wrap: anywhere;
+}
 .backup-policy {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1539,6 +1546,12 @@ textarea::placeholder {
 .diagnostic-screen > svg {
   margin-bottom: 12px;
   color: var(--danger);
+}
+.diagnostic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
 .dialog-backdrop {

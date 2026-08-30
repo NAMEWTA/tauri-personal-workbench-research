@@ -21,6 +21,14 @@ pub fn backend_diagnostics(manager: State<'_, SidecarManager>) -> PublicState {
 }
 
 #[tauri::command]
+pub async fn retry_backend(
+    app: AppHandle,
+    manager: State<'_, SidecarManager>,
+) -> Result<ConnectionInfo, WorkbenchError> {
+    manager.retry(&app).await
+}
+
+#[tauri::command]
 pub fn select_workspace_directory(app: AppHandle) -> Result<Option<String>, WorkbenchError> {
     Ok(app
         .dialog()

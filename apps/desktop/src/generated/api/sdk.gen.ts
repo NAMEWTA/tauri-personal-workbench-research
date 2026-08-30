@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelJobData, CancelJobErrors, CancelJobResponses, CreateArchiveData, CreateArchiveErrors, CreateArchiveFieldData, CreateArchiveFieldErrors, CreateArchiveFieldResponses, CreateArchiveRelationData, CreateArchiveRelationErrors, CreateArchiveRelationResponses, CreateArchiveResponses, CreateArchiveTypeData, CreateArchiveTypeErrors, CreateArchiveTypeResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateRestoreData, CreateRestoreErrors, CreateRestoreResponses, CreateTaskData, CreateTaskErrors, CreateTaskResponses, DeleteArchiveFieldData, DeleteArchiveFieldErrors, DeleteArchiveFieldResponses, DeleteArchiveTypeData, DeleteArchiveTypeErrors, DeleteArchiveTypeResponses, DeleteAttachmentData, DeleteAttachmentErrors, DeleteAttachmentResponses, DeleteRelationData, DeleteRelationErrors, DeleteRelationResponses, GetArchiveData, GetArchiveErrors, GetArchiveResponses, GetArchiveTypeData, GetArchiveTypeErrors, GetArchiveTypeResponses, GetAttachmentOpenTargetData, GetAttachmentOpenTargetErrors, GetAttachmentOpenTargetResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetHealthData, GetHealthResponses, GetJobData, GetJobErrors, GetJobEventsData, GetJobEventsErrors, GetJobEventsResponse, GetJobEventsResponses, GetJobResponses, GetMetaData, GetMetaErrors, GetMetaResponses, GetSearchStatusData, GetSearchStatusErrors, GetSearchStatusResponses, GetTaskData, GetTaskErrors, GetTaskResponses, ImportArchiveAttachmentsData, ImportArchiveAttachmentsErrors, ImportArchiveAttachmentsResponses, ListArchiveActivityData, ListArchiveActivityErrors, ListArchiveActivityResponses, ListArchiveAttachmentsData, ListArchiveAttachmentsErrors, ListArchiveAttachmentsResponses, ListArchiveRelationsData, ListArchiveRelationsErrors, ListArchiveRelationsResponses, ListArchivesData, ListArchivesErrors, ListArchivesResponses, ListArchiveTypesData, ListArchiveTypesErrors, ListArchiveTypesResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTrashData, ListTrashErrors, ListTrashResponses, PreflightRestoreData, PreflightRestoreErrors, PreflightRestoreResponses, RebuildSearchData, RebuildSearchErrors, RebuildSearchResponses, RestoreTrashData, RestoreTrashErrors, RestoreTrashResponses, SearchData, SearchErrors, SearchResponses, ShutdownData, ShutdownErrors, ShutdownResponses, TrashArchiveData, TrashArchiveErrors, TrashArchiveResponses, TrashTaskData, TrashTaskErrors, TrashTaskResponses, UpdateArchiveData, UpdateArchiveErrors, UpdateArchiveFieldData, UpdateArchiveFieldErrors, UpdateArchiveFieldResponses, UpdateArchiveResponses, UpdateArchiveTypeData, UpdateArchiveTypeErrors, UpdateArchiveTypeResponses, UpdateTaskData, UpdateTaskErrors, UpdateTaskResponses } from './types.gen';
+import type { CancelJobData, CancelJobErrors, CancelJobResponses, CreateArchiveData, CreateArchiveErrors, CreateArchiveFieldData, CreateArchiveFieldErrors, CreateArchiveFieldResponses, CreateArchiveRelationData, CreateArchiveRelationErrors, CreateArchiveRelationResponses, CreateArchiveResponses, CreateArchiveTypeData, CreateArchiveTypeErrors, CreateArchiveTypeResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateRestoreData, CreateRestoreErrors, CreateRestoreResponses, CreateTaskData, CreateTaskErrors, CreateTaskResponses, DeleteArchiveFieldData, DeleteArchiveFieldErrors, DeleteArchiveFieldResponses, DeleteArchiveTypeData, DeleteArchiveTypeErrors, DeleteArchiveTypeResponses, DeleteAttachmentData, DeleteAttachmentErrors, DeleteAttachmentResponses, DeleteRelationData, DeleteRelationErrors, DeleteRelationResponses, GetArchiveData, GetArchiveErrors, GetArchiveResponses, GetArchiveTypeData, GetArchiveTypeErrors, GetArchiveTypeResponses, GetAttachmentOpenTargetData, GetAttachmentOpenTargetErrors, GetAttachmentOpenTargetResponses, GetBackupSettingsData, GetBackupSettingsErrors, GetBackupSettingsResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetHealthData, GetHealthResponses, GetJobData, GetJobErrors, GetJobEventsData, GetJobEventsErrors, GetJobEventsResponse, GetJobEventsResponses, GetJobResponses, GetMetaData, GetMetaErrors, GetMetaResponses, GetSearchStatusData, GetSearchStatusErrors, GetSearchStatusResponses, GetTaskData, GetTaskErrors, GetTaskResponses, ImportArchiveAttachmentsData, ImportArchiveAttachmentsErrors, ImportArchiveAttachmentsResponses, ListArchiveActivityData, ListArchiveActivityErrors, ListArchiveActivityResponses, ListArchiveAttachmentsData, ListArchiveAttachmentsErrors, ListArchiveAttachmentsResponses, ListArchiveRelationsData, ListArchiveRelationsErrors, ListArchiveRelationsResponses, ListArchivesData, ListArchivesErrors, ListArchivesResponses, ListArchiveTypesData, ListArchiveTypesErrors, ListArchiveTypesResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTrashData, ListTrashErrors, ListTrashResponses, PreflightRestoreData, PreflightRestoreErrors, PreflightRestoreResponses, RebuildSearchData, RebuildSearchErrors, RebuildSearchResponses, RestoreTrashData, RestoreTrashErrors, RestoreTrashResponses, SearchData, SearchErrors, SearchResponses, ShutdownData, ShutdownErrors, ShutdownResponses, TrashArchiveData, TrashArchiveErrors, TrashArchiveResponses, TrashTaskData, TrashTaskErrors, TrashTaskResponses, UpdateArchiveData, UpdateArchiveErrors, UpdateArchiveFieldData, UpdateArchiveFieldErrors, UpdateArchiveFieldResponses, UpdateArchiveResponses, UpdateArchiveTypeData, UpdateArchiveTypeErrors, UpdateArchiveTypeResponses, UpdateBackupSettingsData, UpdateBackupSettingsErrors, UpdateBackupSettingsResponses, UpdateTaskData, UpdateTaskErrors, UpdateTaskResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -375,10 +375,28 @@ export const listBackups = <ThrowOnError extends boolean = false>(options?: Opti
 export const createBackup = <ThrowOnError extends boolean = false>(options?: Options<CreateBackupData, ThrowOnError>): RequestResult<CreateBackupResponses, CreateBackupErrors, ThrowOnError> => (options?.client ?? client).post<CreateBackupResponses, CreateBackupErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v2/backups',
+    ...options
+});
+
+/**
+ * Read backup settings
+ */
+export const getBackupSettings = <ThrowOnError extends boolean = false>(options?: Options<GetBackupSettingsData, ThrowOnError>): RequestResult<GetBackupSettingsResponses, GetBackupSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetBackupSettingsResponses, GetBackupSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v2/backup-settings',
+    ...options
+});
+
+/**
+ * Configure or disable backups
+ */
+export const updateBackupSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateBackupSettingsData, ThrowOnError>): RequestResult<UpdateBackupSettingsResponses, UpdateBackupSettingsErrors, ThrowOnError> => (options.client ?? client).put<UpdateBackupSettingsResponses, UpdateBackupSettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v2/backup-settings',
     ...options,
     headers: {
         'Content-Type': 'application/json',
-        ...options?.headers
+        ...options.headers
     }
 });
 

@@ -174,13 +174,21 @@ func (s *Service) ListBackups(ctx context.Context) ([]backup.Run, error) {
 	return s.backups.List(ctx)
 }
 
-func (s *Service) StartBackup(destination string) (job.Job, error) {
+func (s *Service) BackupSettings(ctx context.Context) (backup.Settings, error) {
+	return s.backups.Settings(ctx)
+}
+
+func (s *Service) ConfigureBackups(ctx context.Context, directory string) (backup.Settings, error) {
+	return s.backups.Configure(ctx, directory)
+}
+
+func (s *Service) StartBackup() (job.Job, error) {
 	if !s.reserveDataOperation() {
 		return job.Job{}, fmt.Errorf("%w: backup or restore already running", ErrConflict)
 	}
 	item, err := s.jobs.Start("backup", func(ctx context.Context, progress func(int, string)) error {
 		defer s.releaseDataOperation()
-		_, err := s.backups.Create(ctx, destination, progress)
+		_, err := s.backups.Create(ctx, "", progress)
 		return err
 	})
 	if err != nil {
@@ -238,7 +246,7 @@ func (s *Service) ScheduleAutomaticBackup(ctx context.Context, delay time.Durati
 		}
 		due, err := s.backups.NeedsAutomaticBackup(ctx, time.Now())
 		if err == nil && due {
-			_, _ = s.StartBackup("")
+			_, _ = s.StartBackup()
 		}
 	}()
 }

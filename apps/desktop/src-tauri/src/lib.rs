@@ -30,6 +30,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::backend_connection_info,
             commands::backend_diagnostics,
+            commands::retry_backend,
             commands::select_workspace_directory,
             commands::list_recent_workspaces,
             commands::open_workspace,
@@ -41,8 +42,13 @@ pub fn run() {
         ])
         .setup(|app| {
             let handle = app.handle().clone();
-            tauri::async_runtime::block_on(lifecycle::start_backend(&handle))
-                .map_err(Box::<dyn std::error::Error>::from)?;
+            if let Err(error) = tauri::async_runtime::block_on(lifecycle::start_backend(&handle)) {
+                eprintln!("startup failed: {error}");
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -50,16 +56,11 @@ pub fn run() {
 
     let exiting = Arc::new(AtomicBool::new(false));
     app.run(move |handle, event| {
-        if let tauri::RunEvent::ExitRequested { api, .. } = event {
+        if let tauri::RunEvent::ExitRequested { .. } = event {
             if exiting.swap(true, Ordering::SeqCst) {
                 return;
             }
-            api.prevent_exit();
-            let app_handle = handle.clone();
-            tauri::async_runtime::spawn(async move {
-                app_handle.state::<SidecarManager>().stop().await;
-                app_handle.exit(0);
-            });
+            tauri::async_runtime::block_on(handle.state::<SidecarManager>().stop());
         }
     });
 }

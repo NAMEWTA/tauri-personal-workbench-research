@@ -70,6 +70,19 @@ fn parse_ready_line(line: &[u8]) -> Result<ReadyLine, String> {
     Ok(parsed)
 }
 
+fn sidecar_exit_error(code: Option<i32>, stderr: &[u8]) -> String {
+    let text = String::from_utf8_lossy(stderr);
+    for line in text.lines().rev() {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(line)
+            && let Some(message) = value.get("message").and_then(|value| value.as_str())
+            && !message.is_empty()
+        {
+            return message.to_string();
+        }
+    }
+    format!("进程提前退出: {code:?}")
+}
+
 impl Default for SidecarManager {
     fn default() -> Self {
         Self {
@@ -138,6 +151,7 @@ impl SidecarManager {
             let mut ready_tx = Some(ready_tx);
             let mut handshake_complete = false;
             let mut stdout = Vec::new();
+            let mut stderr = Vec::new();
             while let Some(event) = events.recv().await {
                 match event {
                     CommandEvent::Stdout(chunk) => {
@@ -152,6 +166,10 @@ impl SidecarManager {
                         }
                     }
                     CommandEvent::Stderr(chunk) => {
+                        stderr.extend_from_slice(&chunk);
+                        if stderr.len() > 8192 {
+                            stderr.drain(..stderr.len() - 8192);
+                        }
                         if let Ok(mut log) = sidecar_log.lock() {
                             let _ = log.write(&chunk);
                         }
@@ -159,7 +177,7 @@ impl SidecarManager {
                     CommandEvent::Terminated(payload) => {
                         event_terminated.store(true, Ordering::SeqCst);
                         if let Some(sender) = ready_tx.take() {
-                            let _ = sender.send(Err(format!("进程提前退出: {:?}", payload.code)));
+                            let _ = sender.send(Err(sidecar_exit_error(payload.code, &stderr)));
                         } else if handshake_complete {
                             let recovery_app = app_handle.clone();
                             std::thread::spawn(move || {
@@ -264,6 +282,24 @@ impl SidecarManager {
         self.inner.lock().expect("sidecar mutex poisoned").state = PublicState::Failed(message);
     }
 
+    pub async fn retry(&self, app: &AppHandle) -> Result<ConnectionInfo, WorkbenchError> {
+        let bootstrap = self
+            .inner
+            .lock()
+            .expect("sidecar mutex poisoned")
+            .bootstrap
+            .clone()
+            .ok_or(WorkbenchError::NotReady)?;
+        self.stop().await;
+        match self.start(app, bootstrap).await {
+            Ok(connection) => Ok(connection),
+            Err(error) => {
+                self.mark_failed(error.to_string());
+                Err(error)
+            }
+        }
+    }
+
     pub async fn stop(&self) {
         let (connection, child, terminated) = {
             let mut inner = self.inner.lock().expect("sidecar mutex poisoned");
@@ -301,7 +337,7 @@ impl SidecarManager {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_ready_line;
+    use super::{parse_ready_line, sidecar_exit_error};
 
     #[test]
     fn parses_valid_ready_line() {
@@ -322,5 +358,16 @@ mod tests {
             .is_err()
         );
         assert!(parse_ready_line(b"not json").is_err());
+    }
+
+    #[test]
+    fn exposes_structured_bootstrap_error() {
+        let stderr = br#"{"component":"bootstrap","level":"ERROR","message":"workspace schema is incompatible"}
+"#;
+        assert_eq!(
+            sidecar_exit_error(Some(1), stderr),
+            "workspace schema is incompatible"
+        );
+        assert_eq!(sidecar_exit_error(Some(1), b""), "进程提前退出: Some(1)");
     }
 }

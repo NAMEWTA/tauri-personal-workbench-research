@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { invoke } from '@tauri-apps/api/core'
-import { ArchiveRestore, DatabaseBackup, Plus, Square } from 'lucide-react'
+import { ArchiveRestore, DatabaseBackup, FolderOpen, Plus, Square, X } from 'lucide-react'
 import {
   createBackup,
   createRestore,
+  getBackupSettings,
   listBackups,
   preflightRestore,
+  updateBackupSettings,
 } from '../../generated/api/sdk.gen'
 import { requireData } from '../../lib/http/client'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/StateView'
@@ -19,15 +21,37 @@ export function BackupPage() {
     queryKey: ['backups'],
     queryFn: async () => requireData((await listBackups({ throwOnError: true })).data),
   })
+  const settings = useQuery({
+    queryKey: ['backup-settings'],
+    queryFn: async () => requireData((await getBackupSettings({ throwOnError: true })).data),
+  })
   const job = useJob(jobId)
   useEffect(() => {
     if (job.query.data?.state === 'succeeded' || job.query.data?.state === 'failed')
       void queryClient.invalidateQueries({ queryKey: ['backups'] })
   }, [job.query.data?.state, queryClient])
   const create = useMutation({
-    mutationFn: async () =>
-      requireData((await createBackup({ body: {}, throwOnError: true })).data),
+    mutationFn: async () => requireData((await createBackup({ throwOnError: true })).data),
     onSuccess: (value) => setJobId(value.id),
+  })
+  const configure = useMutation({
+    mutationFn: async () => {
+      const backupDirectory = await invoke<string | null>('select_backup_destination')
+      if (!backupDirectory) return undefined
+      return requireData(
+        (await updateBackupSettings({ body: { backupDirectory }, throwOnError: true })).data,
+      )
+    },
+    onSuccess: (value) => {
+      if (value) queryClient.setQueryData(['backup-settings'], value)
+    },
+  })
+  const disable = useMutation({
+    mutationFn: async () =>
+      requireData(
+        (await updateBackupSettings({ body: { backupDirectory: '' }, throwOnError: true })).data,
+      ),
+    onSuccess: (value) => queryClient.setQueryData(['backup-settings'], value),
   })
   const restore = useMutation({
     mutationFn: async () => {
@@ -51,14 +75,9 @@ export function BackupPage() {
       if (value) setJobId(value.id)
     },
   })
+  const backupDirectory = settings.data?.backupDirectory ?? ''
   const running = create.isPending || restore.isPending || job.active
   const latestSuccess = query.data?.find((item) => item.state === 'succeeded')
-  const backupDirectory = latestSuccess?.path
-    ? latestSuccess.path.slice(
-        0,
-        Math.max(latestSuccess.path.lastIndexOf('/'), latestSuccess.path.lastIndexOf('\\')),
-      )
-    : '工作区 backups 目录'
   return (
     <div className="page">
       <div className="page-header">
@@ -66,7 +85,11 @@ export function BackupPage() {
           <span className="eyebrow">数据保护</span>
           <h1>备份</h1>
         </div>
-        <button className="button primary" onClick={() => create.mutate()} disabled={running}>
+        <button
+          className="button primary"
+          onClick={() => create.mutate()}
+          disabled={running || !backupDirectory}
+        >
           <Plus size={16} />
           {running ? '正在创建' : '立即备份'}
         </button>
@@ -75,8 +98,27 @@ export function BackupPage() {
         <DatabaseBackup size={25} />
         <div>
           <strong>本地 ZIP 备份</strong>
-          <span>{backupDirectory}</span>
+          <span>{backupDirectory || '未配置备份目录'}</span>
         </div>
+        <button
+          className="button"
+          onClick={() => configure.mutate()}
+          disabled={configure.isPending || running}
+        >
+          <FolderOpen size={15} />
+          {backupDirectory ? '更改目录' : '选择目录'}
+        </button>
+        {backupDirectory && (
+          <button
+            className="icon-button"
+            onClick={() => disable.mutate()}
+            disabled={disable.isPending || running}
+            aria-label="停用自动备份"
+            title="停用自动备份"
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
       <dl className="backup-policy">
         <div>
@@ -92,7 +134,7 @@ export function BackupPage() {
         </div>
         <div>
           <dt>自动计划</dt>
-          <dd>每日首次启动 5 分钟后</dd>
+          <dd>{backupDirectory ? '每日首次启动 5 分钟后' : '未启用'}</dd>
         </div>
         <div>
           <dt>保留数量</dt>
@@ -129,7 +171,12 @@ export function BackupPage() {
         ) : query.isError ? (
           <ErrorState error={query.error} retry={() => void query.refetch()} />
         ) : query.data.length === 0 ? (
-          <EmptyState title="还没有备份" detail="创建第一份备份以保护当前工作区。" />
+          <EmptyState
+            title="还没有备份"
+            detail={
+              backupDirectory ? '创建第一份备份以保护当前工作区。' : '选择备份目录后即可启用。'
+            }
+          />
         ) : (
           <div className="backup-list">
             {query.data.map((item) => (
@@ -156,6 +203,9 @@ export function BackupPage() {
           </div>
         )}
       </section>
+      {(configure.isError || disable.isError || create.isError) && (
+        <p className="form-error">备份目录不可用，请重新选择。</p>
+      )}
       {restore.isError && <p className="form-error">备份未通过预检或目标目录不可用。</p>}
     </div>
   )
