@@ -8,7 +8,7 @@ const root = resolve(import.meta.dirname, '..')
 const source = resolve(root, 'api', 'openapi.yaml')
 const generatedDirectory = resolve(root, 'services', 'workbenchd', 'internal', 'api', 'generated')
 const temporary = join(tmpdir(), `personal-workbench-openapi-${process.pid}.yaml`)
-const go = process.env.GO_EXE || (process.platform === 'win32' ? 'C:\\Program Files\\Go\\bin\\go.exe' : 'go')
+const go = process.env.GO_EXE || 'go'
 
 function compatible(value) {
   if (Array.isArray(value)) return value.map(compatible)

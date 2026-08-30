@@ -24,9 +24,7 @@ for (const key of Object.keys(lock.packages ?? {})) {
     );
 }
 
-const goExe =
-  process.env.GO_EXE ||
-  (process.platform === "win32" ? "C:\\Program Files\\Go\\bin\\go.exe" : "go");
+const goExe = process.env.GO_EXE || "go";
 const goModules = execFileSync(goExe, ["list", "-m", "-json", "all"], {
   cwd: resolve(root, "services", "workbenchd"),
   encoding: "utf8",

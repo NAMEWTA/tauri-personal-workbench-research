@@ -6,9 +6,7 @@ const root = resolve(import.meta.dirname, "..");
 const version = JSON.parse(
   readFileSync(resolve(root, "package.json"), "utf8"),
 ).version;
-const go =
-  process.env.GO_EXE ||
-  (process.platform === "win32" ? "C:\\Program Files\\Go\\bin\\go.exe" : "go");
+const go = process.env.GO_EXE || "go";
 const target =
   process.env.TAURI_ENV_TARGET_TRIPLE ||
   (process.platform === "win32"

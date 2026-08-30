@@ -10,10 +10,12 @@ import (
 	modernsqlite "modernc.org/sqlite"
 )
 
+//nolint:unused // Reserved for migrations added after the V2 baseline schema.
 type onlineBackuper interface {
 	NewBackup(string) (*modernsqlite.Backup, error)
 }
 
+//nolint:unused // Reserved for migrations added after the V2 baseline schema.
 func (s *Store) createPreMigrationSnapshot(ctx context.Context, schemaVersion int64) (finalPath string, finalErr error) {
 	directory := filepath.Join(s.workspace, "backups")
 	name := fmt.Sprintf("pre-migration-%s-schema-%d.sqlite3", time.Now().UTC().Format("20060102T150405.000000000Z"), schemaVersion)
