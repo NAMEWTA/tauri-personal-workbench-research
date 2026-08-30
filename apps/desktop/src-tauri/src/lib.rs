@@ -14,6 +14,13 @@ use std::sync::{
 use tauri::Manager;
 use workspace_registry::WorkspaceRegistry;
 
+fn shutdown(handle: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        tauri::async_runtime::block_on(handle.state::<SidecarManager>().stop());
+        handle.exit(0);
+    });
+}
+
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
@@ -55,18 +62,25 @@ pub fn run() {
         .expect("failed to build Personal Workbench");
 
     let exiting = Arc::new(AtomicBool::new(false));
-    app.run(move |handle, event| {
-        if let tauri::RunEvent::ExitRequested { api, .. } = event {
+    app.run(move |handle, event| match event {
+        tauri::RunEvent::WindowEvent {
+            event: tauri::WindowEvent::CloseRequested { api, .. },
+            ..
+        } => {
+            if exiting.swap(true, Ordering::SeqCst) {
+                return;
+            }
+            api.prevent_close();
+            shutdown(handle.clone());
+        }
+        tauri::RunEvent::ExitRequested { api, .. } => {
             if exiting.swap(true, Ordering::SeqCst) {
                 return;
             }
             api.prevent_exit();
-            let app_handle = handle.clone();
-            std::thread::spawn(move || {
-                tauri::async_runtime::block_on(app_handle.state::<SidecarManager>().stop());
-                app_handle.exit(0);
-            });
+            shutdown(handle.clone());
         }
+        _ => {}
     });
 }
 
