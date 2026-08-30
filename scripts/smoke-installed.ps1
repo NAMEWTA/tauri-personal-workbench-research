@@ -82,7 +82,9 @@ function Wait-ForRecoveryWindow($Desktop) {
 function Close-TestDesktop($Desktop, [string]$Label) {
   $Desktop.Refresh()
   if (-not $Desktop.CloseMainWindow()) { throw "$Label did not accept a close request" }
-  if (-not $Desktop.WaitForExit(10000)) { throw "$Label did not exit gracefully" }
+  # The graceful path may spend up to five seconds on the shutdown request and
+  # another five seconds waiting for the sidecar before forcing termination.
+  if (-not $Desktop.WaitForExit(30000)) { throw "$Label did not exit gracefully" }
 
   $deadline = [DateTime]::UtcNow.AddSeconds(10)
   do {
