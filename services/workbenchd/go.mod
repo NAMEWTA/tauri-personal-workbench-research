@@ -3,7 +3,7 @@ module github.com/personal-workbench/workbenchd
 go 1.26
 
 require (
-	github.com/go-chi/chi/v5 v5.2.3
+	github.com/go-chi/chi/v5 v5.3.2
 	github.com/google/uuid v1.6.0
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/pressly/goose/v3 v3.26.0
