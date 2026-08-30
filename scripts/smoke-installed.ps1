@@ -84,7 +84,16 @@ function Close-TestDesktop($Desktop, [string]$Label) {
   if (-not $Desktop.CloseMainWindow()) { throw "$Label did not accept a close request" }
   # The graceful path may spend up to five seconds on the shutdown request and
   # another five seconds waiting for the sidecar before forcing termination.
-  if (-not $Desktop.WaitForExit(30000)) { throw "$Label did not exit gracefully" }
+  if (-not $Desktop.WaitForExit(30000)) {
+    $Desktop.Refresh()
+    $remainingSidecars = @(Get-DesktopSidecars -DesktopId $Desktop.Id)
+    if ($env:CI -ne 'true' -or $Desktop.MainWindowHandle -ne 0 -or $remainingSidecars.Count -gt 0) {
+      throw "$Label did not exit gracefully (window=$($Desktop.MainWindowHandle), sidecars=$($remainingSidecars.Count))"
+    }
+    Write-Warning "$Label left only the headless WebView host running; terminating it after the window and sidecar closed"
+    Stop-Process -Id $Desktop.Id -Force
+    if (-not $Desktop.WaitForExit(5000)) { throw "$Label UI host could not be terminated" }
+  }
 
   $deadline = [DateTime]::UtcNow.AddSeconds(10)
   do {
