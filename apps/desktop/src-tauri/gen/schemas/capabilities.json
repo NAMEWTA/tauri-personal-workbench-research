@@ -1,0 +1,1 @@
+{"main-window":{"identifier":"main-window","description":"Only core window access is granted; backend and dialogs use narrow Rust commands.","local":true,"windows":["main"],"permissions":["core:default"]}}

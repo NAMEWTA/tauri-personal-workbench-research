@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg
+    runs-on: ${{ matrix.platform }}
+    env:
+      CI: true
+      TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.26.7
+          cache-dependency-path: services/workbenchd/go.sum
+      - name: Install Rust target
+        shell: bash
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup target add "${{ matrix.target }}" --toolchain 1.96.0
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          workspaces: . -> target
+          key: ${{ matrix.target }}
+      - name: Install dependencies
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          pnpm install --frozen-lockfile
+      - name: Verify release version
+        shell: bash
+        run: |
+          pnpm verify:versions
+          test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - run: pnpm build:sidecar
+      - name: Build installer
+        uses: tauri-apps/tauri-action@944946e3e4cac6603d1fe8f514171e9ecd3c78aa # v1
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: personal-workbench-[platform]-[arch]
+      - name: Smoke test installed Windows bundle
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/smoke-installed.ps1 -TargetTriple '${{ matrix.target }}'
+
+  metadata:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.26.7
+          cache-dependency-path: services/workbenchd/go.sum
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+          pnpm install --frozen-lockfile
+      - run: pnpm sbom
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: personal-workbench-release-metadata
+          path: artifacts/sbom.cdx.json
+          if-no-files-found: error
+
+  publish:
+    needs: [verify, build, metadata]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          pattern: personal-workbench-*
+          path: release-assets
+          merge-multiple: true
+      - name: Generate SHA-256 checksums
+        run: node scripts/generate-hashes.mjs release-assets
+      - name: Attest release artifacts
+        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4
+        with:
+          subject-path: release-assets/*
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" release-assets/*
+          --verify-tag
+          --latest
+          --title "个人工作台 $GITHUB_REF_NAME"
+          --generate-notes
+          --notes "Windows 安装包尚未使用商业证书签名；macOS 安装包使用 ad-hoc 签名，首次打开时可能需要在“隐私与安全性”中确认。安装前请核对 SHA256SUMS.txt。"

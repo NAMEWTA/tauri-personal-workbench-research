@@ -1,0 +1,1033 @@
+openapi: 3.1.0
+info:
+  title: Personal Workbench API
+  version: 0.2.0
+  description: Local loopback API owned by the workbenchd sidecar.
+  license:
+    name: Private use
+    identifier: LicenseRef-Private
+servers:
+  - url: http://127.0.0.1:{port}
+    variables:
+      port:
+        default: "0"
+security:
+  - bearerAuth: []
+paths:
+  /healthz:
+    get:
+      summary: Check whether the sidecar process is alive
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/v2/meta:
+    get:
+      summary: Get service and workspace metadata
+      operationId: getMeta
+      responses:
+        "200":
+          description: Service metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meta"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/dashboard:
+    get:
+      summary: Get the today dashboard
+      operationId: getDashboard
+      parameters:
+        - $ref: "#/components/parameters/Timezone"
+      responses:
+        "200":
+          description: Today dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/archive-types:
+    get:
+      summary: List custom archive types and field definitions
+      operationId: listArchiveTypes
+      responses:
+        "200":
+          description: Archive type definitions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ArchiveTypeDefinition"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      summary: Create a custom archive type
+      operationId: createArchiveType
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArchiveTypeInput" }
+      responses:
+        "201":
+          description: Created archive type
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArchiveTypeDefinition" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/archive-types/{typeId}:
+    parameters:
+      - $ref: "#/components/parameters/ArchiveTypeId"
+    get:
+      summary: Get a custom archive type
+      operationId: getArchiveType
+      responses:
+        "200":
+          description: Archive type
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArchiveTypeDefinition" }
+        default: { $ref: "#/components/responses/Problem" }
+    patch:
+      summary: Update a custom archive type
+      operationId: updateArchiveType
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArchiveTypeInput" }
+      responses:
+        "200":
+          description: Updated archive type
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArchiveTypeDefinition" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      summary: Delete an unused archive type
+      operationId: deleteArchiveType
+      responses:
+        "204": { description: Archive type deleted }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/archive-types/{typeId}/fields:
+    parameters:
+      - $ref: "#/components/parameters/ArchiveTypeId"
+    post:
+      summary: Add a custom field
+      operationId: createArchiveField
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArchiveFieldInput" }
+      responses:
+        "201":
+          description: Created custom field
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArchiveFieldDefinition" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/archive-fields/{fieldId}:
+    parameters:
+      - name: fieldId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      summary: Update a custom field
+      operationId: updateArchiveField
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArchiveFieldInput" }
+      responses:
+        "200":
+          description: Updated custom field
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ArchiveFieldDefinition" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      summary: Delete a custom field and its values
+      operationId: deleteArchiveField
+      responses:
+        "204": { description: Custom field deleted }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/archives:
+    get:
+      summary: List and filter archives
+      operationId: listArchives
+      parameters:
+        - $ref: "#/components/parameters/Query"
+        - name: typeId
+          in: query
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [updated, title], default: updated }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Archive page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArchivePage"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      summary: Create an archive
+      operationId: createArchive
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveInput"
+      responses:
+        "201":
+          description: Created archive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Archive"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/archives/{archiveId}:
+    parameters:
+      - $ref: "#/components/parameters/ArchiveId"
+    get:
+      summary: Get an archive
+      operationId: getArchive
+      responses:
+        "200":
+          description: Archive details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Archive"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      summary: Update an archive
+      operationId: updateArchive
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArchiveInput"
+      responses:
+        "200":
+          description: Updated archive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Archive"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      summary: Move an archive to trash
+      operationId: trashArchive
+      responses:
+        "204":
+          description: Moved to trash
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/archives/{archiveId}/relations:
+    parameters:
+      - $ref: "#/components/parameters/ArchiveId"
+    get:
+      summary: List archive relations
+      operationId: listArchiveRelations
+      responses:
+        "200":
+          description: Archive relations
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Relation" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      summary: Create an archive relation
+      operationId: createArchiveRelation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RelationInput" }
+      responses:
+        "201":
+          description: Created relation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Relation" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/relations/{relationId}:
+    delete:
+      summary: Remove an entity relation
+      operationId: deleteRelation
+      parameters:
+        - name: relationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Relation removed }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/archives/{archiveId}/attachments:
+    parameters:
+      - $ref: "#/components/parameters/ArchiveId"
+    get:
+      summary: List archive attachments
+      operationId: listArchiveAttachments
+      responses:
+        "200":
+          description: Managed attachments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Attachment" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      summary: Import managed attachments
+      operationId: importArchiveAttachments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AttachmentImportInput" }
+      responses:
+        "202":
+          description: Attachment import job accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/archives/{archiveId}/activity:
+    parameters:
+      - $ref: "#/components/parameters/ArchiveId"
+    get:
+      summary: List archive activity
+      operationId: listArchiveActivity
+      responses:
+        "200":
+          description: Archive activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Activity" }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/attachments/{attachmentId}:
+    delete:
+      summary: Remove a managed attachment
+      operationId: deleteAttachment
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Attachment removed }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/attachments/{attachmentId}/open-target:
+    get:
+      summary: Resolve a managed attachment for native opening
+      operationId: getAttachmentOpenTarget
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Validated local target
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path]
+                properties:
+                  path: { type: string }
+        default: { $ref: "#/components/responses/Problem" }
+  /api/v2/tasks:
+    get:
+      summary: List unified tasks for a view, calendar range, or archive
+      operationId: listTasks
+      parameters:
+        - name: view
+          in: query
+          schema:
+            type: string
+            enum: [today, tomorrow, all, completed]
+            default: all
+        - $ref: "#/components/parameters/Timezone"
+        - $ref: "#/components/parameters/Query"
+        - name: archiveId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      summary: Create a task
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "201":
+          description: Created task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/tasks/{taskId}:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get task details for the inspector
+      operationId: getTask
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default: { $ref: "#/components/responses/Problem" }
+    patch:
+      summary: Update a task
+      operationId: updateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      summary: Move a task to trash
+      operationId: trashTask
+      responses:
+        "204":
+          description: Moved to trash
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/search:
+    get:
+      summary: Search workspace entities
+      operationId: search
+      parameters:
+        - $ref: "#/components/parameters/QueryRequired"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchResult"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/search/status:
+    get:
+      summary: Check full-text search index health
+      operationId: getSearchStatus
+      responses:
+        "200":
+          description: Search index health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchStatus"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/search/rebuild:
+    post:
+      summary: Rebuild the full-text search index
+      operationId: rebuildSearch
+      responses:
+        "202":
+          description: Search rebuild job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/trash:
+    get:
+      summary: List trashed entities
+      operationId: listTrash
+      responses:
+        "200":
+          description: Trashed entities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrashEntry"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/trash/{trashId}/restore:
+    post:
+      summary: Restore a trashed entity
+      operationId: restoreTrash
+      parameters:
+        - name: trashId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Entity restored
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/backups:
+    get:
+      summary: List backup history
+      operationId: listBackups
+      responses:
+        "200":
+          description: Backup history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BackupRun"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      summary: Start a backup job
+      operationId: createBackup
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                destination:
+                  type: string
+      responses:
+        "202":
+          description: Backup job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/jobs/{jobId}:
+    get:
+      summary: Get background job state
+      operationId: getJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current job state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      summary: Cancel a running background job
+      operationId: cancelJob
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "202":
+          description: Cancellation requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/jobs/{jobId}/events:
+    get:
+      summary: Subscribe to background job progress
+      operationId: getJobEvents
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Job progress event stream
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/restores/preflight:
+    post:
+      summary: Validate a backup before restore
+      operationId: preflightRestore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source]
+              properties:
+                source: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Validated backup details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreReport"
+        default:
+          $ref: "#/components/responses/Problem"
+  /api/v2/restores:
+    post:
+      summary: Restore a backup to a new workspace
+      operationId: createRestore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source, destination]
+              properties:
+                source: { type: string, minLength: 1 }
+                destination: { type: string, minLength: 1 }
+      responses:
+        "202":
+          description: Restore job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        default:
+          $ref: "#/components/responses/Problem"
+  /internal/shutdown:
+    post:
+      summary: Request graceful sidecar shutdown
+      operationId: shutdown
+      responses:
+        "202":
+          description: Shutdown accepted
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    Query:
+      name: q
+      in: query
+      schema:
+        type: string
+        maxLength: 200
+    QueryRequired:
+      name: q
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Timezone:
+      name: timezone
+      in: query
+      schema:
+        type: string
+        maxLength: 100
+    ArchiveId:
+      name: archiveId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ArchiveTypeId:
+      name: typeId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    Problem:
+      description: RFC 9457 compatible problem detail
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Health:
+      type: object
+      required: [alive]
+      properties:
+        alive:
+          type: boolean
+          const: true
+    Meta:
+      type: object
+      required: [apiVersion, serviceVersion, workspaceName, schemaVersion]
+      properties:
+        apiVersion: { type: integer }
+        serviceVersion: { type: string }
+        workspaceName: { type: string }
+        schemaVersion: { type: integer }
+    Archive:
+      type: object
+      required:
+        [id, typeId, typeName, typeIcon, typeColor, title, summary, body, fields, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        typeId: { type: string }
+        typeName: { type: string }
+        typeIcon: { type: string }
+        typeColor: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        title: { type: string }
+        summary: { type: string }
+        body: { type: string }
+        fields:
+          type: object
+          additionalProperties: true
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ArchiveFieldDefinition:
+      type: object
+      required:
+        [id, key, label, valueType, group, required, sensitive, options, sortOrder]
+      properties:
+        id: { type: string }
+        key: { type: string }
+        label: { type: string }
+        valueType:
+          { type: string, enum: [text, multiline, number, date, datetime, boolean, select] }
+        group: { type: string }
+        required: { type: boolean }
+        sensitive: { type: boolean }
+        options: { type: array, items: { type: string } }
+        defaultValue: {}
+        sortOrder: { type: integer }
+    ArchiveFieldInput:
+      type: object
+      required:
+        [key, label, valueType, group, required, sensitive, options, sortOrder]
+      properties:
+        key: { type: string, minLength: 1, maxLength: 80 }
+        label: { type: string, minLength: 1, maxLength: 80 }
+        valueType:
+          { type: string, enum: [text, multiline, number, date, datetime, boolean, select] }
+        group: { type: string, maxLength: 80 }
+        required: { type: boolean }
+        sensitive: { type: boolean }
+        options:
+          { type: array, maxItems: 100, items: { type: string } }
+        defaultValue: {}
+        sortOrder: { type: integer }
+    ArchiveTypeDefinition:
+      type: object
+      required: [id, name, icon, color, sortOrder, fields]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        icon: { type: string }
+        color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        sortOrder: { type: integer }
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArchiveFieldDefinition"
+    ArchiveTypeInput:
+      type: object
+      required: [name, icon, color, sortOrder]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        icon: { type: string, maxLength: 40 }
+        color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        sortOrder: { type: integer }
+    ArchiveInput:
+      type: object
+      required: [typeId, title]
+      properties:
+        typeId: { type: string }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        summary: { type: string, maxLength: 500 }
+        body: { type: string, maxLength: 1000000 }
+        fields:
+          type: object
+          additionalProperties: true
+    ArchivePage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Archive" }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    Relation:
+      type: object
+      required:
+        [id, sourceId, targetId, targetTitle, targetTypeId, targetTypeName, relationType, notes, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        targetId: { type: string, format: uuid }
+        targetTitle: { type: string }
+        targetTypeId: { type: string }
+        targetTypeName: { type: string }
+        relationType: { type: string }
+        notes: { type: string }
+        createdAt: { type: string, format: date-time }
+    RelationInput:
+      type: object
+      required: [targetId, relationType]
+      properties:
+        targetId: { type: string, format: uuid }
+        relationType: { type: string, minLength: 1, maxLength: 80 }
+        notes: { type: string, maxLength: 500 }
+    Attachment:
+      type: object
+      required: [id, displayName, mediaType, size, sha256, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        mediaType: { type: string }
+        size: { type: integer, format: int64 }
+        sha256: { type: string }
+        createdAt: { type: string, format: date-time }
+    AttachmentImportInput:
+      type: object
+      required: [paths]
+      properties:
+        paths:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string }
+    Task:
+      type: object
+      required:
+        [id, title, status, priority, allDay, timezone, archiveTitle, notes, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        status: { type: string, enum: [todo, doing, done] }
+        priority: { type: string, enum: [low, normal, high, urgent] }
+        startsAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        endsAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        allDay: { type: boolean }
+        timezone: { type: string }
+        archiveId: { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
+        archiveTitle: { type: string }
+        notes: { type: string }
+        completedAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TaskInput:
+      type: object
+      required: [title, status, priority, allDay, timezone]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 300 }
+        status: { type: string, enum: [todo, doing, done] }
+        priority: { type: string, enum: [low, normal, high, urgent] }
+        startsAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        endsAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        allDay: { type: boolean }
+        timezone: { type: string, maxLength: 100 }
+        archiveId: { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
+        notes: { type: string, maxLength: 1000000 }
+    Dashboard:
+      type: object
+      required:
+        [overdueTasks, todayTasks, tomorrowTasks, recentArchives]
+      properties:
+        overdueTasks:
+          { type: array, items: { $ref: "#/components/schemas/Task" } }
+        todayTasks:
+          { type: array, items: { $ref: "#/components/schemas/Task" } }
+        tomorrowTasks:
+          { type: array, items: { $ref: "#/components/schemas/Task" } }
+        recentArchives:
+          { type: array, items: { $ref: "#/components/schemas/Archive" } }
+    Activity:
+      type: object
+      required: [id, action, changedAt]
+      properties:
+        id: { type: string, format: uuid }
+        action:
+          type: string
+          enum:
+            [
+              create,
+              update,
+              relation_create,
+              relation_delete,
+              trash,
+              restore,
+              attachment_import,
+              attachment_remove,
+              attachment_restore,
+            ]
+        changedAt: { type: string, format: date-time }
+    SearchResult:
+      type: object
+      required: [id, type, title, subtitle]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [archive, task, attachment] }
+        title: { type: string }
+        subtitle: { type: string }
+    SearchStatus:
+      type: object
+      required: [healthy]
+      properties:
+        healthy: { type: boolean }
+    TrashEntry:
+      type: object
+      required: [id, entityId, entityType, title, deletedAt]
+      properties:
+        id: { type: string, format: uuid }
+        entityId: { type: string, format: uuid }
+        entityType: { type: string, enum: [archive, task, attachment] }
+        title: { type: string }
+        deletedAt: { type: string, format: date-time }
+    BackupRun:
+      type: object
+      required: [id, state, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        state: { type: string, enum: [running, succeeded, failed] }
+        path: { type: string }
+        size: { type: integer, format: int64 }
+        startedAt: { type: string, format: date-time }
+        finishedAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        error: { type: string }
+    RestoreReport:
+      type: object
+      required:
+        [formatVersion, fileCount, totalSize, schemaVersion, workspaceName]
+      properties:
+        formatVersion: { type: integer }
+        fileCount: { type: integer }
+        totalSize: { type: integer, format: int64 }
+        schemaVersion: { type: integer, format: int64 }
+        workspaceName: { type: string }
+    Job:
+      type: object
+      required: [id, type, state, progress, stage, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        type:
+          { type: string, enum: [backup, restore, attachment, search_rebuild] }
+        state:
+          {
+            type: string,
+            enum: [queued, running, succeeded, failed, cancelled],
+          }
+        progress: { type: integer, minimum: 0, maximum: 100 }
+        stage: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        error: { type: string }
+    Problem:
+      type: object
+      required: [status, code, title, detail, traceId]
+      properties:
+        status: { type: integer }
+        code: { type: string }
+        title: { type: string }
+        detail: { type: string }
+        traceId: { type: string }
+        fieldErrors:
+          type: object
+          additionalProperties: { type: string }

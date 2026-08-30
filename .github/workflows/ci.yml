@@ -1,0 +1,138 @@
+name: CI
+on:
+  workflow_call:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      go: ${{ steps.filter.outputs.go }}
+      rust: ${{ steps.filter.outputs.rust }}
+      contract: ${{ steps.filter.outputs.contract }}
+      windows: ${{ steps.filter.outputs.windows }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: dorny/paths-filter@15192bc058cc28a13dbf6cde61f19e18988b7af6 # v3
+        id: filter
+        if: github.event_name != 'workflow_call'
+        with:
+          filters: |
+            frontend:
+              - 'apps/desktop/src/**'
+              - 'apps/desktop/e2e/**'
+              - 'apps/desktop/package.json'
+              - 'pnpm-lock.yaml'
+            go:
+              - 'services/workbenchd/**'
+              - 'scripts/go.mjs'
+            rust:
+              - 'apps/desktop/src-tauri/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'rust-toolchain.toml'
+            contract:
+              - 'api/**'
+              - 'scripts/generate-go.mjs'
+              - 'apps/desktop/src/generated/**'
+              - 'services/workbenchd/internal/api/generated/**'
+            windows:
+              - 'apps/desktop/**'
+              - 'services/workbenchd/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+  frontend:
+    needs: changes
+    if: github.event_name == 'workflow_call' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.contract == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with: { node-version: 24 }
+      - run: corepack enable && corepack prepare pnpm@10.33.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:frontend
+  go:
+    needs: changes
+    if: github.event_name == 'workflow_call' || needs.changes.outputs.go == 'true' || needs.changes.outputs.contract == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with: { go-version: 1.26.7 }
+      - run: go -C services/workbenchd mod verify
+      - run: go -C services/workbenchd vet ./...
+      - uses: golangci/golangci-lint-action@db9de0fc1a667e1a49d2291a1a042dff081d78f6 # v9
+        with:
+          version: v2.12.2
+          working-directory: services/workbenchd
+          args: --timeout=5m
+      - run: go -C services/workbenchd test -race ./...
+  contract:
+    needs: changes
+    if: github.event_name == 'workflow_call' || needs.changes.outputs.contract == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with: { node-version: 24 }
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with: { go-version: 1.26.7 }
+      - run: corepack enable && corepack prepare pnpm@10.33.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:contract
+      - run: pnpm generate
+      - run: git diff --exit-code -- api/openapi.yaml apps/desktop/src/generated services/workbenchd/internal/api/generated
+  rust:
+    needs: changes
+    if: github.event_name == 'workflow_call' || needs.changes.outputs.rust == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy --target x86_64-pc-windows-msvc
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+  windows-smoke:
+    needs: changes
+    if: github.event_name == 'workflow_call' || needs.changes.outputs.windows == 'true' || needs.changes.outputs.contract == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with: { node-version: 24 }
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with: { go-version: 1.26.7 }
+      - run: corepack enable && corepack prepare pnpm@10.33.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:sidecar
+      - run: pnpm --dir apps/desktop build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:smoke
+      - run: cargo check --workspace --all-targets
+  required:
+    if: always()
+    needs: [changes, frontend, go, contract, rust, windows-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          test '${{ needs.changes.result }}' = success
+          test '${{ needs.frontend.result }}' != failure
+          test '${{ needs.frontend.result }}' != cancelled
+          test '${{ needs.go.result }}' != failure
+          test '${{ needs.go.result }}' != cancelled
+          test '${{ needs.contract.result }}' != failure
+          test '${{ needs.contract.result }}' != cancelled
+          test '${{ needs.rust.result }}' != failure
+          test '${{ needs.rust.result }}' != cancelled
+          test '${{ needs.windows-smoke.result }}' != failure
+          test '${{ needs.windows-smoke.result }}' != cancelled

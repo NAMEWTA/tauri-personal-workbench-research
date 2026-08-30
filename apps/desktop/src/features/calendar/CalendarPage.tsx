@@ -1,0 +1,208 @@
+import FullCalendar from '@fullcalendar/react'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
+import interactionPlugin from '@fullcalendar/interaction'
+import { useQuery } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
+import { useState } from 'react'
+import { listTasks } from '../../generated/api/sdk.gen'
+import type { TaskInput } from '../../generated/api/types.gen'
+import { requireData } from '../../lib/http/client'
+import { ErrorState, LoadingState } from '../../components/ui/StateView'
+import { ArchivePicker } from '../archives/ArchivePicker'
+import { useCreateTask, useUpdateTask } from '../tasks/mutations'
+import { useLayoutStore } from '../../stores/layout'
+
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+const localInput = (date: Date) =>
+  new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+
+function initialDraft(): TaskInput {
+  const start = new Date()
+  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0)
+  const end = new Date(start.getTime() + 60 * 60_000)
+  return {
+    title: '',
+    status: 'todo',
+    priority: 'normal',
+    startsAt: start.toISOString(),
+    endsAt: end.toISOString(),
+    allDay: false,
+    timezone,
+    notes: '',
+  }
+}
+
+export default function CalendarPage() {
+  const [creating, setCreating] = useState(false)
+  const [draft, setDraft] = useState<TaskInput>(initialDraft)
+  const [archiveTitle, setArchiveTitle] = useState('')
+  const [range, setRange] = useState(() => {
+    const now = new Date()
+    return {
+      from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+      to: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
+    }
+  })
+  const selectTask = useLayoutStore((state) => state.selectTask)
+  const query = useQuery({
+    queryKey: ['calendar-tasks', range.from, range.to],
+    queryFn: async () =>
+      requireData(
+        (
+          await listTasks({
+            query: { view: 'all', timezone, from: range.from, to: range.to },
+            throwOnError: true,
+          })
+        ).data,
+      ),
+  })
+  const create = useCreateTask()
+  const update = useUpdateTask()
+  const setTime = (key: 'startsAt' | 'endsAt', value: string) =>
+    setDraft({ ...draft, [key]: value ? new Date(value).toISOString() : null })
+  return (
+    <div className="page calendar-page">
+      <div className="page-header">
+        <div>
+          <span className="eyebrow">统一任务时间轴</span>
+          <h1>日历</h1>
+        </div>
+        <button className="button primary" onClick={() => setCreating((value) => !value)}>
+          <Plus size={16} />
+          新建任务
+        </button>
+      </div>
+      {creating && (
+        <form
+          className="calendar-form unified-task-form"
+          onSubmit={(event) => {
+            event.preventDefault()
+            create.mutate(draft, {
+              onSuccess: (task) => {
+                setDraft(initialDraft())
+                setArchiveTitle('')
+                setCreating(false)
+                selectTask(task.id)
+              },
+            })
+          }}
+        >
+          <label>
+            标题
+            <input
+              autoFocus
+              value={draft.title}
+              onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+            />
+          </label>
+          <label>
+            开始
+            <input
+              type="datetime-local"
+              value={localInput(new Date(draft.startsAt!))}
+              onChange={(event) => setTime('startsAt', event.target.value)}
+            />
+          </label>
+          <label>
+            结束
+            <input
+              type="datetime-local"
+              value={localInput(new Date(draft.endsAt!))}
+              onChange={(event) => setTime('endsAt', event.target.value)}
+            />
+          </label>
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={draft.allDay}
+              onChange={(event) => setDraft({ ...draft, allDay: event.target.checked })}
+            />
+            全天
+          </label>
+          <div className="calendar-picker">
+            <span>关联档案</span>
+            <ArchivePicker
+              value={draft.archiveId}
+              valueTitle={archiveTitle}
+              onChange={(id, title) => {
+                setArchiveTitle(title ?? '')
+                setDraft({ ...draft, archiveId: id })
+              }}
+            />
+          </div>
+          <button className="button primary" disabled={!draft.title.trim() || create.isPending}>
+            创建任务
+          </button>
+        </form>
+      )}
+      {query.isPending ? (
+        <LoadingState />
+      ) : query.isError ? (
+        <ErrorState error={query.error} retry={() => void query.refetch()} />
+      ) : (
+        <div className="calendar-surface">
+          <FullCalendar
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            locale="zh-cn"
+            height="auto"
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay',
+            }}
+            buttonText={{ today: '今天', month: '月', week: '周', day: '日' }}
+            datesSet={(info) =>
+              setRange({ from: info.start.toISOString(), to: info.end.toISOString() })
+            }
+            events={query.data.map((item) => ({
+              id: item.id,
+              title: item.title,
+              start: item.startsAt!,
+              end: item.endsAt!,
+              allDay: item.allDay,
+              classNames: ['calendar-entry', `calendar-priority-${item.priority}`],
+            }))}
+            editable
+            eventClick={(info) => selectTask(info.event.id)}
+            eventDrop={(info) => {
+              const item = query.data.find((task) => task.id === info.event.id)
+              if (!item || !info.event.start) return info.revert()
+              const duration = new Date(item.endsAt!).getTime() - new Date(item.startsAt!).getTime()
+              update.mutate(
+                {
+                  task: item,
+                  changes: {
+                    startsAt: info.event.start.toISOString(),
+                    endsAt: (
+                      info.event.end ?? new Date(info.event.start.getTime() + duration)
+                    ).toISOString(),
+                    allDay: info.event.allDay,
+                  },
+                },
+                { onError: info.revert },
+              )
+            }}
+            eventResize={(info) => {
+              const item = query.data.find((task) => task.id === info.event.id)
+              if (!item || !info.event.start || !info.event.end) return info.revert()
+              update.mutate(
+                {
+                  task: item,
+                  changes: {
+                    startsAt: info.event.start.toISOString(),
+                    endsAt: info.event.end.toISOString(),
+                    allDay: info.event.allDay,
+                  },
+                },
+                { onError: info.revert },
+              )
+            }}
+            dayMaxEvents
+          />
+        </div>
+      )}
+    </div>
+  )
+}
