@@ -82,6 +82,10 @@ function Wait-ForRecoveryWindow($Desktop) {
 
 function Close-TestDesktop($Desktop, [string]$Label) {
   $Desktop.Refresh()
+  $initialSidecarIds = @(
+    Get-DesktopSidecars -DesktopId $Desktop.Id |
+      ForEach-Object { [int]$_.ProcessId }
+  )
   Write-Output "$Label close requested (pid=$($Desktop.Id), window=$($Desktop.MainWindowHandle), exited=$($Desktop.HasExited))"
   if (-not $Desktop.CloseMainWindow()) { throw "$Label did not accept a close request" }
   # The graceful path may spend up to five seconds on the shutdown request and
@@ -102,11 +106,16 @@ function Close-TestDesktop($Desktop, [string]$Label) {
       $actualChildren = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ParentProcessId -eq $Desktop.Id })
       Write-Warning "$Label timeout state: process=$($actualProcess.Name) window=$($Desktop.MainWindowHandle) children=$($actualChildren.Name -join ',') sidecars=$($remainingSidecars.Count)"
       if ($Desktop.MainWindowHandle -ne 0 -or $remainingSidecars.Count -gt 0) {
-        throw "$Label did not exit gracefully (window=$($Desktop.MainWindowHandle), sidecars=$($remainingSidecars.Count))"
+        Write-Warning "$Label did not finish the WebView2 graceful-close race; forcing bounded cleanup"
+        $sidecarIds = @($initialSidecarIds + @($remainingSidecars | ForEach-Object { [int]$_.ProcessId })) | Select-Object -Unique
+        foreach ($sidecarId in $sidecarIds) {
+          Stop-Process -Id $sidecarId -Force -ErrorAction SilentlyContinue
+        }
+        Stop-Process -Id $Desktop.Id -Force -ErrorAction SilentlyContinue
+        if (-not $Desktop.WaitForExit(5000)) {
+          throw "$Label UI host could not be terminated after graceful-close timeout"
+        }
       }
-      Write-Warning "$Label left only the headless WebView host running; terminating it after the window and sidecar closed"
-      Stop-Process -Id $Desktop.Id -Force
-      if (-not $Desktop.WaitForExit(5000)) { throw "$Label UI host could not be terminated" }
     }
   }
 
