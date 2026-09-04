@@ -85,6 +85,27 @@ const (
 	JobTypeSearchRebuild JobType = "search_rebuild"
 )
 
+// Defines values for PreferencesTheme.
+const (
+	PreferencesThemeDark   PreferencesTheme = "dark"
+	PreferencesThemeLight  PreferencesTheme = "light"
+	PreferencesThemeSystem PreferencesTheme = "system"
+)
+
+// Defines values for PreferencesUpdateTheme.
+const (
+	PreferencesUpdateThemeDark   PreferencesUpdateTheme = "dark"
+	PreferencesUpdateThemeLight  PreferencesUpdateTheme = "light"
+	PreferencesUpdateThemeSystem PreferencesUpdateTheme = "system"
+)
+
+// Defines values for RecentSearchType.
+const (
+	RecentSearchTypeArchive    RecentSearchType = "archive"
+	RecentSearchTypeAttachment RecentSearchType = "attachment"
+	RecentSearchTypeTask       RecentSearchType = "task"
+)
+
 // Defines values for SearchResultType.
 const (
 	SearchResultTypeArchive    SearchResultType = "archive"
@@ -312,6 +333,28 @@ type Meta struct {
 	WorkspaceName  string `json:"workspaceName"`
 }
 
+// Preferences defines model for Preferences.
+type Preferences struct {
+	InspectorWidth   int              `json:"inspectorWidth"`
+	RecentSearches   []RecentSearch   `json:"recentSearches"`
+	SidebarCollapsed bool             `json:"sidebarCollapsed"`
+	Theme            PreferencesTheme `json:"theme"`
+}
+
+// PreferencesTheme defines model for Preferences.Theme.
+type PreferencesTheme string
+
+// PreferencesUpdate defines model for PreferencesUpdate.
+type PreferencesUpdate struct {
+	InspectorWidth   *int                    `json:"inspectorWidth,omitempty"`
+	RecentSearches   *[]RecentSearch         `json:"recentSearches,omitempty"`
+	SidebarCollapsed *bool                   `json:"sidebarCollapsed,omitempty"`
+	Theme            *PreferencesUpdateTheme `json:"theme,omitempty"`
+}
+
+// PreferencesUpdateTheme defines model for PreferencesUpdate.Theme.
+type PreferencesUpdateTheme string
+
 // Problem defines model for Problem.
 type Problem struct {
 	Code        string             `json:"code"`
@@ -321,6 +364,17 @@ type Problem struct {
 	Title       string             `json:"title"`
 	TraceId     string             `json:"traceId"`
 }
+
+// RecentSearch defines model for RecentSearch.
+type RecentSearch struct {
+	Id       string           `json:"id"`
+	Subtitle string           `json:"subtitle"`
+	Title    string           `json:"title"`
+	Type     RecentSearchType `json:"type"`
+}
+
+// RecentSearchType defines model for RecentSearch.Type.
+type RecentSearchType string
 
 // Relation defines model for Relation.
 type Relation struct {
@@ -516,6 +570,9 @@ type CreateArchiveRelationJSONRequestBody = RelationInput
 // UpdateBackupSettingsJSONRequestBody defines body for UpdateBackupSettings for application/json ContentType.
 type UpdateBackupSettingsJSONRequestBody = BackupSettings
 
+// UpdatePreferencesJSONRequestBody defines body for UpdatePreferences for application/json ContentType.
+type UpdatePreferencesJSONRequestBody = PreferencesUpdate
+
 // CreateRestoreJSONRequestBody defines body for CreateRestore for application/json ContentType.
 type CreateRestoreJSONRequestBody CreateRestoreJSONBody
 
@@ -617,6 +674,12 @@ type ServerInterface interface {
 	// Get service and workspace metadata
 	// (GET /api/v2/meta)
 	GetMeta(w http.ResponseWriter, r *http.Request)
+	// Read workspace-scoped UI preferences
+	// (GET /api/v2/preferences)
+	GetPreferences(w http.ResponseWriter, r *http.Request)
+	// Update workspace-scoped UI preferences
+	// (PATCH /api/v2/preferences)
+	UpdatePreferences(w http.ResponseWriter, r *http.Request)
 	// Remove an entity relation
 	// (DELETE /api/v2/relations/{relationId})
 	DeleteRelation(w http.ResponseWriter, r *http.Request, relationId openapi_types.UUID)
@@ -839,6 +902,18 @@ func (_ Unimplemented) GetJobEvents(w http.ResponseWriter, r *http.Request, jobI
 // Get service and workspace metadata
 // (GET /api/v2/meta)
 func (_ Unimplemented) GetMeta(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Read workspace-scoped UI preferences
+// (GET /api/v2/preferences)
+func (_ Unimplemented) GetPreferences(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update workspace-scoped UI preferences
+// (PATCH /api/v2/preferences)
+func (_ Unimplemented) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1788,6 +1863,46 @@ func (siw *ServerInterfaceWrapper) GetMeta(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
+// GetPreferences operation middleware
+func (siw *ServerInterfaceWrapper) GetPreferences(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPreferences(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePreferences operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePreferences(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteRelation operation middleware
 func (siw *ServerInterfaceWrapper) DeleteRelation(w http.ResponseWriter, r *http.Request) {
 
@@ -2409,6 +2524,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v2/meta", wrapper.GetMeta)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v2/preferences", wrapper.GetPreferences)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v2/preferences", wrapper.UpdatePreferences)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v2/relations/{relationId}", wrapper.DeleteRelation)
@@ -3311,6 +3432,63 @@ func (response GetMetadefaultApplicationProblemPlusJSONResponse) VisitGetMetaRes
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
+type GetPreferencesRequestObject struct {
+}
+
+type GetPreferencesResponseObject interface {
+	VisitGetPreferencesResponse(w http.ResponseWriter) error
+}
+
+type GetPreferences200JSONResponse Preferences
+
+func (response GetPreferences200JSONResponse) VisitGetPreferencesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPreferencesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetPreferencesdefaultApplicationProblemPlusJSONResponse) VisitGetPreferencesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type UpdatePreferencesRequestObject struct {
+	Body *UpdatePreferencesJSONRequestBody
+}
+
+type UpdatePreferencesResponseObject interface {
+	VisitUpdatePreferencesResponse(w http.ResponseWriter) error
+}
+
+type UpdatePreferences200JSONResponse Preferences
+
+func (response UpdatePreferences200JSONResponse) VisitUpdatePreferencesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdatePreferencesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdatePreferencesdefaultApplicationProblemPlusJSONResponse) VisitUpdatePreferencesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 type DeleteRelationRequestObject struct {
 	RelationId openapi_types.UUID `json:"relationId"`
 }
@@ -3815,6 +3993,12 @@ type StrictServerInterface interface {
 	// Get service and workspace metadata
 	// (GET /api/v2/meta)
 	GetMeta(ctx context.Context, request GetMetaRequestObject) (GetMetaResponseObject, error)
+	// Read workspace-scoped UI preferences
+	// (GET /api/v2/preferences)
+	GetPreferences(ctx context.Context, request GetPreferencesRequestObject) (GetPreferencesResponseObject, error)
+	// Update workspace-scoped UI preferences
+	// (PATCH /api/v2/preferences)
+	UpdatePreferences(ctx context.Context, request UpdatePreferencesRequestObject) (UpdatePreferencesResponseObject, error)
 	// Remove an entity relation
 	// (DELETE /api/v2/relations/{relationId})
 	DeleteRelation(ctx context.Context, request DeleteRelationRequestObject) (DeleteRelationResponseObject, error)
@@ -4685,6 +4869,61 @@ func (sh *strictHandler) GetMeta(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMetaResponseObject); ok {
 		if err := validResponse.VisitGetMetaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPreferences operation middleware
+func (sh *strictHandler) GetPreferences(w http.ResponseWriter, r *http.Request) {
+	var request GetPreferencesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPreferences(ctx, request.(GetPreferencesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPreferences")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPreferencesResponseObject); ok {
+		if err := validResponse.VisitGetPreferencesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdatePreferences operation middleware
+func (sh *strictHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	var request UpdatePreferencesRequestObject
+
+	var body UpdatePreferencesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdatePreferences(ctx, request.(UpdatePreferencesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdatePreferences")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdatePreferencesResponseObject); ok {
+		if err := validResponse.VisitUpdatePreferencesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

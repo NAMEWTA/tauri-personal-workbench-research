@@ -29,7 +29,7 @@ impl Bootstrap {
             workspace_name,
             app_version,
             allowed_origins: vec![
-                "http://localhost:1420".to_string(),
+                "http://127.0.0.1:1420".to_string(),
                 "tauri://localhost".to_string(),
                 "http://tauri.localhost".to_string(),
                 "https://tauri.localhost".to_string(),

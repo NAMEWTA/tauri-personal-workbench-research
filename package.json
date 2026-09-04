@@ -1,15 +1,15 @@
 {
   "name": "personal-workbench",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=24.0.0",
+    "node": "24.6.0",
     "pnpm": "10.33.0"
   },
   "scripts": {
     "dev": "pnpm build:sidecar && pnpm --dir apps/desktop tauri dev",
-    "dev:web": "pnpm --dir apps/desktop dev",
+    "dev:web": "pnpm build:sidecar && node scripts/dev-web.mjs",
     "generate": "pnpm generate:ts && pnpm generate:go",
     "generate:ts": "pnpm --dir apps/desktop generate:api",
     "generate:go": "node scripts/generate-go.mjs",
@@ -21,8 +21,11 @@
     "check:contract": "pnpm exec redocly lint api/openapi.yaml",
     "check:frontend": "pnpm --dir apps/desktop check",
     "check:go": "node scripts/go.mjs -C services/workbenchd test ./... && node scripts/go.mjs -C services/workbenchd vet ./...",
-    "check:rust": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace",
+    "check:rust": "pnpm build:sidecar && cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace",
     "test": "pnpm --dir apps/desktop test && node scripts/go.mjs -C services/workbenchd test ./... && cargo test --workspace",
+    "test:sidecar": "pnpm build:sidecar && node scripts/smoke-sidecar.mjs",
+    "test:single-instance": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-single-instance.ps1",
+    "test:native-workspace": "pnpm --dir apps/desktop exec node e2e/native-workspace-smoke.mjs",
     "test:smoke": "pnpm --dir apps/desktop test:e2e",
     "verify:versions": "node scripts/verify-versions.mjs",
     "sbom": "node scripts/generate-sbom.mjs"

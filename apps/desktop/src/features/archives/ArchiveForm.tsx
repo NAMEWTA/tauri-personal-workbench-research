@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createArchive } from '../../generated/api/sdk.gen'
 import type { ArchiveInput } from '../../generated/api/types.gen'
 import { requireData } from '../../lib/http/client'
+import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { ArchiveFieldControl } from './ArchiveFieldControl'
 import { initialFieldValue } from './fieldValues'
 import { archiveKeys, archiveTypesQuery } from './queries'
@@ -17,6 +18,14 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
   const activeTypeId = typeId || definitions.data?.[0]?.id || ''
   const selectedDefinition = definitions.data?.find((item) => item.id === activeTypeId)
   const queryClient = useQueryClient()
+  const effectiveFields = selectedDefinition
+    ? Object.fromEntries(
+        selectedDefinition.fields.map((field) => [
+          field.key,
+          fields[field.key] ?? initialFieldValue(field),
+        ]),
+      )
+    : fields
   const selectType = (next: string) => {
     setTypeId(next)
     const definition = definitions.data?.find((item) => item.id === next)
@@ -41,7 +50,13 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
         className="dialog archive-dialog"
         onSubmit={(event) => {
           event.preventDefault()
-          mutation.mutate({ typeId: activeTypeId, title: title.trim(), summary, body: '', fields })
+          mutation.mutate({
+            typeId: activeTypeId,
+            title: title.trim(),
+            summary,
+            body: '',
+            fields: effectiveFields,
+          })
         }}
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -54,16 +69,39 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
             <X size={17} />
           </button>
         </div>
-        <label>
-          档案类型
-          <select value={activeTypeId} onChange={(event) => selectType(event.target.value)}>
-            {definitions.data?.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {definitions.isPending ? (
+          <LoadingState label="正在读取档案类型…" />
+        ) : definitions.isError ? (
+          <ErrorState error={definitions.error} retry={() => void definitions.refetch()} />
+        ) : (
+          <>
+            <label>
+              档案类型
+              <select value={activeTypeId} onChange={(event) => selectType(event.target.value)}>
+                {definitions.data.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {(selectedDefinition?.fields.length ?? 0) > 0 && (
+              <div className="custom-fields">
+                {selectedDefinition?.fields.map((field) => (
+                  <label key={field.id}>
+                    {field.label}
+                    {field.required && <span className="required-mark"> *</span>}
+                    <ArchiveFieldControl
+                      field={field}
+                      value={effectiveFields[field.key]}
+                      onChange={(value) => setFields({ ...fields, [field.key]: value })}
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
+          </>
+        )}
         <label>
           名称
           <input
@@ -83,21 +121,6 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
             onChange={(event) => setSummary(event.target.value)}
           />
         </label>
-        {(selectedDefinition?.fields.length ?? 0) > 0 && (
-          <div className="custom-fields">
-            {selectedDefinition?.fields.map((field) => (
-              <label key={field.id}>
-                {field.label}
-                {field.required && <span className="required-mark"> *</span>}
-                <ArchiveFieldControl
-                  field={field}
-                  value={fields[field.key]}
-                  onChange={(value) => setFields({ ...fields, [field.key]: value })}
-                />
-              </label>
-            ))}
-          </div>
-        )}
         {mutation.isError && <p className="form-error">创建失败，请检查必填属性。</p>}
         <div className="dialog-actions">
           <button type="button" className="button" onClick={onClose}>

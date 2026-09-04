@@ -13,6 +13,7 @@ export function useCreateTask() {
       await queryClient.invalidateQueries({ queryKey: taskKeys.all })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       await queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-tasks'] })
     },
   })
 }
@@ -44,6 +45,7 @@ export function useUpdateTask() {
       await queryClient.invalidateQueries({ queryKey: taskKeys.all })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       await queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-tasks'] })
     },
   })
 }

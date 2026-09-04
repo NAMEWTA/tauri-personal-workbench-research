@@ -73,29 +73,41 @@ export function ArchivesPage() {
           </button>
         </div>
       </div>
-      <div className="segmented archive-type-tabs" aria-label="档案类型">
-        <button
-          className={!typeId ? 'active' : ''}
-          onClick={() => {
-            setTypeId('')
-            setOffset(0)
-          }}
-        >
-          全部
-        </button>
-        {types.data?.map((item) => (
+      {types.isPending ? (
+        <div className="archive-type-state">
+          <LoadingState label="正在读取档案类型…" />
+        </div>
+      ) : types.isError ? (
+        <div className="archive-type-state">
+          <ErrorState error={types.error} retry={() => void types.refetch()} />
+        </div>
+      ) : (
+        <div className="segmented archive-type-tabs" aria-label="档案类型">
           <button
-            key={item.id}
-            className={typeId === item.id ? 'active' : ''}
+            type="button"
+            className={!typeId ? 'active' : ''}
             onClick={() => {
-              setTypeId(item.id)
+              setTypeId('')
               setOffset(0)
             }}
           >
-            {item.name}
+            全部
           </button>
-        ))}
-      </div>
+          {types.data.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className={typeId === item.id ? 'active' : ''}
+              onClick={() => {
+                setTypeId(item.id)
+                setOffset(0)
+              }}
+            >
+              {item.name}
+            </button>
+          ))}
+        </div>
+      )}
       <section className="list-section">
         {query.isPending ? (
           <LoadingState />

@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24
+          node-version: 24.6.0
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: 1.26.7
@@ -62,7 +62,84 @@ jobs:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
           uploadWorkflowArtifacts: true
           workflowArtifactNamePattern: personal-workbench-[platform]-[arch]
+      - name: Verify bundle artifact
+        shell: bash
+        run: |
+          bundle_dir="target/${{ matrix.target }}/release/bundle/${{ matrix.bundles }}"
+          case "${{ matrix.bundles }}" in
+            dmg) extension=dmg ;;
+            nsis) extension=exe ;;
+            *) echo "Unsupported bundle: ${{ matrix.bundles }}" >&2; exit 1 ;;
+          esac
+          artifact=$(find "$bundle_dir" -type f -name "*.$extension" -print | head -n 1)
+          test -n "$artifact"
+          node -e 'const fs=require("fs"); const crypto=require("crypto"); const path=process.argv[1]; const hash=crypto.createHash("sha256").update(fs.readFileSync(path)).digest("hex"); console.log(`${hash}  ${path}`)' "$artifact"
+      - name: Verify macOS application bundle
+        if: matrix.bundles == 'dmg'
+        shell: bash
+        run: |
+          app=$(find "target/${{ matrix.target }}/release/bundle/macos" -maxdepth 1 -type d -name '*.app' -print -quit)
+          test -n "$app"
+          test -f "$app/Contents/Info.plist"
+          executable_name=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
+          executable="$app/Contents/MacOS/$executable_name"
+          test -x "$executable"
+          sidecar=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'workbenchd*' -print -quit)
+          test -n "$sidecar"
+          test -x "$sidecar"
+          codesign --verify --deep --strict --verbose=2 "$app"
+      - name: Verify macOS disk image
+        if: matrix.bundles == 'dmg'
+        shell: bash
+        run: |
+          artifact=$(find "target/${{ matrix.target }}/release/bundle/dmg" -type f -name '*.dmg' -print -quit)
+          test -n "$artifact"
+          hdiutil verify "$artifact"
+      - name: Collect macOS bundle evidence
+        if: matrix.bundles == 'dmg'
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          app=$(find "target/${{ matrix.target }}/release/bundle/macos" -maxdepth 1 -type d -name '*.app' -print -quit)
+          executable_name=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
+          executable="$app/Contents/MacOS/$executable_name"
+          sidecar=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'workbenchd*' -print -quit)
+          dmg=$(find "target/${{ matrix.target }}/release/bundle/dmg" -type f -name '*.dmg' -print -quit)
+          {
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+            echo "target=${{ matrix.target }}"
+            echo "node=$(node --version)"
+            echo "pnpm=$(pnpm --version)"
+            echo "go=$(go version)"
+            echo "rust=$(rustc --version)"
+            echo "app=$app"
+            echo "app_executable=$executable"
+            echo "app_sha256=$(shasum -a 256 "$executable" | cut -d ' ' -f 1)"
+            echo "sidecar=$sidecar"
+            echo "sidecar_sha256=$(shasum -a 256 "$sidecar" | cut -d ' ' -f 1)"
+            echo "dmg=$dmg"
+            echo "dmg_sha256=$(shasum -a 256 "$dmg" | cut -d ' ' -f 1)"
+            codesign --verify --deep --strict --verbose=2 "$app" >/dev/null
+            echo "codesign=verified"
+            hdiutil verify "$dmg" >/dev/null
+            echo "hdiutil=verified"
+          } | tee artifacts/macos-bundle-evidence.txt
+      - name: Upload macOS bundle evidence
+        if: matrix.bundles == 'dmg'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: personal-workbench-macos-bundle-evidence
+          path: artifacts/macos-bundle-evidence.txt
+          if-no-files-found: error
       - name: Smoke test installed Windows bundle
         if: runner.os == 'Windows'
         shell: powershell
         run: ./scripts/smoke-installed.ps1 -TargetTriple '${{ matrix.target }}'
+      - name: Smoke test native single-instance behavior
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/smoke-single-instance.ps1 -TargetTriple '${{ matrix.target }}'
+      - name: Smoke test native workspace switching
+        if: runner.os == 'Windows'
+        run: pnpm test:native-workspace

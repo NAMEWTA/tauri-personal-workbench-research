@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/personal-workbench/workbenchd/internal/app"
 	"github.com/personal-workbench/workbenchd/internal/archive"
+	"github.com/personal-workbench/workbenchd/internal/preferences"
 	"github.com/personal-workbench/workbenchd/internal/relation"
 	"github.com/personal-workbench/workbenchd/internal/task"
 )
@@ -42,6 +43,8 @@ func NewHandler(service *app.Service, config Config, logger *slog.Logger) http.H
 		protected.Use(authenticate(config.Token), bodyLimit(2<<20), timeout(30*time.Second), accessLog(logger))
 		protected.Route("/api/v2", func(r chi.Router) {
 			r.Get("/meta", s.meta)
+			r.Get("/preferences", s.preferences)
+			r.Patch("/preferences", s.updatePreferences)
 			r.Get("/dashboard", s.dashboard)
 			r.Get("/archives", s.listArchives)
 			r.Get("/archive-types", s.listArchiveTypes)
@@ -102,6 +105,32 @@ func (s *Server) meta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"apiVersion": 2, "serviceVersion": s.config.ServiceVersion, "workspaceName": name, "schemaVersion": schemaVersion})
+}
+
+func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
+	result, err := s.service.Preferences(r.Context())
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) updatePreferences(w http.ResponseWriter, r *http.Request) {
+	var input preferences.Update
+	if !decode(w, r, &input) {
+		return
+	}
+	if err := input.Validate(); err != nil {
+		invalid(w, r)
+		return
+	}
+	result, err := s.service.UpdatePreferences(r.Context(), input)
+	if err != nil {
+		writeServiceError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {

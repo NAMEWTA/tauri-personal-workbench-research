@@ -26,7 +26,7 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
       <strong>读取失败</strong>
       <span>{error instanceof Error ? error.message : '请稍后重试。'}</span>
       {retry && (
-        <button className="button" onClick={retry}>
+        <button className="button" type="button" onClick={retry}>
           <RefreshCw size={15} />
           重试
         </button>

@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Save, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { trashTask } from '../../generated/api/sdk.gen'
 import type { Task, TaskInput } from '../../generated/api/types.gen'
 import { ArchivePicker } from '../archives/ArchivePicker'
 import { useUpdateTask } from './mutations'
 import { taskKeys } from './queries'
+import { useLayoutStore } from '../../stores/layout'
 
 const localTime = (value?: string | null) =>
   value
@@ -16,6 +17,7 @@ const localTime = (value?: string | null) =>
     : ''
 
 export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
+  const setEditorDirty = useLayoutStore((state) => state.setEditorDirty)
   const [archiveTitle, setArchiveTitle] = useState(task.archiveTitle)
   const [draft, setDraft] = useState<TaskInput>({
     title: task.title,
@@ -32,6 +34,11 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const scheduled = Boolean(draft.startsAt && draft.endsAt)
+  const dirty = !sameTaskDraft(draft, task)
+  useEffect(() => {
+    setEditorDirty(dirty)
+    return () => setEditorDirty(false)
+  }, [dirty, setEditorDirty])
   const remove = useMutation({
     mutationFn: async () => {
       await trashTask({ path: { taskId: task.id }, throwOnError: true })
@@ -39,6 +46,8 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: taskKeys.all })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      await queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
+      setEditorDirty(false)
       onClose()
     },
   })
@@ -59,7 +68,7 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
       className="task-editor inspector-editor"
       onSubmit={(event) => {
         event.preventDefault()
-        update.mutate({ task, changes: draft })
+        update.mutate({ task, changes: draft }, { onSuccess: () => setEditorDirty(false) })
       }}
     >
       <div className="section-heading">
@@ -166,6 +175,7 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
         />
       </label>
       {update.isError && <p className="form-error">保存失败，请检查标题和时间范围。</p>}
+      {remove.isError && <p className="form-error">删除失败，请稍后重试。</p>}
       <div className="editor-actions">
         <button
           type="button"
@@ -191,5 +201,19 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
         </button>
       </div>
     </form>
+  )
+}
+
+function sameTaskDraft(draft: TaskInput, task: Task) {
+  return (
+    draft.title === task.title &&
+    draft.status === task.status &&
+    draft.priority === task.priority &&
+    draft.startsAt === task.startsAt &&
+    draft.endsAt === task.endsAt &&
+    draft.allDay === task.allDay &&
+    draft.timezone === task.timezone &&
+    (draft.archiveId ?? null) === (task.archiveId ?? null) &&
+    (draft.notes ?? '') === (task.notes ?? '')
   )
 }

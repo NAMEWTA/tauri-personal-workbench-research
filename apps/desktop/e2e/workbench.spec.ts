@@ -1,11 +1,19 @@
 import { expect, test } from '@playwright/test'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 test('V2 统一任务、自定义档案与响应式主流程', async ({ page, request }, testInfo) => {
+  const apiHosts = new Set<string>()
+  const httpHosts = new Set<string>()
+  page.on('request', (requestEvent) => {
+    const url = new URL(requestEvent.url())
+    if (url.protocol === 'http:' || url.protocol === 'https:') httpHosts.add(url.hostname)
+    if (url.pathname.startsWith('/api/')) apiHosts.add(url.hostname)
+  })
   const unique = `${testInfo.project.name}-${Date.now()}`
   const taskTitle = `统一任务-${unique}`
   const archiveTitle = `个人档案-${unique}`
+  const relatedArchiveTitle = `关联档案-${unique}`
   const identityNumber = `3101011990${String(Date.now()).slice(-8)}`
   const typeName = `项目-${unique}`
   const server = JSON.parse(readFileSync(resolve('test-results/.e2e-server.json'), 'utf8')) as {
@@ -13,19 +21,63 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
     token: string
     workspace: string
   }
+  const apiHeaders = {
+    Authorization: `Bearer ${server.token}`,
+    Origin: 'http://127.0.0.1:1420',
+  }
   const backupDirectory = join(server.workspace, 'configured-backups')
   const configured = await request.put(`${server.backendUrl}/api/v2/backup-settings`, {
-    headers: {
-      Authorization: `Bearer ${server.token}`,
-      Origin: 'http://127.0.0.1:1420',
-    },
+    headers: apiHeaders,
     data: { backupDirectory },
   })
   expect(configured.ok()).toBeTruthy()
+  const resetPreferences = await request.patch(`${server.backendUrl}/api/v2/preferences`, {
+    headers: apiHeaders,
+    data: {
+      theme: 'system',
+      sidebarCollapsed: false,
+      inspectorWidth: 344,
+      recentSearches: [],
+    },
+  })
+  expect(resetPreferences.ok()).toBeTruthy()
 
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('v2-legacy-preferences-seeded')) return
+    localStorage.setItem(
+      'workbench-layout',
+      JSON.stringify({ state: { theme: 'dark', sidebarCollapsed: true, inspectorWidth: 400 } }),
+    )
+    localStorage.setItem(
+      'workbench-recent-search-results',
+      JSON.stringify([{ id: 'legacy-task', type: 'task', title: '旧任务', subtitle: '任务' }]),
+    )
+    sessionStorage.setItem('v2-legacy-preferences-seeded', '1')
+  })
   await page.goto('/today')
   await expect(page.getByRole('heading', { name: '今日' })).toBeVisible()
   await expect(page.getByText('E2E 临时工作区').first()).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('workbench-layout'))).toBeNull()
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('workbench-recent-search-results')))
+    .toBeNull()
+  const migratedPreferencesResponse = await request.get(`${server.backendUrl}/api/v2/preferences`, {
+    headers: apiHeaders,
+  })
+  expect(migratedPreferencesResponse.ok()).toBeTruthy()
+  const migratedPreferences = (await migratedPreferencesResponse.json()) as {
+    theme: string
+    sidebarCollapsed: boolean
+    inspectorWidth: number
+    recentSearches: Array<{ id: string }>
+  }
+  expect(migratedPreferences).toMatchObject({
+    theme: 'dark',
+    sidebarCollapsed: true,
+    inspectorWidth: 400,
+    recentSearches: [{ id: 'legacy-task' }],
+  })
 
   await page.getByLabel('任务标题').fill(taskTitle)
   await Promise.all([
@@ -35,6 +87,33 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
     ),
     page.getByRole('button', { name: '添加' }).click(),
   ])
+  await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible()
+  if (testInfo.project.name === 'minimum' || testInfo.project.name === 'compact') {
+    const inspector = page.locator('.inspector')
+    await expect(inspector).toBeVisible()
+    await expect
+      .poll(() => inspector.evaluate((element) => getComputedStyle(element).position))
+      .toBe('fixed')
+  }
+  const unsavedTitle = `${taskTitle}-未保存`
+  const taskEditor = page.locator('.task-editor')
+  const taskEditorTitle = taskEditor.getByLabel('标题')
+  await taskEditorTitle.fill(unsavedTitle)
+  page.once('dialog', (dialog) => {
+    expect(dialog.message()).toContain('未保存')
+    void dialog.dismiss()
+  })
+  await page.getByRole('button', { name: '关闭任务详情' }).click()
+  await expect(taskEditorTitle).toHaveValue(unsavedTitle)
+  page.once('dialog', (dialog) => {
+    expect(dialog.message()).toContain('未保存')
+    void dialog.accept()
+  })
+  await page.getByRole('button', { name: '关闭任务详情' }).click()
+  await expect(page.getByRole('button', { name: '切换检查器' })).toBeDisabled()
+  await page.locator('.sidebar').getByRole('link', { name: '任务', exact: true }).click()
+  await expect(page.getByText(taskTitle, { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: taskTitle, exact: true }).click()
   await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible()
   await page.getByLabel('安排到日历').check()
   await page.getByRole('button', { name: '保存' }).click()
@@ -81,11 +160,130 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await page.getByRole('button', { name: new RegExp(archiveTitle) }).click()
   await expect(page.getByRole('heading', { name: '活动' })).toBeVisible()
   await expect(page.getByText('创建档案')).toBeVisible()
+  const archiveId = new URL(page.url()).pathname.split('/').pop()
+  expect(archiveId).toBeTruthy()
+
+  const archiveSummary = page.getByLabel('摘要')
+  await archiveSummary.fill('未保存的档案摘要')
+  page.once('dialog', (dialog) => {
+    expect(dialog.message()).toContain('未保存')
+    void dialog.dismiss()
+  })
+  await page.getByRole('button', { name: '档案', exact: true }).click()
+  await expect(archiveSummary).toHaveValue('未保存的档案摘要')
+  page.once('dialog', (dialog) => {
+    expect(dialog.message()).toContain('未保存')
+    void dialog.accept()
+  })
+  await page.getByRole('button', { name: '档案', exact: true }).click()
+  await page.goto(`/archives/${archiveId}`)
+  await expect(page.getByRole('heading', { name: archiveTitle })).toBeVisible()
+
+  const relatedArchiveResponse = await request.post(`${server.backendUrl}/api/v2/archives`, {
+    headers: apiHeaders,
+    data: { typeId: 'organization', title: relatedArchiveTitle },
+  })
+  expect(relatedArchiveResponse.ok()).toBeTruthy()
+  await page.reload()
+  const relationSection = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: '关系' }) })
+  await relationSection.getByLabel('搜索档案标题').fill(relatedArchiveTitle)
+  const relationCandidate = relationSection.getByRole('button', {
+    name: new RegExp(relatedArchiveTitle),
+  })
+  await expect(relationCandidate).toBeVisible()
+  await relationCandidate.click()
+  await relationSection.getByLabel('关系类型').fill('合作')
+  await Promise.all([
+    page.waitForResponse(
+      (response) => response.url().endsWith('/relations') && response.request().method() === 'POST',
+    ),
+    relationSection.getByRole('button', { name: '建立关联' }).click(),
+  ])
+  const relationLink = relationSection
+    .locator('.resource-list')
+    .getByRole('button', { name: new RegExp(relatedArchiveTitle) })
+  await expect(relationLink).toBeVisible()
+  await relationLink.click()
+  await expect(page.getByRole('heading', { name: relatedArchiveTitle })).toBeVisible()
+  await page.goto(`/archives/${archiveId}`)
+  await expect(page.getByRole('heading', { name: archiveTitle })).toBeVisible()
+
+  const attachmentSource = join(server.workspace, 'e2e-attachment.txt')
+  writeFileSync(attachmentSource, 'Playwright attachment persistence')
+  const imported = await request.post(
+    `${server.backendUrl}/api/v2/archives/${archiveId}/attachments`,
+    { headers: apiHeaders, data: { paths: [attachmentSource] } },
+  )
+  expect(imported.ok()).toBeTruthy()
+  const attachmentJob = (await imported.json()) as { id: string }
+  await expect
+    .poll(
+      async () => {
+        const response = await request.get(`${server.backendUrl}/api/v2/jobs/${attachmentJob.id}`, {
+          headers: apiHeaders,
+        })
+        return response.ok() ? ((await response.json()) as { state: string }).state : 'error'
+      },
+      { timeout: 20_000 },
+    )
+    .toBe('succeeded')
+  await page.reload()
+  await expect(page.getByText('e2e-attachment.txt')).toBeVisible()
+  await page.getByRole('button', { name: '移除附件' }).click()
+  await expect(page.getByText('e2e-attachment.txt')).toHaveCount(0)
+
+  page.once('dialog', (dialog) => void dialog.accept())
+  await page.getByRole('button', { name: '删除' }).click()
+  await expect(page.getByRole('heading', { name: '档案' })).toBeVisible()
+  await page.locator('.sidebar').getByRole('link', { name: '回收站', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '回收站' })).toBeVisible()
+  const trashEntry = page.locator('.trash-list > div').filter({ hasText: archiveTitle })
+  await expect(trashEntry).toBeVisible()
+  await trashEntry.getByRole('button', { name: '恢复' }).click()
+  await expect(trashEntry).toHaveCount(0)
+  await page.locator('.sidebar').getByRole('link', { name: '档案', exact: true }).click()
+  await expect(page.getByText(archiveTitle)).toBeVisible()
 
   await page.locator('.sidebar').getByRole('link', { name: '备份', exact: true }).click()
   await expect(page.getByText(backupDirectory)).toBeVisible()
   await page.getByRole('button', { name: '立即备份' }).click()
   await expect(page.getByText('备份成功').first()).toBeVisible({ timeout: 20_000 })
+
+  await page.locator('.sidebar').getByRole('link', { name: '设置', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '设置' })).toBeVisible()
+  const darkTheme = page.getByRole('button', { name: '深色' })
+  if ((await darkTheme.getAttribute('class'))?.includes('active')) {
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/v2/preferences') && response.request().method() === 'PATCH',
+      ),
+      page.getByRole('button', { name: '浅色' }).click(),
+    ])
+  }
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/v2/preferences') && response.request().method() === 'PATCH',
+    ),
+    darkTheme.click(),
+  ])
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(page.getByText('仅 Web 预览')).toBeVisible()
+  await expect(page.getByRole('button', { name: '新建或打开' })).toBeDisabled()
+  await page.goto('/diagnostics')
+  await expect(page.getByRole('heading', { name: '设置' })).toBeVisible()
+  await expect(page.locator('.command-title > span')).toHaveText('设置')
+  await expect(
+    page.locator('.sidebar').getByRole('link', { name: '设置', exact: true }),
+  ).toHaveClass(/active/)
+  await expect(page.getByText('监督状态', { exact: true })).toBeVisible()
+  await expect(page.getByText('搜索索引', { exact: true })).toBeVisible()
+  expect([...apiHosts]).toEqual(['127.0.0.1'])
+  expect([...httpHosts]).toEqual(['127.0.0.1'])
 
   const overflow = await page.evaluate(() => ({
     document: document.documentElement.scrollWidth - document.documentElement.clientWidth,

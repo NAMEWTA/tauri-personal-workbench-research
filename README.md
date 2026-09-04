@@ -4,7 +4,7 @@
 
 ## 开发
 
-需要 Node.js 24、pnpm 10.33、Go 1.26.7 和 Rust 1.96。首次安装依赖后启动完整桌面应用：
+需要 Node.js 24.6.0、pnpm 10.33.0、Go 1.26.7 和 Rust 1.96.0。`.nvmrc` 与 `rust-toolchain.toml` 已固定 Node/Rust 版本；首次安装依赖后启动完整桌面应用：
 
 ```powershell
 corepack enable
@@ -14,10 +14,11 @@ pnpm dev
 
 发布构建的自动化验证可设置 `WORKBENCH_DEV_APP_DATA_DIR` 或 `WORKBENCH_DEV_CONFIG_DIR`，将默认工作区或工作区注册表隔离到临时目录；日常使用无需设置。
 
-仅调试浏览器界面可运行 `pnpm dev:web`；它需要另行提供 `VITE_BACKEND_URL` 和 `VITE_BACKEND_TOKEN`。常用验证命令：
+仅调试浏览器界面可运行 `pnpm dev:web`；它会自动启动临时 loopback sidecar 和 SQLite 工作区，退出时清理，不接受远程后端配置。常用验证命令：
 
 ```powershell
 pnpm check
+pnpm test:sidecar
 pnpm test:smoke
 pnpm verify:versions
 ```

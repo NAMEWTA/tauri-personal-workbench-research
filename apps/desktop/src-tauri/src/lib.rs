@@ -11,6 +11,8 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
+#[cfg(target_os = "windows")]
+use std::time::Duration;
 use tauri::Manager;
 use workspace_registry::WorkspaceRegistry;
 
@@ -18,6 +20,14 @@ fn shutdown(handle: tauri::AppHandle) {
     std::thread::spawn(move || {
         tauri::async_runtime::block_on(handle.state::<SidecarManager>().stop());
         handle.exit(0);
+        #[cfg(target_os = "windows")]
+        {
+            // WebView2 can occasionally leave the native window teardown stuck
+            // after Tauri has accepted the exit request. The sidecar is already
+            // stopped above, so bound this host-only cleanup race as a fallback.
+            std::thread::sleep(Duration::from_secs(2));
+            std::process::exit(0);
+        }
     });
 }
 

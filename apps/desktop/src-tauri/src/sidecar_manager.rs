@@ -37,6 +37,7 @@ struct Inner {
     bootstrap: Option<Bootstrap>,
     restart_count: u8,
     terminated: Option<Arc<AtomicBool>>,
+    start_cancel: Option<Arc<AtomicBool>>,
 }
 
 pub struct SidecarManager {
@@ -83,6 +84,14 @@ fn sidecar_exit_error(code: Option<i32>, stderr: &[u8]) -> String {
     format!("进程提前退出: {code:?}")
 }
 
+fn recovery_cancelled(state: &PublicState) -> bool {
+    matches!(state, PublicState::Stopping | PublicState::Stopped)
+}
+
+fn startup_cancelled(cancel: &AtomicBool, state: &PublicState) -> bool {
+    cancel.load(Ordering::SeqCst) || recovery_cancelled(state)
+}
+
 impl Default for SidecarManager {
     fn default() -> Self {
         Self {
@@ -92,6 +101,7 @@ impl Default for SidecarManager {
                 bootstrap: None,
                 restart_count: 0,
                 terminated: None,
+                start_cancel: None,
             }),
         }
     }
@@ -108,23 +118,32 @@ impl SidecarManager {
             inner.bootstrap = Some(bootstrap.clone());
             inner.restart_count = 0;
         }
-        self.start_once(app, bootstrap).await
+        match self.start_once(app, bootstrap, false).await {
+            Ok(connection) => Ok(connection),
+            Err(error) => {
+                self.mark_failed(error.to_string());
+                Err(error)
+            }
+        }
     }
 
     async fn start_once(
         &self,
         app: &AppHandle,
         bootstrap: Bootstrap,
+        require_active: bool,
     ) -> Result<ConnectionInfo, WorkbenchError> {
         {
             let mut inner = self.inner.lock().expect("sidecar mutex poisoned");
+            if require_active && recovery_cancelled(&inner.state) {
+                return Err(WorkbenchError::Operation(
+                    "sidecar recovery cancelled".into(),
+                ));
+            }
             inner.state = PublicState::Starting;
         }
         let token = bootstrap.token.clone();
-        let log_directory = app
-            .path()
-            .app_log_dir()
-            .map_err(|_| WorkbenchError::AppDataUnavailable)?;
+        let log_directory = bootstrap.workspace_path.join("logs");
         let log = std::sync::Arc::new(Mutex::new(
             RotatingLog::open(&log_directory)
                 .map_err(|error| WorkbenchError::Operation(error.to_string()))?,
@@ -139,9 +158,15 @@ impl SidecarManager {
             .spawn()
             .map_err(|error| WorkbenchError::SidecarStart(error.to_string()))?;
         let expected_pid = child.pid();
-        child
-            .write(&[bootstrap_line.as_slice(), b"\n"].concat())
-            .map_err(|error| WorkbenchError::SidecarStart(error.to_string()))?;
+        if let Err(error) = child.write(&[bootstrap_line.as_slice(), b"\n"].concat()) {
+            let _ = child.kill();
+            return Err(WorkbenchError::SidecarStart(error.to_string()));
+        }
+        let start_cancel = Arc::new(AtomicBool::new(false));
+        self.inner
+            .lock()
+            .expect("sidecar mutex poisoned")
+            .start_cancel = Some(start_cancel.clone());
         let (ready_tx, ready_rx) = oneshot::channel();
         let terminated = Arc::new(AtomicBool::new(false));
         let event_terminated = terminated.clone();
@@ -202,12 +227,25 @@ impl SidecarManager {
         let parsed = match parsed_result {
             Ok(value) => value,
             Err(error) => {
+                start_cancel.store(true, Ordering::SeqCst);
                 let _ = child.kill();
+                self.clear_start_cancel(&start_cancel);
                 return Err(error);
             }
         };
+        {
+            let inner = self.inner.lock().expect("sidecar mutex poisoned");
+            if startup_cancelled(&start_cancel, &inner.state) {
+                drop(inner);
+                let _ = child.kill();
+                self.clear_start_cancel(&start_cancel);
+                return Err(WorkbenchError::Operation("sidecar start cancelled".into()));
+            }
+        }
         if parsed.pid != expected_pid || parsed.service_version != bootstrap.app_version {
+            start_cancel.store(true, Ordering::SeqCst);
             let _ = child.kill();
+            self.clear_start_cancel(&start_cancel);
             return Err(WorkbenchError::InvalidReady(
                 "sidecar identity or version mismatch".into(),
             ));
@@ -219,10 +257,28 @@ impl SidecarManager {
             service_version: parsed.service_version,
         };
         let mut inner = self.inner.lock().expect("sidecar mutex poisoned");
+        if startup_cancelled(&start_cancel, &inner.state) {
+            drop(inner);
+            let _ = child.kill();
+            self.clear_start_cancel(&start_cancel);
+            return Err(WorkbenchError::Operation("sidecar start cancelled".into()));
+        }
         inner.state = PublicState::Ready(connection.clone());
         inner.child = Some(child);
         inner.terminated = Some(terminated);
+        inner.start_cancel = None;
         Ok(connection)
+    }
+
+    fn clear_start_cancel(&self, token: &Arc<AtomicBool>) {
+        let mut inner = self.inner.lock().expect("sidecar mutex poisoned");
+        if inner
+            .start_cancel
+            .as_ref()
+            .is_some_and(|current| Arc::ptr_eq(current, token))
+        {
+            inner.start_cancel = None;
+        }
     }
 
     async fn recover(app: AppHandle, code: Option<i32>) {
@@ -253,7 +309,7 @@ impl SidecarManager {
             };
             tokio::time::sleep(Duration::from_millis(250 * u64::from(attempt))).await;
             let manager = app.state::<SidecarManager>();
-            match manager.start_once(&app, bootstrap).await {
+            match manager.start_once(&app, bootstrap, true).await {
                 Ok(_) => {
                     let _ = app.emit("backend-restarted", attempt);
                     return;
@@ -301,15 +357,23 @@ impl SidecarManager {
     }
 
     pub async fn stop(&self) {
-        let (connection, child, terminated) = {
+        let (connection, child, terminated, start_cancel) = {
             let mut inner = self.inner.lock().expect("sidecar mutex poisoned");
             let connection = match &inner.state {
                 PublicState::Ready(value) => Some(value.clone()),
                 _ => None,
             };
             inner.state = PublicState::Stopping;
-            (connection, inner.child.take(), inner.terminated.take())
+            (
+                connection,
+                inner.child.take(),
+                inner.terminated.take(),
+                inner.start_cancel.take(),
+            )
         };
+        if let Some(cancel) = start_cancel {
+            cancel.store(true, Ordering::SeqCst);
+        }
         if let Some(info) = connection {
             let _ = reqwest::Client::new()
                 .post(format!("{}/internal/shutdown", info.base_url))
@@ -338,6 +402,7 @@ impl SidecarManager {
 #[cfg(test)]
 mod tests {
     use super::{parse_ready_line, sidecar_exit_error};
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     #[test]
     fn parses_valid_ready_line() {
@@ -369,5 +434,38 @@ mod tests {
             "workspace schema is incompatible"
         );
         assert_eq!(sidecar_exit_error(Some(1), b""), "进程提前退出: Some(1)");
+    }
+
+    #[test]
+    fn stopping_during_startup_cancels_ready_transition() {
+        let cancel = AtomicBool::new(false);
+        assert!(!super::startup_cancelled(
+            &cancel,
+            &super::PublicState::Starting
+        ));
+        cancel.store(true, Ordering::SeqCst);
+        assert!(super::startup_cancelled(
+            &cancel,
+            &super::PublicState::Starting
+        ));
+        assert!(super::startup_cancelled(
+            &AtomicBool::new(false),
+            &super::PublicState::Stopped
+        ));
+    }
+
+    #[test]
+    fn recovery_does_not_start_after_shutdown() {
+        assert!(super::recovery_cancelled(&super::PublicState::Stopping));
+        assert!(super::recovery_cancelled(&super::PublicState::Stopped));
+        assert!(!super::recovery_cancelled(&super::PublicState::Starting));
+        assert!(!super::recovery_cancelled(&super::PublicState::Ready(
+            super::ConnectionInfo {
+                base_url: "http://127.0.0.1:49152".into(),
+                token: "token".into(),
+                protocol_version: 2,
+                service_version: "0.2.0".into(),
+            },
+        )));
     }
 }

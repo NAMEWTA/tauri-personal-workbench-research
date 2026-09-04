@@ -1,0 +1,10 @@
+{
+  "schema_version": 5,
+  "workflow": "specdev",
+  "active": [],
+  "archived": [
+    {
+      "change": "2026-09-02-consolidate-project-knowledge"
+    }
+  ]
+}

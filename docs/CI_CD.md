@@ -4,7 +4,7 @@
 
 | 文件                   | 触发方式                                  | 作用                                                                 |
 | ---------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
-| `ci.yml`               | `main` push、pull request、其他工作流调用 | 前端、Go、OpenAPI、Rust、Windows 浏览器主流程质量门禁                |
+| `ci.yml`               | `main` push、pull request、其他工作流调用 | 前端、Go、OpenAPI、Rust、Windows 与 macOS 原生质量门禁               |
 | `build-installers.yml` | 手动执行                                  | 构建两种原生安装包并保存为 Actions artifacts，不创建 Release         |
 | `release.yml`          | 推送 `vX.Y.Z` 标签                        | 复用 CI，构建两种安装包，生成 SBOM、SHA-256 和 provenance 后公开发布 |
 
@@ -21,12 +21,16 @@
 
 `scripts/build-sidecar.mjs` 将 Tauri target 映射到对应的 `GOOS`/`GOARCH`，并把二进制写为 Tauri `externalBin` 要求的目标三元组文件名。交叉编译时不会尝试在宿主 runner 上执行异构 sidecar。
 
-Windows 构建完成后会运行 `scripts/smoke-installed.ps1`，实际验证静默安装、sidecar 启动、覆盖升级、优雅退出、卸载，以及卸载后工作区仍被保留。该门禁失败时不会进入 Release 发布任务。
+Windows 构建完成后会运行 `scripts/smoke-installed.ps1`，实际验证静默安装、sidecar 启动、覆盖升级、优雅退出、卸载，以及卸载后工作区仍被保留；安装 smoke 为每次运行使用私有 `WEBVIEW2_USER_DATA_FOLDER`，避免宿主机其他 WebView2 实例影响窗口清理；随后运行 `scripts/smoke-single-instance.ps1`，先验证 sidecar 崩溃后的自动恢复，再验证重复启动时第二实例退出、首实例和唯一 sidecar 保持；最后运行 `pnpm test:native-workspace`，通过实际 Tauri WebView2 验证备份预检/恢复到新工作区、双工作区切换、SQLite/任务/偏好隔离、回环网络边界与原生退出清理。任一门禁失败时不会进入 Release 发布任务。
+
+Windows 本机可在已有 NSIS 产物后执行 `pnpm test:single-instance` 和 `pnpm test:native-workspace`；显式 target 构建可通过 `TAURI_ENV_TARGET_TRIPLE` 指定产物目录，单实例脚本也可直接传入 `-TargetTriple x86_64-pc-windows-msvc`。
+
+macOS 原生 job 会在 `macos-latest` 上运行 `scripts/smoke-sidecar.mjs`，验证 Darwin sidecar 的 loopback ready、SQLite/API、偏好写入和优雅 shutdown，然后构建并检查 `.app` 的 `Info.plist`、主程序、嵌入 sidecar 和 ad-hoc 签名，并上传 `personal-workbench-macos-native-evidence`（工具链、命令、主程序/sidecar 哈希和签名结果）；安装包矩阵再构建并使用 `hdiutil verify` 校验 Apple Silicon DMG，同时上传 `personal-workbench-macos-bundle-evidence`（`.app`、sidecar、DMG 哈希及签名/镜像校验结果）。
 
 ## 创建版本
 
 1. 同步 `package.json`、桌面包、Tauri、Cargo 和 sidecar 的版本。
-2. 执行 `pnpm check`、`pnpm test:smoke` 和 `pnpm verify:versions`。
+2. 执行 `pnpm check`、`pnpm test`、`pnpm test:smoke` 和 `pnpm verify:versions`；Windows 构建后再执行两项原生 smoke。
 3. 提交并推送 `main`，等待 CI 通过。
 4. 创建并推送同版本标签，例如 `git tag v0.2.0 && git push origin v0.2.0`。
 5. `release.yml` 验证标签与 `package.json` 一致，聚合两种安装包后一次性创建公开 Release。

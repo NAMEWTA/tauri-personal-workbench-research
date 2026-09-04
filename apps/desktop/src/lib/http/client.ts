@@ -1,4 +1,5 @@
 import { client } from '../../generated/api/client.gen'
+import { validateLocalBackendUrl } from '../../app/backend-url'
 
 export type BackendConnection = {
   baseUrl: string
@@ -11,6 +12,7 @@ let requestInterceptor: number | undefined
 let unauthorizedHandler: (() => void) | undefined
 
 export function configureApi(connection: BackendConnection, onUnauthorized: () => void) {
+  validateLocalBackendUrl(connection.baseUrl)
   unauthorizedHandler = onUnauthorized
   client.setConfig({
     baseUrl: connection.baseUrl,

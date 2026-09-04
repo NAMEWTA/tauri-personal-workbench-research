@@ -12,30 +12,15 @@ import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { ArchivePicker } from '../archives/ArchivePicker'
 import { useCreateTask, useUpdateTask } from '../tasks/mutations'
 import { useLayoutStore } from '../../stores/layout'
+import { initialTaskDraft, taskDraftFromCalendarSelection } from './calendar-draft'
 
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 const localInput = (date: Date) =>
   new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 
-function initialDraft(): TaskInput {
-  const start = new Date()
-  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0)
-  const end = new Date(start.getTime() + 60 * 60_000)
-  return {
-    title: '',
-    status: 'todo',
-    priority: 'normal',
-    startsAt: start.toISOString(),
-    endsAt: end.toISOString(),
-    allDay: false,
-    timezone,
-    notes: '',
-  }
-}
-
 export default function CalendarPage() {
   const [creating, setCreating] = useState(false)
-  const [draft, setDraft] = useState<TaskInput>(initialDraft)
+  const [draft, setDraft] = useState<TaskInput>(initialTaskDraft)
   const [archiveTitle, setArchiveTitle] = useState('')
   const [range, setRange] = useState(() => {
     const now = new Date()
@@ -68,7 +53,13 @@ export default function CalendarPage() {
           <span className="eyebrow">统一任务时间轴</span>
           <h1>日历</h1>
         </div>
-        <button className="button primary" onClick={() => setCreating((value) => !value)}>
+        <button
+          className="button primary"
+          onClick={() => {
+            if (!creating) setDraft(initialTaskDraft())
+            setCreating((value) => !value)
+          }}
+        >
           <Plus size={16} />
           新建任务
         </button>
@@ -80,7 +71,7 @@ export default function CalendarPage() {
             event.preventDefault()
             create.mutate(draft, {
               onSuccess: (task) => {
-                setDraft(initialDraft())
+                setDraft(initialTaskDraft())
                 setArchiveTitle('')
                 setCreating(false)
                 selectTask(task.id)
@@ -134,8 +125,10 @@ export default function CalendarPage() {
           <button className="button primary" disabled={!draft.title.trim() || create.isPending}>
             创建任务
           </button>
+          {create.isError && <p className="form-error">创建失败，请检查时间范围后重试。</p>}
         </form>
       )}
+      {update.isError && <p className="form-error">日历任务更新失败，已恢复原时间。</p>}
       {query.isPending ? (
         <LoadingState />
       ) : query.isError ? (
@@ -164,6 +157,12 @@ export default function CalendarPage() {
               allDay: item.allDay,
               classNames: ['calendar-entry', `calendar-priority-${item.priority}`],
             }))}
+            selectable
+            select={(info) => {
+              setDraft(taskDraftFromCalendarSelection(info.start, info.end, info.allDay))
+              setArchiveTitle('')
+              setCreating(true)
+            }}
             editable
             eventClick={(info) => selectTask(info.event.id)}
             eventDrop={(info) => {

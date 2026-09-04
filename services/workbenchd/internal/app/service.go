@@ -11,6 +11,7 @@ import (
 	"github.com/personal-workbench/workbenchd/internal/attachment"
 	"github.com/personal-workbench/workbenchd/internal/backup"
 	"github.com/personal-workbench/workbenchd/internal/job"
+	"github.com/personal-workbench/workbenchd/internal/preferences"
 	"github.com/personal-workbench/workbenchd/internal/relation"
 	"github.com/personal-workbench/workbenchd/internal/task"
 )
@@ -56,6 +57,8 @@ type Activity struct {
 
 type Repository interface {
 	WorkspaceMeta(context.Context) (string, int, error)
+	Preferences(context.Context) (preferences.Values, error)
+	UpdatePreferences(context.Context, preferences.Update) (preferences.Values, error)
 	ListArchiveTypes(context.Context) ([]archive.TypeDefinition, error)
 	GetArchiveType(context.Context, string) (archive.TypeDefinition, error)
 	CreateArchiveType(context.Context, archive.TypeInput) (archive.TypeDefinition, error)
@@ -100,6 +103,12 @@ func New(repo Repository, backups *backup.Manager, attachments *attachment.Manag
 
 func (s *Service) WorkspaceMeta(ctx context.Context) (string, int, error) {
 	return s.repo.WorkspaceMeta(ctx)
+}
+func (s *Service) Preferences(ctx context.Context) (preferences.Values, error) {
+	return s.repo.Preferences(ctx)
+}
+func (s *Service) UpdatePreferences(ctx context.Context, update preferences.Update) (preferences.Values, error) {
+	return s.repo.UpdatePreferences(ctx, update)
 }
 func (s *Service) ListArchiveTypes(ctx context.Context) ([]archive.TypeDefinition, error) {
 	return s.repo.ListArchiveTypes(ctx)

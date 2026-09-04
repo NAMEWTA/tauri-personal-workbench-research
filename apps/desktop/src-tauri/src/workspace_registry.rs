@@ -14,6 +14,13 @@ pub struct WorkspaceEntry {
     pub last_opened: u64,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistedWorkspaceEntry {
+    path: String,
+    last_opened: u64,
+}
+
 #[derive(Default)]
 pub struct WorkspaceRegistry {
     inner: Mutex<RegistryState>,
@@ -35,7 +42,9 @@ impl WorkspaceRegistry {
                 Err(error)
             }
         }) {
-            Ok(raw) => serde_json::from_slice::<Vec<WorkspaceEntry>>(&raw).unwrap_or_default(),
+            Ok(raw) => {
+                serde_json::from_slice::<Vec<PersistedWorkspaceEntry>>(&raw).unwrap_or_default()
+            }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
             Err(error) => return Err(WorkbenchError::Operation(error.to_string())),
         };
@@ -46,13 +55,16 @@ impl WorkspaceRegistry {
         inner.config_path = Some(config_path);
         inner.entries = entries
             .into_iter()
-            .filter_map(|mut entry| {
+            .filter_map(|entry| {
                 let path = normalize_windows_path(PathBuf::from(&entry.path));
                 if !path.is_dir() {
                     return None;
                 }
-                entry.path = path.to_string_lossy().into_owned();
-                Some(entry)
+                Some(WorkspaceEntry {
+                    name: workspace_name(&path),
+                    path: path.to_string_lossy().into_owned(),
+                    last_opened: entry.last_opened,
+                })
             })
             .take(10)
             .collect();
@@ -96,16 +108,22 @@ impl WorkspaceRegistry {
             .inner
             .lock()
             .expect("workspace registry mutex poisoned");
-        inner
-            .entries
-            .retain(|value| !value.path.eq_ignore_ascii_case(&path_text));
-        inner.entries.insert(0, entry.clone());
-        inner.entries.truncate(10);
+        let mut entries = inner.entries.clone();
+        entries.retain(|value| !value.path.eq_ignore_ascii_case(&path_text));
+        entries.insert(0, entry.clone());
+        entries.truncate(10);
         let config_path = inner
             .config_path
             .clone()
             .ok_or_else(|| WorkbenchError::Operation("工作区注册表尚未初始化".into()))?;
-        let raw = serde_json::to_vec_pretty(&inner.entries)
+        let persisted = entries
+            .iter()
+            .map(|entry| PersistedWorkspaceEntry {
+                path: entry.path.clone(),
+                last_opened: entry.last_opened,
+            })
+            .collect::<Vec<_>>();
+        let raw = serde_json::to_vec_pretty(&persisted)
             .map_err(|error| WorkbenchError::Operation(error.to_string()))?;
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent)
@@ -114,8 +132,17 @@ impl WorkspaceRegistry {
         let temporary = config_path.with_extension("json.tmp");
         fs::write(&temporary, raw).map_err(|error| WorkbenchError::Operation(error.to_string()))?;
         replace_file(&temporary, &config_path)?;
+        inner.entries = entries;
         Ok(entry)
     }
+}
+
+fn workspace_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("个人工作台")
+        .to_string()
 }
 
 pub(crate) fn canonicalize_workspace_path(path: &Path) -> Result<PathBuf, io::Error> {
@@ -153,7 +180,7 @@ fn replace_file(temporary: &Path, destination: &Path) -> Result<(), WorkbenchErr
 
 #[cfg(test)]
 mod tests {
-    use super::{WorkspaceRegistry, normalize_windows_path};
+    use super::{WorkspaceRegistry, canonicalize_workspace_path, normalize_windows_path};
     use std::fs;
     use std::path::PathBuf;
 
@@ -188,6 +215,15 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].name, "first");
         assert_eq!(entries[1].name, "second");
+        let persisted: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join("workspaces.json")).expect("read registry"))
+                .expect("parse registry");
+        let fields = persisted[0]
+            .as_object()
+            .expect("persisted workspace entry object");
+        assert!(fields.contains_key("path"));
+        assert!(fields.contains_key("lastOpened"));
+        assert!(!fields.contains_key("name"));
 
         let reloaded = WorkspaceRegistry::default();
         reloaded
@@ -195,5 +231,37 @@ mod tests {
             .expect("reload registry");
         assert_eq!(reloaded.entries().len(), 2);
         fs::remove_dir_all(root).expect("remove registry fixture");
+    }
+
+    #[test]
+    fn keeps_previous_entry_when_persisting_a_new_entry_fails() {
+        let root = std::env::temp_dir().join(format!(
+            "workbench-registry-failure-{}",
+            rand::random::<u64>()
+        ));
+        let first = root.join("first");
+        let second = root.join("second");
+        fs::create_dir_all(&first).expect("create first workspace");
+        fs::create_dir_all(&second).expect("create second workspace");
+        let registry = WorkspaceRegistry::default();
+        registry
+            .initialize(root.join("workspaces.json"))
+            .expect("initialize registry");
+        registry.record(&first).expect("record first");
+
+        let blocker = root.join("registry-parent-blocker");
+        fs::write(&blocker, b"not a directory").expect("create parent blocker");
+        registry
+            .inner
+            .lock()
+            .expect("workspace registry mutex poisoned")
+            .config_path = Some(blocker.join("workspaces.json"));
+
+        assert!(registry.record(&second).is_err());
+        assert_eq!(
+            registry.current_path(),
+            Some(canonicalize_workspace_path(&first).expect("canonicalize first"))
+        );
+        fs::remove_dir_all(root).expect("remove registry failure fixture");
     }
 }

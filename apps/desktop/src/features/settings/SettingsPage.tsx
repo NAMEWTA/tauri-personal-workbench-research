@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useBackend } from '../../app/backend-context'
 import { getSearchStatus, rebuildSearch } from '../../generated/api/sdk.gen'
 import type { Job } from '../../generated/api/types.gen'
+import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { useJob } from '../jobs/useJob'
 import { requireData } from '../../lib/http/client'
 import { useLayoutStore } from '../../stores/layout'
@@ -16,13 +17,18 @@ export function SettingsPage() {
   const queryClient = useQueryClient()
   const { meta, connection } = useBackend()
   const { theme, setTheme } = useLayoutStore()
+  const tauriAvailable = '__TAURI_INTERNALS__' in window
   const recent = useQuery({
     queryKey: ['recent-workspaces'],
-    queryFn: () => invoke<WorkspaceEntry[]>('list_recent_workspaces'),
+    queryFn: () =>
+      tauriAvailable ? invoke<WorkspaceEntry[]>('list_recent_workspaces') : Promise.resolve([]),
   })
   const diagnostics = useQuery({
     queryKey: ['backend-diagnostics'],
-    queryFn: () => invoke<BackendDiagnostics>('backend_diagnostics'),
+    queryFn: () =>
+      tauriAvailable
+        ? invoke<BackendDiagnostics>('backend_diagnostics')
+        : Promise.resolve({ state: '仅 Web 预览' }),
   })
   const searchStatus = useQuery({
     queryKey: ['search-status'],
@@ -41,6 +47,7 @@ export function SettingsPage() {
   }, [queryClient, searchJob.query.data?.state])
   const openWorkspace = useMutation({
     mutationFn: async (path?: string) => {
+      if (!tauriAvailable) throw new Error('工作区切换仅支持桌面端')
       const selected = path ?? (await invoke<string | null>('select_workspace_directory'))
       if (!selected) return false
       await invoke('open_workspace', { path: selected })
@@ -84,7 +91,8 @@ export function SettingsPage() {
           <button
             className="button"
             onClick={() => openWorkspace.mutate(undefined)}
-            disabled={openWorkspace.isPending}
+            disabled={!tauriAvailable || openWorkspace.isPending}
+            title={tauriAvailable ? '新建或打开工作区' : '请在桌面端使用'}
           >
             <FolderOpen size={15} />
             新建或打开
@@ -115,7 +123,11 @@ export function SettingsPage() {
             </dd>
           </div>
         </dl>
-        {recent.data && recent.data.length > 0 && (
+        {recent.isPending ? (
+          <LoadingState label="正在读取最近工作区…" />
+        ) : recent.isError ? (
+          <ErrorState error={recent.error} retry={() => void recent.refetch()} />
+        ) : recent.data.length > 0 ? (
           <div className="recent-workspaces">
             <span className="eyebrow">最近打开</span>
             {recent.data.map((item, index) => (
@@ -132,13 +144,18 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
-        )}
+        ) : null}
         {openWorkspace.isError && <p className="form-error">工作区无法打开，已恢复原连接。</p>}
       </section>
       <section>
         <div className="section-heading">
           <h2>诊断</h2>
-          <button className="button" onClick={() => void invoke('reveal_log_directory')}>
+          <button
+            className="button"
+            onClick={() => void invoke('reveal_log_directory')}
+            disabled={!tauriAvailable}
+            title={tauriAvailable ? '打开日志目录' : '请在桌面端使用'}
+          >
             <FileSearch size={15} />
             打开日志目录
           </button>
@@ -146,7 +163,13 @@ export function SettingsPage() {
         <dl className="diagnostic-list">
           <div>
             <dt>监督状态</dt>
-            <dd>{diagnostics.data?.state ?? '读取中'}</dd>
+            <dd>
+              {diagnostics.isPending
+                ? '读取中'
+                : diagnostics.isError
+                  ? '读取失败'
+                  : diagnostics.data.state}
+            </dd>
           </div>
           <div>
             <dt>日志策略</dt>
@@ -159,17 +182,30 @@ export function SettingsPage() {
           <div>
             <dt>搜索索引</dt>
             <dd>
-              {searchStatus.data?.healthy ? '正常' : searchStatus.isLoading ? '读取中' : '需要重建'}
+              {searchStatus.isPending
+                ? '读取中'
+                : searchStatus.isError
+                  ? '读取失败'
+                  : searchStatus.data.healthy
+                    ? '正常'
+                    : '需要重建'}
             </dd>
           </div>
         </dl>
+        {diagnostics.isError && (
+          <ErrorState error={diagnostics.error} retry={() => void diagnostics.refetch()} />
+        )}
         <div className="setting-row">
           <div>
             <strong>全文搜索索引</strong>
             <span>重新扫描档案、任务和附件名称。</span>
           </div>
           {searchJob.active ? (
-            <button className="button" onClick={() => searchJob.cancel.mutate()}>
+            <button
+              className="button"
+              onClick={() => searchJob.cancel.mutate()}
+              disabled={searchJob.cancel.isPending}
+            >
               <X size={15} />
               取消 {searchJob.query.data?.progress ?? 0}%
             </button>
@@ -187,6 +223,12 @@ export function SettingsPage() {
         {searchJob.query.data?.state === 'failed' && (
           <p className="form-error">索引重建失败，请查看日志。</p>
         )}
+        {searchStatus.isError && (
+          <ErrorState error={searchStatus.error} retry={() => void searchStatus.refetch()} />
+        )}
+        {rebuild.isError && <p className="form-error">索引重建请求失败，请稍后重试。</p>}
+        {searchJob.query.isError && <p className="form-error">索引任务状态读取失败，请重试。</p>}
+        {searchJob.cancel.isError && <p className="form-error">取消索引任务失败，请重试。</p>}
       </section>
     </div>
   )

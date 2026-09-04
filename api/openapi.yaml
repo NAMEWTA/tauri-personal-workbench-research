@@ -39,6 +39,37 @@ paths:
                 $ref: "#/components/schemas/Meta"
         default:
           $ref: "#/components/responses/Problem"
+  /api/v2/preferences:
+    get:
+      summary: Read workspace-scoped UI preferences
+      operationId: getPreferences
+      responses:
+        "200":
+          description: Workspace-scoped UI preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        default:
+          $ref: "#/components/responses/Problem"
+    patch:
+      summary: Update workspace-scoped UI preferences
+      operationId: updatePreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreferencesUpdate"
+      responses:
+        "200":
+          description: Updated workspace-scoped UI preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        default:
+          $ref: "#/components/responses/Problem"
   /api/v2/dashboard:
     get:
       summary: Get the today dashboard
@@ -1018,6 +1049,37 @@ components:
       required: [backupDirectory]
       properties:
         backupDirectory: { type: string }
+    Preferences:
+      type: object
+      required: [theme, sidebarCollapsed, inspectorWidth, recentSearches]
+      properties:
+        theme: { type: string, enum: [light, dark, system] }
+        sidebarCollapsed: { type: boolean }
+        inspectorWidth: { type: integer, minimum: 300, maximum: 480 }
+        recentSearches:
+          type: array
+          maxItems: 8
+          items: { $ref: "#/components/schemas/RecentSearch" }
+    PreferencesUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        theme: { type: string, enum: [light, dark, system] }
+        sidebarCollapsed: { type: boolean }
+        inspectorWidth: { type: integer, minimum: 300, maximum: 480 }
+        recentSearches:
+          type: array
+          maxItems: 8
+          items: { $ref: "#/components/schemas/RecentSearch" }
+    RecentSearch:
+      type: object
+      required: [id, type, title, subtitle]
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [archive, task, attachment] }
+        title: { type: string }
+        subtitle: { type: string }
     RestoreReport:
       type: object
       required:

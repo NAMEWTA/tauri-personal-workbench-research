@@ -149,6 +149,14 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.save-status {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.save-status.error {
+  color: var(--danger);
+}
 .search-trigger {
   display: flex;
   width: min(430px, 40vw);
@@ -388,6 +396,36 @@ kbd {
   gap: 16px;
   margin-bottom: 22px;
 }
+.task-filter {
+  position: relative;
+}
+.task-filter-menu {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  min-width: 148px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px rgba(31, 48, 40, 0.14);
+}
+.task-filter-menu button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  white-space: nowrap;
+}
+.task-filter-menu button:hover,
+.task-filter-menu button.active {
+  background: var(--surface-muted);
+}
 .eyebrow {
   display: block;
   margin-bottom: 4px;
@@ -463,6 +501,7 @@ textarea::placeholder {
   width: 100%;
   min-height: 42px;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 4px 5px 4px 12px;
   border: 1px solid var(--border);
@@ -478,6 +517,10 @@ textarea::placeholder {
   border: 0;
   outline: 0;
   background: transparent;
+}
+.quick-add .form-error {
+  flex-basis: 100%;
+  padding: 0 8px 4px;
 }
 .segmented,
 .icon-segment {
@@ -571,6 +614,12 @@ textarea::placeholder {
   gap: 12px;
   margin-top: 4px;
   color: var(--muted);
+  font-size: 11px;
+}
+.task-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--danger);
   font-size: 11px;
 }
 .task-copy .task-due {
@@ -681,6 +730,14 @@ textarea::placeholder {
 }
 .picker-types button {
   flex: 0 0 auto;
+}
+.picker-state,
+.picker-state .state-view {
+  min-height: 80px;
+}
+.archive-type-state,
+.archive-type-state .state-view {
+  min-height: 56px;
 }
 .compact-search {
   max-width: none;

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Archive, CheckSquare2, Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -6,23 +6,25 @@ import { search } from '../../generated/api/sdk.gen'
 import type { SearchResult } from '../../generated/api/types.gen'
 import { requireData } from '../../lib/http/client'
 import { useLayoutStore } from '../../stores/layout'
+import { preferencesKey, usePreferences } from '../../features/settings/preferences'
+import { updatePreferences } from '../../generated/api/sdk.gen'
+import { ErrorState } from '../ui/StateView'
 
 const icons = { archive: Archive, task: CheckSquare2, attachment: Archive }
 const groupLabels = { archive: '档案', task: '任务', attachment: '附件' }
-const recentKey = 'workbench-recent-search-results'
-
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('')
-  const [recent, setRecent] = useState<SearchResult[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(recentKey) ?? '[]') as SearchResult[]
-    } catch {
-      return []
-    }
-  })
   const input = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const preferences = usePreferences()
   const selectTask = useLayoutStore((state) => state.selectTask)
+  const recent = preferences.data?.recentSearches ?? []
+  const saveRecent = useMutation({
+    mutationFn: async (recentSearches: SearchResult[]) =>
+      requireData((await updatePreferences({ body: { recentSearches }, throwOnError: true })).data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: preferencesKey }),
+  })
   const results = useQuery({
     queryKey: ['search', query],
     queryFn: async () =>
@@ -40,8 +42,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       item,
       ...recent.filter((value) => value.id !== item.id || value.type !== item.type),
     ].slice(0, 8)
-    setRecent(next)
-    localStorage.setItem(recentKey, JSON.stringify(next))
+    saveRecent.mutate(next)
     onClose()
     if (item.type === 'archive' || item.type === 'attachment')
       void navigate({ to: '/archives/$archiveId', params: { archiveId: item.id } })
@@ -93,7 +94,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             </div>
           )}
           {results.isFetching && <p className="palette-hint">正在搜索…</p>}
-          {results.isError && <p className="palette-hint">搜索暂不可用，请在设置中重建索引。</p>}
+          {results.isError && (
+            <ErrorState error={results.error} retry={() => void results.refetch()} />
+          )}
           {query !== '' &&
             (Object.keys(groupLabels) as Array<SearchResult['type']>).map((type) => {
               const items = results.data?.filter((item) => item.type === type) ?? []

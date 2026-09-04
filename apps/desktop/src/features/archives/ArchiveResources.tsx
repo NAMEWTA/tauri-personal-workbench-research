@@ -27,6 +27,7 @@ import {
 import { requireData } from '../../lib/http/client'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { useLayoutStore } from '../../stores/layout'
+import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { useJob } from '../jobs/useJob'
 import { TaskRow } from '../tasks/TaskRow'
 import { archiveTypesQuery, archivesQuery } from './queries'
@@ -47,6 +48,7 @@ const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 export function ArchiveResources({ archiveId }: { archiveId: string }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const tauriAvailable = '__TAURI_INTERNALS__' in window
   const selectTask = useLayoutStore((state) => state.selectTask)
   const [targetId, setTargetId] = useState('')
   const [targetTypeId, setTargetTypeId] = useState('')
@@ -102,6 +104,7 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
     onSuccess: async () => {
       setTargetId('')
       await queryClient.invalidateQueries({ queryKey: ['archive-relations', archiveId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-activity', archiveId] })
     },
   })
   const removeRelation = useMutation({
@@ -110,10 +113,12 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['archive-relations', archiveId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-activity', archiveId] })
     },
   })
   const importFiles = useMutation({
     mutationFn: async () => {
+      if (!tauriAvailable) throw new Error('附件选择仅支持桌面端')
       const paths = await invoke<string[]>('select_attachment_files')
       if (paths.length === 0) return undefined
       return requireData(
@@ -136,10 +141,12 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['archive-attachments', archiveId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-activity', archiveId] })
     },
   })
   const openAttachment = useMutation({
     mutationFn: async (attachmentId: string) => {
+      if (!tauriAvailable) throw new Error('附件打开仅支持桌面端')
       const target = requireData(
         (await getAttachmentOpenTarget({ path: { attachmentId }, throwOnError: true })).data,
       )
@@ -147,9 +154,19 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
     },
   })
   const candidates = archives.data?.items.filter((item) => item.id !== archiveId) ?? []
+  const operationError =
+    addRelation.error ||
+    removeRelation.error ||
+    importFiles.error ||
+    removeAttachment.error ||
+    openAttachment.error ||
+    attachmentJob.cancel.error
 
   return (
     <div className="resource-grid">
+      {operationError && (
+        <p className="form-error resource-operation-error">操作失败，请稍后重试。</p>
+      )}
       <section>
         <div className="section-heading">
           <h2>
@@ -164,45 +181,58 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
             if (targetId) addRelation.mutate()
           }}
         >
-          <div className="segmented picker-types">
-            <button
-              type="button"
-              className={!targetTypeId ? 'active' : ''}
-              onClick={() => setTargetTypeId('')}
-            >
-              全部
-            </button>
-            {types.data?.map((item) => (
+          {types.isPending ? (
+            <LoadingState label="正在读取档案类型…" />
+          ) : types.isError ? (
+            <ErrorState error={types.error} retry={() => void types.refetch()} />
+          ) : (
+            <div className="segmented picker-types">
               <button
                 type="button"
-                key={item.id}
-                className={targetTypeId === item.id ? 'active' : ''}
-                onClick={() => setTargetTypeId(item.id)}
+                className={!targetTypeId ? 'active' : ''}
+                onClick={() => setTargetTypeId('')}
               >
-                {item.name}
+                全部
               </button>
-            ))}
-          </div>
+              {types.data.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={targetTypeId === item.id ? 'active' : ''}
+                  onClick={() => setTargetTypeId(item.id)}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          )}
           <label className="search-field compact-search">
             <Search size={14} />
             <input
+              aria-label="搜索档案标题"
               value={targetQuery}
               onChange={(event) => setTargetQuery(event.target.value)}
               placeholder="搜索档案标题"
             />
           </label>
           <div className="relation-candidates">
-            {candidates.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                className={targetId === item.id ? 'active' : ''}
-                onClick={() => setTargetId(item.id)}
-              >
-                <strong>{item.title}</strong>
-                <small>{item.typeName}</small>
-              </button>
-            ))}
+            {archives.isPending ? (
+              <LoadingState label="正在搜索档案…" />
+            ) : archives.isError ? (
+              <ErrorState error={archives.error} retry={() => void archives.refetch()} />
+            ) : (
+              candidates.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={targetId === item.id ? 'active' : ''}
+                  onClick={() => setTargetId(item.id)}
+                >
+                  <strong>{item.title}</strong>
+                  <small>{item.typeName}</small>
+                </button>
+              ))
+            )}
           </div>
           <div className="relation-form">
             <input
@@ -210,12 +240,16 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
               value={relationType}
               onChange={(event) => setRelationType(event.target.value)}
             />
-            <button className="button" disabled={!targetId}>
+            <button className="button" disabled={!targetId || addRelation.isPending}>
               建立关联
             </button>
           </div>
         </form>
-        {relations.data?.length ? (
+        {relations.isPending ? (
+          <LoadingState label="正在读取关系…" />
+        ) : relations.isError ? (
+          <ErrorState error={relations.error} retry={() => void relations.refetch()} />
+        ) : relations.data?.length ? (
           <div className="resource-list">
             {relations.data.map((item) => (
               <div key={item.id}>
@@ -237,6 +271,7 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
                   className="icon-button"
                   onClick={() => removeRelation.mutate(item.id)}
                   aria-label="移除关系"
+                  disabled={removeRelation.isPending}
                 >
                   <Trash2 size={15} />
                 </button>
@@ -258,13 +293,21 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
             onClick={() =>
               attachmentJob.active ? attachmentJob.cancel.mutate() : importFiles.mutate()
             }
-            disabled={importFiles.isPending || attachmentJob.cancel.isPending}
+            disabled={!tauriAvailable || importFiles.isPending || attachmentJob.cancel.isPending}
+            title={tauriAvailable ? '导入附件' : '请在桌面端使用'}
           >
             {attachmentJob.active ? <Square size={13} /> : <FilePlus2 size={15} />}
             {attachmentJob.active ? `${attachmentJob.query.data?.progress ?? 0}%` : '导入'}
           </button>
         </div>
-        {attachments.data?.length ? (
+        {attachmentJob.query.data?.state === 'failed' && (
+          <p className="form-error">附件导入失败，请检查文件后重试。</p>
+        )}
+        {attachments.isPending ? (
+          <LoadingState label="正在读取附件…" />
+        ) : attachments.isError ? (
+          <ErrorState error={attachments.error} retry={() => void attachments.refetch()} />
+        ) : attachments.data?.length ? (
           <div className="resource-list">
             {attachments.data.map((item) => (
               <div key={item.id}>
@@ -279,6 +322,8 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
                     className="icon-button"
                     onClick={() => openAttachment.mutate(item.id)}
                     aria-label="打开附件"
+                    disabled={!tauriAvailable || openAttachment.isPending}
+                    title={tauriAvailable ? '打开附件' : '请在桌面端使用'}
                   >
                     <ExternalLink size={15} />
                   </button>
@@ -286,6 +331,7 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
                     className="icon-button"
                     onClick={() => removeAttachment.mutate(item.id)}
                     aria-label="移除附件"
+                    disabled={removeAttachment.isPending}
                   >
                     <Trash2 size={15} />
                   </button>
@@ -304,7 +350,11 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
             任务
           </h2>
         </div>
-        {tasks.data?.length ? (
+        {tasks.isPending ? (
+          <LoadingState label="正在读取关联任务…" />
+        ) : tasks.isError ? (
+          <ErrorState error={tasks.error} retry={() => void tasks.refetch()} />
+        ) : tasks.data?.length ? (
           <div className="task-list">
             {tasks.data.map((item) => (
               <TaskRow
@@ -327,7 +377,11 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
             活动
           </h2>
         </div>
-        {activity.data?.length ? (
+        {activity.isPending ? (
+          <LoadingState label="正在读取活动…" />
+        ) : activity.isError ? (
+          <ErrorState error={activity.error} retry={() => void activity.refetch()} />
+        ) : activity.data?.length ? (
           <div className="resource-list">
             {activity.data.map((item) => (
               <div key={item.id}>

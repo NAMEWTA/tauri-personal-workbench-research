@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useParams } from '@tanstack/react-router'
+import { useBlocker, useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeft, Eye, EyeOff, Save, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { trashArchive, updateArchive } from '../../generated/api/sdk.gen'
@@ -9,6 +9,7 @@ import { requireData } from '../../lib/http/client'
 import { archiveKeys, archiveQuery, archiveTypesQuery } from './queries'
 import { ArchiveResources } from './ArchiveResources'
 import { ArchiveFieldControl } from './ArchiveFieldControl'
+import { useLayoutStore } from '../../stores/layout'
 
 export function ArchiveDetailPage() {
   const { archiveId } = useParams({ from: '/archives/$archiveId' })
@@ -22,7 +23,7 @@ export function ArchiveDetailPage() {
   if (query.isError)
     return (
       <div className="page">
-        <ErrorState error={query.error} />
+        <ErrorState error={query.error} retry={() => void query.refetch()} />
       </div>
     )
   return <ArchiveEditor key={query.data.updatedAt} archive={query.data} />
@@ -32,6 +33,7 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
   const archiveId = archive.id
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const setEditorDirty = useLayoutStore((state) => state.setEditorDirty)
   const [revealed, setRevealed] = useState(false)
   const definitions = useQuery(archiveTypesQuery)
   const [draft, setDraft] = useState<ArchiveInput>({
@@ -67,11 +69,20 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
     new Set([...fieldDefinitions.map((field) => field.key), ...Object.keys(draft.fields ?? {})]),
   )
   const sensitive = fieldDefinitions.filter((field) => field.sensitive)
+  const dirty = !sameArchiveDraft(draft, archive)
+  useEffect(() => {
+    setEditorDirty(dirty)
+    return () => setEditorDirty(false)
+  }, [dirty, setEditorDirty])
+  useBlocker({
+    shouldBlockFn: () => dirty && !window.confirm('当前档案有未保存更改，确定离开吗？'),
+    enableBeforeUnload: () => dirty,
+  })
   return (
     <div className="page archive-detail">
       <div className="page-header">
         <div>
-          <button className="back-link" onClick={() => history.back()}>
+          <button className="back-link" onClick={() => void navigate({ to: '/archives' })}>
             <ArrowLeft size={15} />
             档案
           </button>
@@ -83,9 +94,10 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
             onClick={() => {
               if (confirm('将此档案移至回收站？')) remove.mutate()
             }}
+            disabled={remove.isPending}
           >
             <Trash2 size={16} />
-            删除
+            {remove.isPending ? '删除中' : '删除'}
           </button>
           <button
             className="button primary"
@@ -93,10 +105,12 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
             onClick={() => save.mutate(draft)}
           >
             <Save size={16} />
-            保存
+            {save.isPending ? '保存中' : '保存'}
           </button>
         </div>
       </div>
+      {save.isError && <p className="form-error">保存失败，请检查字段内容后重试。</p>}
+      {remove.isError && <p className="form-error">删除失败，请稍后重试。</p>}
       <div className="detail-layout">
         <section className="editor-section">
           <label>
@@ -141,7 +155,11 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
               </button>
             )}
           </div>
-          {fieldKeys.length === 0 ? (
+          {definitions.isPending ? (
+            <LoadingState label="正在读取属性定义…" />
+          ) : definitions.isError ? (
+            <ErrorState error={definitions.error} retry={() => void definitions.refetch()} />
+          ) : fieldKeys.length === 0 ? (
             <p className="quiet-empty">暂无自定义属性。</p>
           ) : (
             <details className="field-group" open>
@@ -175,5 +193,15 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
       </div>
       <ArchiveResources archiveId={archiveId} />
     </div>
+  )
+}
+
+function sameArchiveDraft(draft: ArchiveInput, archive: Archive) {
+  return (
+    draft.typeId === archive.typeId &&
+    draft.title === archive.title &&
+    (draft.summary ?? '') === archive.summary &&
+    (draft.body ?? '') === archive.body &&
+    JSON.stringify(draft.fields ?? {}) === JSON.stringify(archive.fields ?? {})
   )
 }

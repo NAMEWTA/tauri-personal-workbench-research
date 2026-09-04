@@ -1,4 +1,5 @@
 import type { ArchiveFieldDefinition } from '../../generated/api/types.gen'
+import { isoDateTimeValue, localDateTimeValue } from './fieldValues'
 
 export function ArchiveFieldControl({
   field,
@@ -60,12 +61,14 @@ export function ArchiveFieldControl({
                 ? 'number'
                 : 'text'
       }
-      value={String(value ?? '')}
+      value={field.valueType === 'datetime' ? localDateTimeValue(value) : String(value ?? '')}
       onChange={(event) =>
         onChange(
           field.valueType === 'number' && event.target.value !== ''
             ? Number(event.target.value)
-            : event.target.value,
+            : field.valueType === 'datetime'
+              ? isoDateTimeValue(event.target.value)
+              : event.target.value,
         )
       }
     />

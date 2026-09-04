@@ -195,6 +195,27 @@ export type BackupSettings = {
     backupDirectory: string;
 };
 
+export type Preferences = {
+    theme: 'light' | 'dark' | 'system';
+    sidebarCollapsed: boolean;
+    inspectorWidth: number;
+    recentSearches: Array<RecentSearch>;
+};
+
+export type PreferencesUpdate = {
+    theme?: 'light' | 'dark' | 'system';
+    sidebarCollapsed?: boolean;
+    inspectorWidth?: number;
+    recentSearches?: Array<RecentSearch>;
+};
+
+export type RecentSearch = {
+    id: string;
+    type: 'archive' | 'task' | 'attachment';
+    title: string;
+    subtitle: string;
+};
+
 export type RestoreReport = {
     formatVersion: number;
     fileCount: number;
@@ -279,6 +300,56 @@ export type GetMetaResponses = {
 };
 
 export type GetMetaResponse = GetMetaResponses[keyof GetMetaResponses];
+
+export type GetPreferencesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v2/preferences';
+};
+
+export type GetPreferencesErrors = {
+    /**
+     * RFC 9457 compatible problem detail
+     */
+    default: Problem;
+};
+
+export type GetPreferencesError = GetPreferencesErrors[keyof GetPreferencesErrors];
+
+export type GetPreferencesResponses = {
+    /**
+     * Workspace-scoped UI preferences
+     */
+    200: Preferences;
+};
+
+export type GetPreferencesResponse = GetPreferencesResponses[keyof GetPreferencesResponses];
+
+export type UpdatePreferencesData = {
+    body: PreferencesUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v2/preferences';
+};
+
+export type UpdatePreferencesErrors = {
+    /**
+     * RFC 9457 compatible problem detail
+     */
+    default: Problem;
+};
+
+export type UpdatePreferencesError = UpdatePreferencesErrors[keyof UpdatePreferencesErrors];
+
+export type UpdatePreferencesResponses = {
+    /**
+     * Updated workspace-scoped UI preferences
+     */
+    200: Preferences;
+};
+
+export type UpdatePreferencesResponse = UpdatePreferencesResponses[keyof UpdatePreferencesResponses];
 
 export type GetDashboardData = {
     body?: never;

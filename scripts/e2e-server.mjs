@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { sidecarBinaryName } from "./sidecar-target.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const appVersion = JSON.parse(
@@ -23,10 +24,12 @@ const binariesDirectory = join(
   "src-tauri",
   "binaries",
 );
-const suffix = process.platform === "win32" ? ".exe" : "";
-const binaryName = readdirSync(binariesDirectory).find(
-  (name) => name.startsWith("workbenchd-") && name.endsWith(suffix),
-);
+const binaryName = sidecarBinaryName();
+if (!readdirSync(binariesDirectory).includes(binaryName)) {
+  throw new Error(
+    `Expected ${binaryName}; run pnpm build:sidecar for the current target`,
+  );
+}
 
 if (!binaryName)
   throw new Error(

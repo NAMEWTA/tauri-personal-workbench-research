@@ -6,6 +6,7 @@ import { AlertTriangle, FileSearch, FolderOpen, RefreshCw } from 'lucide-react'
 import { getMeta } from '../generated/api/sdk.gen'
 import { clearApi, configureApi, requireData, type BackendConnection } from '../lib/http/client'
 import { BackendContext } from './backend-context'
+import { validateLocalBackendUrl } from './backend-url'
 import { queryClient } from './queryClient'
 
 type BackendDiagnostics = { state: string; detail?: unknown }
@@ -13,15 +14,21 @@ type BackendDiagnostics = { state: string; detail?: unknown }
 async function connectionInfo(): Promise<BackendConnection> {
   if (
     import.meta.env.DEV &&
-    import.meta.env.VITE_BACKEND_URL &&
-    import.meta.env.VITE_BACKEND_TOKEN
+    (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_BACKEND_TOKEN)
   ) {
+    const rawUrl = import.meta.env.VITE_BACKEND_URL
+    const token = import.meta.env.VITE_BACKEND_TOKEN
+    if (!rawUrl || !token) throw new Error('本地开发后端必须同时提供地址和令牌')
+    validateLocalBackendUrl(rawUrl)
     return {
-      baseUrl: import.meta.env.VITE_BACKEND_URL,
-      token: import.meta.env.VITE_BACKEND_TOKEN,
+      baseUrl: rawUrl,
+      token,
       protocolVersion: 2,
       serviceVersion: 'development',
     }
+  }
+  if (!('__TAURI_INTERNALS__' in window)) {
+    throw new Error('桌面端宿主不可用，请使用 Tauri 应用启动。')
   }
   return invoke<BackendConnection>('backend_connection_info')
 }
@@ -29,6 +36,7 @@ async function connectionInfo(): Promise<BackendConnection> {
 function BackendBootstrap({ children }: { children: ReactNode }) {
   const [generation, setGeneration] = useState(0)
   const [recoveryError, setRecoveryError] = useState('')
+  const tauriAvailable = '__TAURI_INTERNALS__' in window
   const query = useQuery({
     queryKey: ['backend', generation],
     queryFn: async () => {
@@ -44,12 +52,16 @@ function BackendBootstrap({ children }: { children: ReactNode }) {
   })
   const diagnostics = useQuery({
     queryKey: ['backend-diagnostics', generation],
-    queryFn: () => invoke<BackendDiagnostics>('backend_diagnostics'),
+    queryFn: () =>
+      tauriAvailable
+        ? invoke<BackendDiagnostics>('backend_diagnostics')
+        : Promise.resolve<BackendDiagnostics>({ state: '仅 Web 预览' }),
     enabled: query.isError,
   })
   const recover = async (command: 'retry_backend' | 'open_workspace') => {
     setRecoveryError('')
     try {
+      if (!tauriAvailable) throw new Error('恢复本地服务仅支持桌面端')
       if (command === 'open_workspace') {
         const path = await invoke<string | null>('select_workspace_directory')
         if (!path) return
@@ -119,7 +131,12 @@ function BackendBootstrap({ children }: { children: ReactNode }) {
             <FolderOpen size={16} />
             新建或打开工作区
           </button>
-          <button className="button" onClick={() => void invoke('reveal_log_directory')}>
+          <button
+            className="button"
+            onClick={() => void invoke('reveal_log_directory')}
+            disabled={!tauriAvailable}
+            title={tauriAvailable ? '打开日志目录' : '请在桌面端使用'}
+          >
             <FileSearch size={16} />
             打开日志
           </button>

@@ -17,6 +17,7 @@ import { useJob } from '../jobs/useJob'
 export function BackupPage() {
   const [jobId, setJobId] = useState<string>()
   const queryClient = useQueryClient()
+  const tauriAvailable = '__TAURI_INTERNALS__' in window
   const query = useQuery({
     queryKey: ['backups'],
     queryFn: async () => requireData((await listBackups({ throwOnError: true })).data),
@@ -36,6 +37,7 @@ export function BackupPage() {
   })
   const configure = useMutation({
     mutationFn: async () => {
+      if (!tauriAvailable) throw new Error('备份目录选择仅支持桌面端')
       const backupDirectory = await invoke<string | null>('select_backup_destination')
       if (!backupDirectory) return undefined
       return requireData(
@@ -55,6 +57,7 @@ export function BackupPage() {
   })
   const restore = useMutation({
     mutationFn: async () => {
+      if (!tauriAvailable) throw new Error('备份恢复仅支持桌面端')
       const source = await invoke<string | null>('select_backup_file')
       if (!source) return undefined
       const report = requireData(
@@ -103,7 +106,8 @@ export function BackupPage() {
         <button
           className="button"
           onClick={() => configure.mutate()}
-          disabled={configure.isPending || running}
+          disabled={!tauriAvailable || configure.isPending || running}
+          title={tauriAvailable ? '选择备份目录' : '请在桌面端使用'}
         >
           <FolderOpen size={15} />
           {backupDirectory ? '更改目录' : '选择目录'}
@@ -120,6 +124,7 @@ export function BackupPage() {
           </button>
         )}
       </div>
+      {settings.isPending && <LoadingState label="正在读取备份设置…" />}
       <dl className="backup-policy">
         <div>
           <dt>上次成功</dt>
@@ -161,7 +166,12 @@ export function BackupPage() {
       <section>
         <div className="section-heading">
           <h2>备份历史</h2>
-          <button className="button" onClick={() => restore.mutate()} disabled={running}>
+          <button
+            className="button"
+            onClick={() => restore.mutate()}
+            disabled={!tauriAvailable || running}
+            title={tauriAvailable ? '恢复到新工作区' : '请在桌面端使用'}
+          >
             <ArchiveRestore size={15} />
             {restore.isPending ? '正在预检' : '恢复'}
           </button>
@@ -207,6 +217,11 @@ export function BackupPage() {
         <p className="form-error">备份目录不可用，请重新选择。</p>
       )}
       {restore.isError && <p className="form-error">备份未通过预检或目标目录不可用。</p>}
+      {settings.isError && (
+        <ErrorState error={settings.error} retry={() => void settings.refetch()} />
+      )}
+      {job.query.isError && <p className="form-error">后台任务状态读取失败，请重试。</p>}
+      {job.cancel.isError && <p className="form-error">取消后台任务失败，请重试。</p>}
     </div>
   )
 }

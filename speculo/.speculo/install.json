@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "package_version": "0.8.8",
+  "workflows": [
+    "learning",
+    "specdev"
+  ],
+  "managed_manifest": ".speculo/managed.json",
+  "config_baseline_schema": 1
+}

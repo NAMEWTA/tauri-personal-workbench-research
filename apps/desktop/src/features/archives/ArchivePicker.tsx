@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ExternalLink, Search, X } from 'lucide-react'
 import { useState } from 'react'
+import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { archiveTypesQuery, archivesQuery } from './queries'
 import { useDebouncedValue } from '../../lib/useDebouncedValue'
 
@@ -47,21 +48,31 @@ export function ArchivePicker({
           </div>
         </div>
       )}
-      <div className="segmented picker-types" aria-label="按档案类型筛选">
-        <button type="button" className={!typeId ? 'active' : ''} onClick={() => setTypeId('')}>
-          全部
-        </button>
-        {types.data?.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            className={typeId === item.id ? 'active' : ''}
-            onClick={() => setTypeId(item.id)}
-          >
-            {item.name}
+      {types.isPending ? (
+        <div className="picker-state">
+          <LoadingState label="正在读取档案类型…" />
+        </div>
+      ) : types.isError ? (
+        <div className="picker-state">
+          <ErrorState error={types.error} retry={() => void types.refetch()} />
+        </div>
+      ) : (
+        <div className="segmented picker-types" aria-label="按档案类型筛选">
+          <button type="button" className={!typeId ? 'active' : ''} onClick={() => setTypeId('')}>
+            全部
           </button>
-        ))}
-      </div>
+          {types.data.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className={typeId === item.id ? 'active' : ''}
+              onClick={() => setTypeId(item.id)}
+            >
+              {item.name}
+            </button>
+          ))}
+        </div>
+      )}
       <label className="search-field compact-search">
         <Search size={14} />
         <input
@@ -71,19 +82,27 @@ export function ArchivePicker({
         />
       </label>
       <div className="picker-results">
-        {archives.data?.items.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            className={item.id === value ? 'active' : ''}
-            onClick={() => onChange(item.id, item.title)}
-          >
-            <span style={{ backgroundColor: item.typeColor }} />
-            <strong>{item.title}</strong>
-            <small>{item.typeName}</small>
-          </button>
-        ))}
-        {archives.data?.items.length === 0 && <p className="quiet-empty">没有匹配档案。</p>}
+        {archives.isPending ? (
+          <LoadingState label="正在搜索档案…" />
+        ) : archives.isError ? (
+          <ErrorState error={archives.error} retry={() => void archives.refetch()} />
+        ) : (
+          <>
+            {archives.data.items.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={item.id === value ? 'active' : ''}
+                onClick={() => onChange(item.id, item.title)}
+              >
+                <span style={{ backgroundColor: item.typeColor }} />
+                <strong>{item.title}</strong>
+                <small>{item.typeName}</small>
+              </button>
+            ))}
+            {archives.data.items.length === 0 && <p className="quiet-empty">没有匹配档案。</p>}
+          </>
+        )}
       </div>
     </div>
   )

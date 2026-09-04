@@ -23,6 +23,7 @@ $sidecar = Join-Path $installDirectory 'workbenchd.exe'
 $workspace = Join-Path ([IO.Path]::GetTempPath()) "personal-workbench-installed-smoke-$PID"
 $workspaceFull = [IO.Path]::GetFullPath($workspace)
 $configDirectory = Join-Path $workspaceFull 'app-data'
+$webviewDirectory = Join-Path $workspaceFull 'webview2'
 $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 if (-not $workspaceFull.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
   throw "Unsafe smoke workspace: $workspaceFull"
@@ -81,18 +82,32 @@ function Wait-ForRecoveryWindow($Desktop) {
 
 function Close-TestDesktop($Desktop, [string]$Label) {
   $Desktop.Refresh()
+  Write-Output "$Label close requested (pid=$($Desktop.Id), window=$($Desktop.MainWindowHandle), exited=$($Desktop.HasExited))"
   if (-not $Desktop.CloseMainWindow()) { throw "$Label did not accept a close request" }
   # The graceful path may spend up to five seconds on the shutdown request and
   # another five seconds waiting for the sidecar before forcing termination.
   if (-not $Desktop.WaitForExit(30000)) {
-    $Desktop.Refresh()
-    $remainingSidecars = @(Get-DesktopSidecars -DesktopId $Desktop.Id)
-    if ($env:CI -ne 'true' -or $Desktop.MainWindowHandle -ne 0 -or $remainingSidecars.Count -gt 0) {
-      throw "$Label did not exit gracefully (window=$($Desktop.MainWindowHandle), sidecars=$($remainingSidecars.Count))"
+    # WebView2 can defer the final process signal while it unregisters its
+    # window class. Give that bounded cleanup race a short grace period, while
+    # still requiring the process to exit before accepting the smoke result.
+    $graceDeadline = [DateTime]::UtcNow.AddSeconds(15)
+    do {
+      Start-Sleep -Milliseconds 250
+      $Desktop.Refresh()
+    } while (-not $Desktop.HasExited -and [DateTime]::UtcNow -lt $graceDeadline)
+
+    if (-not $Desktop.HasExited) {
+      $remainingSidecars = @(Get-DesktopSidecars -DesktopId $Desktop.Id)
+      $actualProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($Desktop.Id)" -ErrorAction SilentlyContinue
+      $actualChildren = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ParentProcessId -eq $Desktop.Id })
+      Write-Warning "$Label timeout state: process=$($actualProcess.Name) window=$($Desktop.MainWindowHandle) children=$($actualChildren.Name -join ',') sidecars=$($remainingSidecars.Count)"
+      if ($Desktop.MainWindowHandle -ne 0 -or $remainingSidecars.Count -gt 0) {
+        throw "$Label did not exit gracefully (window=$($Desktop.MainWindowHandle), sidecars=$($remainingSidecars.Count))"
+      }
+      Write-Warning "$Label left only the headless WebView host running; terminating it after the window and sidecar closed"
+      Stop-Process -Id $Desktop.Id -Force
+      if (-not $Desktop.WaitForExit(5000)) { throw "$Label UI host could not be terminated" }
     }
-    Write-Warning "$Label left only the headless WebView host running; terminating it after the window and sidecar closed"
-    Stop-Process -Id $Desktop.Id -Force
-    if (-not $Desktop.WaitForExit(5000)) { throw "$Label UI host could not be terminated" }
   }
 
   $deadline = [DateTime]::UtcNow.AddSeconds(10)
@@ -117,20 +132,24 @@ function Start-TestDesktop(
   if ($ConfigDirectory) {
     $startInfo.EnvironmentVariables['WORKBENCH_DEV_CONFIG_DIR'] = $ConfigDirectory
   }
+  $startInfo.EnvironmentVariables['WEBVIEW2_USER_DATA_FOLDER'] = $webviewDirectory
   [Diagnostics.Process]::Start($startInfo)
 }
 
 New-Item -ItemType Directory -Force -Path $workspaceFull | Out-Null
 New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+New-Item -ItemType Directory -Force -Path $webviewDirectory | Out-Null
 $registry = ConvertTo-Json -InputObject @(@{ path = $workspaceFull; name = 'Installed Smoke'; lastOpened = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() })
 $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
 [IO.File]::WriteAllText((Join-Path $configDirectory 'workspaces.json'), $registry, $utf8WithoutBom)
+$installedBySmoke = $false
 
 try {
   $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
   if ($install.ExitCode -ne 0) {
     throw "NSIS installation failed with exit code $($install.ExitCode)"
   }
+  $installedBySmoke = $true
   $installDirectory = Get-InstalledDirectory -Fallback $installDirectory
   $application = Join-Path $installDirectory 'personal-workbench.exe'
   $sidecar = Join-Path $installDirectory 'workbenchd.exe'
@@ -188,6 +207,7 @@ try {
     if (-not (Test-Path -LiteralPath $uninstaller)) { throw 'NSIS uninstaller was not installed' }
     $uninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
     if ($uninstall.ExitCode -ne 0) { throw "NSIS uninstall failed with exit code $($uninstall.ExitCode)" }
+    $installedBySmoke = $false
     if (-not (Test-Path -LiteralPath (Join-Path $workspaceFull 'workbench.sqlite3'))) {
       throw 'Uninstall removed the user workspace'
     }
@@ -207,6 +227,19 @@ try {
     }
     foreach ($child in @(Get-DesktopSidecars -DesktopId $desktop.Id)) {
       Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+  }
+  if ($installedBySmoke -and -not $SkipUninstall) {
+    $uninstaller = Join-Path $installDirectory 'uninstall.exe'
+    if (Test-Path -LiteralPath $uninstaller) {
+      try {
+        $cleanupUninstall = Start-Process -FilePath $uninstaller -ArgumentList '/S' -Wait -PassThru
+        if ($cleanupUninstall.ExitCode -ne 0) {
+          Write-Warning "Smoke cleanup uninstall exited with code $($cleanupUninstall.ExitCode)"
+        }
+      } catch {
+        Write-Warning "Smoke cleanup uninstall failed: $($_.Exception.Message)"
+      }
     }
   }
   if (Test-Path -LiteralPath $workspaceFull) {

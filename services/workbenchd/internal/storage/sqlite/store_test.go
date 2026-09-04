@@ -9,6 +9,7 @@ import (
 	"github.com/personal-workbench/workbenchd/internal/app"
 	"github.com/personal-workbench/workbenchd/internal/archive"
 	"github.com/personal-workbench/workbenchd/internal/platform"
+	"github.com/personal-workbench/workbenchd/internal/preferences"
 	"github.com/personal-workbench/workbenchd/internal/relation"
 	workbenchsqlite "github.com/personal-workbench/workbenchd/internal/storage/sqlite"
 	"github.com/personal-workbench/workbenchd/internal/task"
@@ -41,6 +42,89 @@ func TestOpenCreatesV2BaselineAndLocksWorkspace(t *testing.T) {
 	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestWorkspaceDataIsIsolatedAcrossSQLiteFiles(t *testing.T) {
+	ctx := context.Background()
+	workspaceA := t.TempDir()
+	workspaceB := t.TempDir()
+	storeA, err := workbenchsqlite.Open(ctx, workspaceA, "工作区 A", "0.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = storeA.Close() }()
+	storeB, err := workbenchsqlite.Open(ctx, workspaceB, "工作区 B", "0.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = storeB.Close() }()
+
+	created, err := storeA.CreateArchive(ctx, archive.Input{TypeID: "person", Title: "只属于 A"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := storeA.CreateTask(ctx, task.Input{Title: "只属于 A 的任务", Status: "todo", Priority: "normal", ArchiveID: &created.ID}); err != nil {
+		t.Fatal(err)
+	}
+
+	archivesB, err := storeB.ListArchives(ctx, "", "", "updated", 50, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if archivesB.Total != 0 || len(archivesB.Items) != 0 {
+		t.Fatalf("workspace B saw workspace A archives: %#v", archivesB)
+	}
+	tasksB, err := storeB.ListTasks(ctx, task.Filter{View: "all"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasksB) != 0 {
+		t.Fatalf("workspace B saw workspace A tasks: %#v", tasksB)
+	}
+	resultsB, err := storeB.Search(ctx, "只属于 A")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resultsB) != 0 {
+		t.Fatalf("workspace B search returned workspace A data: %#v", resultsB)
+	}
+	if storeA.DBPath() == storeB.DBPath() {
+		t.Fatalf("workspaces unexpectedly share sqlite path: %q", storeA.DBPath())
+	}
+}
+
+func TestWorkspacePersistenceIndexesAreLocalSQLiteTables(t *testing.T) {
+	store := openStore(t)
+	required := []string{
+		"workspace_meta",
+		"archive_types",
+		"field_definitions",
+		"archives",
+		"archive_field_values",
+		"tasks",
+		"entity_relations",
+		"tags",
+		"entity_tags",
+		"attachments",
+		"backup_runs",
+		"trash_entries",
+		"change_log",
+		"background_jobs",
+		"workspace_settings",
+		"search_index",
+	}
+	for _, name := range required {
+		var found string
+		if err := store.DB().QueryRow(`SELECT name FROM sqlite_master WHERE name=?`, name).Scan(&found); err != nil {
+			t.Fatalf("persistence table %q is missing: %v", name, err)
+		}
+		if found != name {
+			t.Fatalf("unexpected persistence table name %q for %q", found, name)
+		}
+	}
+	if filepath.Base(store.DBPath()) != "workbench.sqlite3" || filepath.Dir(store.DBPath()) != store.WorkspacePath() {
+		t.Fatalf("database is outside workspace: path=%q workspace=%q", store.DBPath(), store.WorkspacePath())
 	}
 }
 
@@ -187,5 +271,48 @@ func TestSQLitePragmasFTSAndAttachmentSearchMapping(t *testing.T) {
 	}
 	if err := store.RebuildSearch(ctx, func(int, string) {}); err != nil || !store.SearchHealthy(ctx) {
 		t.Fatalf("rebuild err=%v healthy=%v", err, store.SearchHealthy(ctx))
+	}
+}
+
+func TestWorkspacePreferencesPersistAcrossReopen(t *testing.T) {
+	ctx := context.Background()
+	workspace := t.TempDir()
+	store, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial, err := store.Preferences(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if initial.Theme != "system" || initial.SidebarCollapsed || initial.InspectorWidth != 344 || len(initial.RecentSearches) != 0 {
+		t.Fatalf("initial preferences=%#v", initial)
+	}
+	recent := []preferences.RecentSearch{{ID: "task-1", Type: "task", Title: "本地任务", Subtitle: "任务"}}
+	collapsed := true
+	theme := "dark"
+	width := 420
+	updated, err := store.UpdatePreferences(ctx, preferences.Update{Theme: &theme, SidebarCollapsed: &collapsed, InspectorWidth: &width, RecentSearches: &recent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Theme != theme || !updated.SidebarCollapsed || updated.InspectorWidth != width || len(updated.RecentSearches) != 1 {
+		t.Fatalf("updated preferences=%#v", updated)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = reopened.Close() }()
+	loaded, err := reopened.Preferences(ctx)
+	if err != nil || loaded.Theme != theme || !loaded.SidebarCollapsed || loaded.InspectorWidth != width || len(loaded.RecentSearches) != 1 || loaded.RecentSearches[0].ID != "task-1" {
+		t.Fatalf("loaded preferences=%#v err=%v", loaded, err)
+	}
+	badWidth := 999
+	if _, err := reopened.UpdatePreferences(ctx, preferences.Update{InspectorWidth: &badWidth}); err != preferences.ErrInvalid {
+		t.Fatalf("invalid width err=%v", err)
 	}
 }

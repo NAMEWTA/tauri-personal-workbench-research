@@ -18,7 +18,10 @@ export function TrashPage() {
       await queryClient.invalidateQueries({ queryKey: ['trash'] })
       await queryClient.invalidateQueries({ queryKey: ['archives'] })
       await queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       await queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-tasks'] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-relations'] })
       await queryClient.invalidateQueries({ queryKey: ['archive-attachments'] })
       await queryClient.invalidateQueries({ queryKey: ['archive-activity'] })
     },
@@ -34,7 +37,7 @@ export function TrashPage() {
       {query.isPending ? (
         <LoadingState />
       ) : query.isError ? (
-        <ErrorState error={query.error} />
+        <ErrorState error={query.error} retry={() => void query.refetch()} />
       ) : query.data.length === 0 ? (
         <EmptyState title="回收站为空" detail="删除的档案、任务和附件会保留在这里。" />
       ) : (
@@ -56,7 +59,11 @@ export function TrashPage() {
                   }).format(new Date(item.deletedAt))}
                 </small>
               </span>
-              <button className="button" onClick={() => restore.mutate(item.id)}>
+              <button
+                className="button"
+                onClick={() => restore.mutate(item.id)}
+                disabled={restore.isPending}
+              >
                 <RotateCcw size={15} />
                 恢复
               </button>
@@ -64,6 +71,7 @@ export function TrashPage() {
           ))}
         </div>
       )}
+      {restore.isError && <p className="form-error">恢复失败，请稍后重试。</p>}
     </div>
   )
 }

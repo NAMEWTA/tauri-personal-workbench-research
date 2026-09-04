@@ -61,10 +61,21 @@ pub async fn open_workspace(
         app.package_info().version.to_string(),
     );
     match manager.start(&app, bootstrap).await {
-        Ok(connection) => {
-            registry.record(&requested)?;
-            Ok(connection)
-        }
+        Ok(connection) => match registry.record(&requested) {
+            Ok(_) => Ok(connection),
+            Err(error) => {
+                manager.stop().await;
+                if let Some(previous) = previous {
+                    let rollback = Bootstrap::new(
+                        previous.clone(),
+                        workspace_name(&previous),
+                        app.package_info().version.to_string(),
+                    );
+                    let _ = manager.start(&app, rollback).await;
+                }
+                Err(error)
+            }
+        },
         Err(error) => {
             if let Some(previous) = previous {
                 let rollback = Bootstrap::new(
@@ -139,10 +150,9 @@ pub fn select_backup_file(app: AppHandle) -> Result<Option<String>, WorkbenchErr
 
 #[tauri::command]
 pub fn reveal_log_directory(app: AppHandle) -> Result<(), WorkbenchError> {
-    let path = app
-        .path()
-        .app_log_dir()
-        .map_err(|_| WorkbenchError::AppDataUnavailable)?;
+    let registry = app.state::<WorkspaceRegistry>();
+    let workspace = registry.current_path().ok_or(WorkbenchError::NotReady)?;
+    let path = workspace.join("logs");
     app.opener()
         .open_path(path.to_string_lossy().into_owned(), None::<&str>)
         .map_err(|error| WorkbenchError::Operation(error.to_string()))

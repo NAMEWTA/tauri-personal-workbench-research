@@ -12,9 +12,18 @@ import {
   SunMedium,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useBackend } from '../../app/backend-context'
 import { useLayoutStore } from '../../stores/layout'
+import { usePreferences, useUpdatePreferences } from '../../features/settings/preferences'
+import type { PreferencesUpdate } from '../../generated/api/types.gen'
+import {
+  clearLegacyPreferences,
+  hasLegacyPreferences,
+  hasInvalidLegacyPreferences,
+  mergeLegacyPreferences,
+  readLegacyPreferences,
+} from '../../features/settings/legacy-preferences'
 import { CommandPalette } from './CommandPalette'
 import { InspectorPanel } from './InspectorPanel'
 
@@ -27,8 +36,42 @@ const navigation = [
   { to: '/trash', label: '回收站', icon: Trash2 },
 ] as const
 
+type LayoutPreferences = {
+  theme: 'light' | 'dark' | 'system'
+  sidebarCollapsed: boolean
+  inspectorWidth: number
+}
+
+function selectLayoutPreferences(
+  state: ReturnType<typeof useLayoutStore.getState>,
+): LayoutPreferences {
+  return {
+    theme: state.theme,
+    sidebarCollapsed: state.sidebarCollapsed,
+    inspectorWidth: state.inspectorWidth,
+  }
+}
+
+function sameLayoutPreferences(first: LayoutPreferences, second: LayoutPreferences) {
+  return (
+    first.theme === second.theme &&
+    first.sidebarCollapsed === second.sidebarCollapsed &&
+    first.inspectorWidth === second.inspectorWidth
+  )
+}
+
 export function AppShell() {
   const { meta } = useBackend()
+  const preferences = usePreferences()
+  const {
+    mutate: savePreferences,
+    isPending: preferencesSavePending,
+    isError: preferencesSaveError,
+  } = useUpdatePreferences()
+  const applyingPreferences = useRef(false)
+  const preferencesReady = useRef(false)
+  const localChangeBeforeHydration = useRef(false)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const location = useLocation()
   const {
     sidebarCollapsed,
@@ -41,6 +84,93 @@ export function AppShell() {
     setInspectorWidth,
   } = useLayoutStore()
   const [paletteOpen, setPaletteOpen] = useState(false)
+
+  const queuePreferencesSave = useCallback(
+    (next: LayoutPreferences) => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(() => {
+        savePreferences(next)
+        saveTimer.current = undefined
+      }, 250)
+    },
+    [savePreferences],
+  )
+
+  useEffect(() => {
+    let previous = selectLayoutPreferences(useLayoutStore.getState())
+    const unsubscribe = useLayoutStore.subscribe((state) => {
+      const next = selectLayoutPreferences(state)
+      if (sameLayoutPreferences(previous, next)) return
+      previous = next
+      if (applyingPreferences.current) return
+      if (!preferencesReady.current) {
+        localChangeBeforeHydration.current = true
+        return
+      }
+      queuePreferencesSave(next)
+    })
+    return () => {
+      unsubscribe()
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [queuePreferencesSave])
+
+  useEffect(() => {
+    if (!preferences.data || preferencesReady.current) return
+    const current = selectLayoutPreferences(useLayoutStore.getState())
+    const serverPreferences: LayoutPreferences = {
+      theme: preferences.data.theme,
+      sidebarCollapsed: preferences.data.sidebarCollapsed,
+      inspectorWidth: preferences.data.inspectorWidth,
+    }
+    const legacyExists = hasLegacyPreferences()
+    const legacyInvalid = hasInvalidLegacyPreferences()
+    const legacy = legacyExists ? readLegacyPreferences() : undefined
+    const localChanged = localChangeBeforeHydration.current
+    const migrated = legacy
+      ? mergeLegacyPreferences(preferences.data, legacy, localChanged)
+      : undefined
+    const clearMigratedLegacy = () => {
+      if (!legacyInvalid) clearLegacyPreferences()
+    }
+    preferencesReady.current = true
+    localChangeBeforeHydration.current = false
+    if (localChanged) {
+      const update: PreferencesUpdate = sameLayoutPreferences(current, serverPreferences)
+        ? {}
+        : current
+      if (migrated?.recentSearches?.length) update.recentSearches = migrated.recentSearches
+      if (Object.keys(update).length > 0) {
+        savePreferences(update, { onSuccess: clearMigratedLegacy })
+      } else if (legacyExists && !legacyInvalid) {
+        clearLegacyPreferences()
+      }
+      return
+    }
+    if (!legacy) {
+      if (legacyExists && !legacyInvalid) clearLegacyPreferences()
+      if (sameLayoutPreferences(current, serverPreferences)) return
+      applyingPreferences.current = true
+      useLayoutStore.getState().applyPreferences(serverPreferences)
+      applyingPreferences.current = false
+      return
+    }
+    const next: LayoutPreferences = {
+      theme: migrated?.theme ?? serverPreferences.theme,
+      sidebarCollapsed: migrated?.sidebarCollapsed ?? serverPreferences.sidebarCollapsed,
+      inspectorWidth: migrated?.inspectorWidth ?? serverPreferences.inspectorWidth,
+    }
+    if (!sameLayoutPreferences(current, next)) {
+      applyingPreferences.current = true
+      useLayoutStore.getState().applyPreferences(next)
+      applyingPreferences.current = false
+    }
+    if (migrated && Object.keys(migrated).length > 0) {
+      savePreferences(migrated, { onSuccess: clearMigratedLegacy })
+    } else if (legacyExists && !legacyInvalid) {
+      clearLegacyPreferences()
+    }
+  }, [preferences.data, queuePreferencesSave, savePreferences])
 
   useEffect(() => {
     const dark =
@@ -59,9 +189,10 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [])
 
-  const active = location.pathname.startsWith('/settings')
-    ? { label: '设置' }
-    : navigation.find((item) => location.pathname.startsWith(item.to))
+  const active =
+    location.pathname.startsWith('/settings') || location.pathname === '/diagnostics'
+      ? { label: '设置' }
+      : navigation.find((item) => location.pathname.startsWith(item.to))
 
   return (
     <div
@@ -81,6 +212,16 @@ export function AppShell() {
           <span>{active?.label ?? '个人工作台'}</span>
           <small>{meta.workspaceName}</small>
         </div>
+        {preferencesSavePending && (
+          <span className="save-status" role="status" aria-live="polite">
+            保存中
+          </span>
+        )}
+        {preferencesSaveError && (
+          <span className="save-status error" role="alert">
+            偏好保存失败
+          </span>
+        )}
         <button className="search-trigger" onClick={() => setPaletteOpen(true)}>
           <Search size={16} />
           <span>搜索档案和任务</span>
@@ -114,6 +255,7 @@ export function AppShell() {
           <Link
             to="/settings/$section"
             params={{ section: 'general' }}
+            className={location.pathname === '/diagnostics' ? 'active' : undefined}
             activeProps={{ className: 'active' }}
             title="设置"
           >

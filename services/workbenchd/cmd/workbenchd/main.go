@@ -11,9 +11,11 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -186,5 +188,28 @@ func readBootstrap(reader io.Reader) (bootstrap, error) {
 	if len(config.AllowedOrigins) == 0 {
 		return bootstrap{}, fmt.Errorf("at least one origin is required")
 	}
+	for _, origin := range config.AllowedOrigins {
+		if err := validateAllowedOrigin(origin); err != nil {
+			return bootstrap{}, err
+		}
+	}
 	return config, nil
+}
+
+func validateAllowedOrigin(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.User != nil || parsed.Opaque != "" || parsed.Path != "" || parsed.RawPath != "" || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || parsed.RawFragment != "" {
+		return fmt.Errorf("allowed origin is invalid: %q", raw)
+	}
+	if raw == "tauri://localhost" || raw == "http://tauri.localhost" || raw == "https://tauri.localhost" {
+		return nil
+	}
+	if parsed.Scheme != "http" || parsed.Hostname() != "127.0.0.1" || parsed.Port() == "" {
+		return fmt.Errorf("allowed origin must be a local Tauri origin: %q", raw)
+	}
+	port, err := strconv.Atoi(parsed.Port())
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("allowed origin must use a valid sidecar port: %q", raw)
+	}
+	return nil
 }

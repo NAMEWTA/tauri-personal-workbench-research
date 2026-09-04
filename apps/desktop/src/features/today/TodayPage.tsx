@@ -64,10 +64,22 @@ export function TodayPage() {
             ) : (
               <div className="task-list">
                 {query.data.overdueTasks.map((item) => (
-                  <TaskRow key={item.id} task={item} onToggle={toggle} />
+                  <TaskRow
+                    key={item.id}
+                    task={item}
+                    onToggle={toggle}
+                    pending={update.isPending}
+                    error={update.isError}
+                  />
                 ))}
                 {query.data.todayTasks.map((item) => (
-                  <TaskRow key={item.id} task={item} onToggle={toggle} />
+                  <TaskRow
+                    key={item.id}
+                    task={item}
+                    onToggle={toggle}
+                    pending={update.isPending}
+                    error={update.isError}
+                  />
                 ))}
               </div>
             )}
@@ -85,7 +97,13 @@ export function TodayPage() {
             ) : (
               <div className="task-list">
                 {query.data.tomorrowTasks.map((item) => (
-                  <TaskRow key={item.id} task={item} onToggle={toggle} />
+                  <TaskRow
+                    key={item.id}
+                    task={item}
+                    onToggle={toggle}
+                    pending={update.isPending}
+                    error={update.isError}
+                  />
                 ))}
               </div>
             )}
@@ -125,6 +143,7 @@ export function TodayPage() {
         <div className="undo-toast" role="status">
           <span>已完成“{undoTask.title}”</span>
           <button
+            type="button"
             onClick={() => {
               update.mutate({
                 task: { ...undoTask, status: 'done' },

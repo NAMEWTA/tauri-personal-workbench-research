@@ -34,10 +34,9 @@ pub async fn start_backend(app: &AppHandle) -> Result<(), WorkbenchError> {
         default_workspace
     };
     fs::create_dir_all(&workspace).map_err(|error| WorkbenchError::Operation(error.to_string()))?;
-    let entry = registry.record(&workspace)?;
     let bootstrap = Bootstrap::new(
-        workspace,
-        entry.name,
+        workspace.clone(),
+        workspace_name(&workspace),
         app.package_info().version.to_string(),
     );
     let manager = app.state::<SidecarManager>();
@@ -45,15 +44,29 @@ pub async fn start_backend(app: &AppHandle) -> Result<(), WorkbenchError> {
         manager.mark_failed(error.to_string());
         return Err(error);
     }
+    if let Err(error) = registry.record(&workspace) {
+        manager.stop().await;
+        return Err(error);
+    }
     if let Some(window) = app.get_webview_window("main") {
-        window
-            .show()
-            .map_err(|error| WorkbenchError::Operation(error.to_string()))?;
-        window
-            .set_focus()
-            .map_err(|error| WorkbenchError::Operation(error.to_string()))?;
+        if let Err(error) = window.show() {
+            manager.stop().await;
+            return Err(WorkbenchError::Operation(error.to_string()));
+        }
+        if let Err(error) = window.set_focus() {
+            manager.stop().await;
+            return Err(WorkbenchError::Operation(error.to_string()));
+        }
     }
     Ok(())
+}
+
+fn workspace_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("个人工作台")
+        .to_string()
 }
 
 #[cfg(target_os = "windows")]

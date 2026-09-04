@@ -32,9 +32,10 @@ export function QuickTaskForm() {
         placeholder="快速添加任务"
         aria-label="任务标题"
       />
-      <button className="button primary" disabled={create.isPending || !title.trim()}>
+      <button type="submit" className="button primary" disabled={create.isPending || !title.trim()}>
         添加
       </button>
+      {create.isError && <span className="form-error">添加失败，请稍后重试。</span>}
     </form>
   )
 }

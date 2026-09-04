@@ -64,7 +64,7 @@ func validateHost(next http.Handler) http.Handler {
 		if err != nil {
 			host = r.Host
 		}
-		if host != "127.0.0.1" && host != "localhost" && host != "[::1]" && host != "::1" {
+		if host != "127.0.0.1" {
 			writeProblem(w, r, http.StatusForbidden, "invalid_host", "请求被拒绝", "Host 不在允许范围内。")
 			return
 		}
