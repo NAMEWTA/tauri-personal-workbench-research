@@ -108,18 +108,12 @@ fn is_legacy_install_workspace(_path: &Path) -> bool {
     false
 }
 
+#[cfg(target_os = "windows")]
 fn canonical_path_eq(left: &Path, right: &Path) -> bool {
     let left = fs::canonicalize(left).unwrap_or_else(|_| left.to_path_buf());
     let right = fs::canonicalize(right).unwrap_or_else(|_| right.to_path_buf());
-    #[cfg(target_os = "windows")]
-    {
-        left.to_string_lossy()
-            .eq_ignore_ascii_case(&right.to_string_lossy())
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        left == right
-    }
+    left.to_string_lossy()
+        .eq_ignore_ascii_case(&right.to_string_lossy())
 }
 
 fn workspace_name(path: &Path) -> String {
