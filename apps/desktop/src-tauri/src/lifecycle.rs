@@ -34,17 +34,43 @@ pub async fn start_backend(app: &AppHandle) -> Result<(), WorkbenchError> {
         default_workspace
     };
     fs::create_dir_all(&workspace).map_err(|error| WorkbenchError::Operation(error.to_string()))?;
-    let bootstrap = Bootstrap::new(
-        workspace.clone(),
-        workspace_name(&workspace),
-        app.package_info().version.to_string(),
-    );
     let manager = app.state::<SidecarManager>();
+    let app_version = app.package_info().version.to_string();
+    let mut active_workspace = workspace.clone();
+    let bootstrap = Bootstrap::new(
+        active_workspace.clone(),
+        workspace_name(&active_workspace),
+        app_version.clone(),
+    );
     if let Err(error) = manager.start(app, bootstrap).await {
-        manager.mark_failed(error.to_string());
-        return Err(error);
+        if is_legacy_install_workspace(&workspace) && is_schema_incompatibility(&error) {
+            let fallback = app_data.join("workspace");
+            fs::create_dir_all(&fallback)
+                .map_err(|fallback_error| WorkbenchError::Operation(fallback_error.to_string()))?;
+            eprintln!(
+                "workspace schema is incompatible at {}; preserving it and starting a fresh workspace at {}",
+                workspace.display(),
+                fallback.display()
+            );
+            manager.stop().await;
+            let fallback_bootstrap =
+                Bootstrap::new(fallback.clone(), workspace_name(&fallback), app_version);
+            manager
+                .start(app, fallback_bootstrap)
+                .await
+                .map_err(|fallback_error| {
+                    WorkbenchError::SidecarStart(format!(
+                        "{}; fresh workspace startup failed: {}",
+                        error, fallback_error
+                    ))
+                })?;
+            active_workspace = fallback;
+        } else {
+            manager.mark_failed(error.to_string());
+            return Err(error);
+        }
     }
-    if let Err(error) = registry.record(&workspace) {
+    if let Err(error) = registry.record(&active_workspace) {
         manager.stop().await;
         return Err(error);
     }
@@ -59,6 +85,41 @@ pub async fn start_backend(app: &AppHandle) -> Result<(), WorkbenchError> {
         }
     }
     Ok(())
+}
+
+fn is_schema_incompatibility(error: &WorkbenchError) -> bool {
+    error.to_string().contains("workspace schema")
+}
+
+#[cfg(target_os = "windows")]
+fn is_legacy_install_workspace(path: &Path) -> bool {
+    let Ok(executable) = std::env::current_exe() else {
+        return false;
+    };
+    let Some(install_directory) = executable.parent() else {
+        return false;
+    };
+    let expected = install_directory.join("workspace");
+    canonical_path_eq(path, &expected)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_legacy_install_workspace(_path: &Path) -> bool {
+    false
+}
+
+fn canonical_path_eq(left: &Path, right: &Path) -> bool {
+    let left = fs::canonicalize(left).unwrap_or_else(|_| left.to_path_buf());
+    let right = fs::canonicalize(right).unwrap_or_else(|_| right.to_path_buf());
+    #[cfg(target_os = "windows")]
+    {
+        left.to_string_lossy()
+            .eq_ignore_ascii_case(&right.to_string_lossy())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        left == right
+    }
 }
 
 fn workspace_name(path: &Path) -> String {
