@@ -1,6 +1,6 @@
 # 个人工作台 0.2.11 验收记录
 
-状态：待 0.2.11 发布门禁通过
+状态：0.2.11 已发布，发布门禁通过
 
 本文只记录当前 `0.2.11` 的可复核证据。任何来自旧版本、旧哈希或未实际执行的命令都不得写入本页。
 
@@ -27,7 +27,7 @@
 | 单实例与 sidecar 恢复 | `pnpm test:single-instance` | 通过（Windows，2026-09-05） |
 | Windows 安装包与实际 WebView2 操作 | `scripts/smoke-installed.ps1` | 通过（三种 schema 2 启动场景，2026-09-05） |
 | Windows portable ZIP | 解压后运行 `native-workspace-smoke.mjs` | 通过（Windows，2026-09-05） |
-| macOS sidecar、app、DMG | CI native/bundle artifacts | 待 0.2.11 release workflow |
+| macOS sidecar、app、DMG | CI native/bundle artifacts | 通过（workflow 33976658637，2026-09-05） |
 | 生成代码无漂移 | `pnpm generate` + deterministic rerun | 通过（2026-09-05） |
 
 ## 证据规则
@@ -39,8 +39,10 @@
 
 ## 当前发布证据
 
-- 0.2.11 release workflow 成功后回填提交、workflow 和 macOS artifact。
+- 发布提交：`ce73f764873712325b6b0d16ec2e29c809dbc031`；[workflow 33976658637](https://github.com/NAMEWTA/tauri-personal-workbench-research/actions/runs/33976658637)；[Release v0.2.11](https://github.com/NAMEWTA/tauri-personal-workbench-research/releases/tag/v0.2.11)。
+- macOS native/bundle evidence 已在 workflow 中生成并上传，Windows 安装版 smoke、single-instance 和 portable smoke 均通过。
 - 本机已安装程序 SHA-256：`4bafbbc0a381aab731c842450b857c2ef947d1b524e2dc026de99f86bc51861e`；sidecar SHA-256：`409e361f352494fea0dcdea257bfab832d48509fb4f16a8c6a61d04411d1c177`。这些为本机构建证据，不替代 CI Release 下载包的哈希。
+- Release 下载包安装 smoke（Windows，2026-09-06）通过，安装包 SHA-256 由 Release checksums 提供。
 - [实际复现与修复报告](../temp/review/STARTUP_INCIDENT_REVIEW.md)包含人工控制真实 WebView2 的截图和漏检原因。
 
 ## 启动问题回归门禁

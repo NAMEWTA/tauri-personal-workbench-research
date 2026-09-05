@@ -1,6 +1,6 @@
 # 启动失败修复与实际操作验收
 
-目标版本：0.2.11。状态：本机验收通过；第一次 CI 安装验收发现管理员 WebView2 调试环境差异，已修正临时验收配置，待重跑当前版本 CI。
+目标版本：0.2.11。状态：本机与 CI 验收通过，Release 已发布。
 
 ## 问题与复现
 
@@ -35,4 +35,4 @@
 
 第一次 GitHub Windows 安装验收在打开 WebView2 CDP 端口前失败，页面断言没有被跳过。GitHub runner 以高完整性进程运行时，WebView2 会忽略 `WEBVIEW2_*` 和 HKCU 调试覆盖；验收脚本现在只在 CI 且检测到高完整性时设置 `HKLM` 应用级参数，并在每次关闭后恢复原值。产品代码和发布包不携带调试参数。
 
-发布流程增加独立的 `windows-startup-evidence` artifact，保存真实页面截图、程序版本与哈希、数据库哈希和时间。macOS 仍须生成当前版本 native/bundle evidence。最终结果见 [当前版本验收记录](../../docs/V2_ACCEPTANCE.md)，未执行或失败的项目不得记为完成。
+发布流程增加独立的 `windows-startup-evidence` artifact，保存真实页面截图、程序版本与哈希、数据库哈希和时间。workflow `33976658637` 的 Windows、macOS、契约、Go race 和 Rust 检查全部通过；从 Release 下载的 Windows 安装包也已在本机完成安装 smoke。最终结果见 [当前版本验收记录](../../docs/V2_ACCEPTANCE.md)。
