@@ -7,7 +7,8 @@ import { requireData } from '../../lib/http/client'
 import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { ArchiveFieldControl } from './ArchiveFieldControl'
 import { initialFieldValue } from './fieldValues'
-import { archiveKeys, archiveTypesQuery } from './queries'
+import { archiveTypesQuery } from './queries'
+import { invalidateWorkbenchQueries } from '../../app/queryKeys'
 
 export function ArchiveForm({ onClose }: { onClose: () => void }) {
   const definitions = useQuery(archiveTypesQuery)
@@ -39,8 +40,7 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
     mutationFn: async (body: ArchiveRecordInput) =>
       requireData((await createArchiveRecord({ body, throwOnError: true })).data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: archiveKeys.all })
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      await invalidateWorkbenchQueries(queryClient)
       onClose()
     },
   })

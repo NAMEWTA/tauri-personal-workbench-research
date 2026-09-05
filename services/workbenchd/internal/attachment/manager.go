@@ -36,6 +36,13 @@ type Manager struct {
 func New(db *sql.DB, workspace string) *Manager { return &Manager{db: db, workspace: workspace} }
 
 func (m *Manager) List(ctx context.Context, entityID string) ([]Attachment, error) {
+	var exists int
+	if err := m.db.QueryRowContext(ctx, `SELECT count(*) FROM archive_records WHERE id=? AND deleted_at IS NULL`, entityID).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if exists == 0 {
+		return nil, ErrNotFound
+	}
 	rows, err := m.db.QueryContext(ctx, `SELECT id,display_name,media_type,byte_size,sha256,created_at FROM attachments WHERE entity_type='archive' AND entity_id=? AND deleted_at IS NULL ORDER BY created_at DESC,id`, entityID)
 	if err != nil {
 		return nil, err
@@ -91,6 +98,15 @@ func (m *Manager) ImportWithProgress(ctx context.Context, entityID string, paths
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM archive_records WHERE id=? AND deleted_at IS NULL`, entityID).Scan(&exists); err != nil {
+		cleanupTargets(targets)
+		return nil, err
+	}
+	if exists == 0 {
+		cleanupTargets(targets)
+		return nil, ErrNotFound
+	}
 	for index, item := range items {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO attachments(id,entity_type,entity_id,display_name,relative_path,media_type,byte_size,sha256,created_at) VALUES(?,'archive',?,?,?,?,?,?,?)`, item.ID, entityID, item.DisplayName, relatives[index], item.MediaType, item.Size, item.SHA256, platform.TimeText(item.CreatedAt)); err != nil {
 			cleanupTargets(targets)
@@ -150,7 +166,7 @@ func (m *Manager) copyOne(ctx context.Context, sourcePath string) (Attachment, s
 		return Attachment{}, "", "", err
 	}
 	hash := sha256.New()
-	size, copyErr := copyContext(ctx, io.MultiWriter(output, hash), source)
+	size, copyErr := copyContext(ctx, io.MultiWriter(output, hash), source, maxFileSize)
 	syncErr := output.Sync()
 	closeErr := output.Close()
 	if copyErr != nil {
@@ -229,7 +245,7 @@ func (m *Manager) OpenTarget(ctx context.Context, id string) (string, error) {
 	}
 	return target, nil
 }
-func copyContext(ctx context.Context, destination io.Writer, source io.Reader) (int64, error) {
+func copyContext(ctx context.Context, destination io.Writer, source io.Reader, maxBytes int64) (int64, error) {
 	buffer := make([]byte, 128*1024)
 	var written int64
 	for {
@@ -238,6 +254,9 @@ func copyContext(ctx context.Context, destination io.Writer, source io.Reader) (
 		}
 		count, readErr := source.Read(buffer)
 		if count > 0 {
+			if maxBytes > 0 && written+int64(count) > maxBytes {
+				return written, fmt.Errorf("attachment exceeds maximum size")
+			}
 			value, writeErr := destination.Write(buffer[:count])
 			written += int64(value)
 			if writeErr != nil {

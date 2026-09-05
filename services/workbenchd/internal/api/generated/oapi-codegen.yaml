@@ -2,7 +2,7 @@ package: generated
 output: api.gen.go
 generate:
   models: true
-  chi-server: true
-  strict-server: true
+  chi-server: false
+  strict-server: false
 output-options:
   skip-prune: true

@@ -1,4 +1,4 @@
-# ADR-005: Identifiers and time
+# 持久标识与时间语义
 
-Entities use UUIDv7. Time points use UTC RFC3339 nanoseconds, calendar records retain an IANA timezone, and date-only values use ISO `YYYY-MM-DD` strings.
+本文为导航文件，权威正文位于 [Speculo ADR 0005](../../speculo/.speculo/specdev/adr/0005-persistent-identifiers-and-time-semantics.md)。请勿在此文件复制或维护决策内容。
 

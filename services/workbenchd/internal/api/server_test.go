@@ -8,24 +8,44 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"slices"
 	"testing"
+	"time"
 
 	workbenchapi "github.com/personal-workbench/workbenchd/internal/api"
 	"github.com/personal-workbench/workbenchd/internal/app"
+	"github.com/personal-workbench/workbenchd/internal/archive"
 	"github.com/personal-workbench/workbenchd/internal/attachment"
 	"github.com/personal-workbench/workbenchd/internal/backup"
 	workbenchsqlite "github.com/personal-workbench/workbenchd/internal/storage/sqlite"
+	"github.com/personal-workbench/workbenchd/internal/task"
 )
 
 func testHandler(t *testing.T) http.Handler {
+	result, _ := testHandlerWithStore(t)
+	return result
+}
+
+func testHandlerWithStore(t *testing.T) (http.Handler, *workbenchsqlite.Store) {
 	t.Helper()
 	workspace := t.TempDir()
-	store, err := workbenchsqlite.Open(context.Background(), workspace, "API 测试", "0.1.0")
+	store, err := workbenchsqlite.Open(context.Background(), workspace, "API 测试", "0.2.9")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	return workbenchapi.NewHandler(app.New(store, backup.New(store.DB(), workspace), attachment.New(store.DB(), workspace)), workbenchapi.Config{Token: "0123456789012345678901234567890123456789012", AllowedOrigins: []string{"http://127.0.0.1:1420"}, ServiceVersion: "test", Shutdown: func() {}}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	service := app.New(store, backup.New(store.DB(), workspace), attachment.New(store.DB(), workspace))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := service.Shutdown(ctx); err != nil {
+			t.Error(err)
+		}
+	})
+	return workbenchapi.NewHandler(service, workbenchapi.Config{Token: "0123456789012345678901234567890123456789012", AllowedOrigins: []string{"http://127.0.0.1:1420"}, ServiceVersion: "test", Shutdown: func() {}}, slog.New(slog.NewTextHandler(io.Discard, nil))), store
 }
 func request(method, path, token, origin string, body []byte) *http.Request {
 	req := httptest.NewRequest(method, path, bytes.NewReader(body))
@@ -270,5 +290,169 @@ func TestBackupDirectoryMustBeExplicitlyConfigured(t *testing.T) {
 	decodeErr := json.Unmarshal(updated.Body.Bytes(), &configured)
 	if updated.Code != http.StatusOK || decodeErr != nil || configured.BackupDirectory != directory {
 		t.Fatalf("updated settings status=%d body=%s", updated.Code, updated.Body.String())
+	}
+}
+
+func TestPaginationBoundsReturnValidationProblems(t *testing.T) {
+	handler := testHandler(t)
+	token := "0123456789012345678901234567890123456789012"
+	for _, query := range []string{"limit=-1", "limit=0", "limit=201", "limit=abc", "limit=999999999999999999999999", "offset=-1", "offset=1000001", "offset=abc"} {
+		t.Run(query, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request(http.MethodGet, "/api/v3/archive-records?"+query, token, "", nil))
+			assertProblem(t, response, http.StatusUnprocessableEntity, "validation_failed")
+		})
+	}
+	for _, query := range []string{"", "limit=1&offset=0", "limit=200&offset=1000000"} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request(http.MethodGet, "/api/v3/archive-records?"+query, token, "", nil))
+		var page app.ArchiveRecordPage
+		if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil || response.Code != http.StatusOK || page.Items == nil || page.Limit < 1 || page.Limit > 200 {
+			t.Fatalf("valid query %q: status=%d page=%#v err=%v", query, response.Code, page, err)
+		}
+	}
+}
+
+func TestMissingAndDeletedResourceRoutesShareNotFoundContract(t *testing.T) {
+	handler, store := testHandlerWithStore(t)
+	token := "0123456789012345678901234567890123456789012"
+	owner, err := store.CreateArchive(context.Background(), archive.Input{CollectionID: "template", Title: "deleted owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.TrashArchive(context.Background(), owner.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"missing", owner.ID} {
+		for _, scenario := range []struct{ method, suffix, body string }{
+			{http.MethodGet, "", ""}, {http.MethodGet, "/attachments", ""}, {http.MethodGet, "/relations", ""}, {http.MethodGet, "/activity", ""},
+			{http.MethodPost, "/attachments", `{"paths":["unused-source.txt"]}`},
+			{http.MethodPost, "/relations", `{"targetId":"target","relationType":"related","notes":""}`},
+		} {
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request(scenario.method, "/api/v3/archive-records/"+id+scenario.suffix, token, "", []byte(scenario.body)))
+			assertProblem(t, response, http.StatusNotFound, "not_found")
+		}
+	}
+	for _, scenario := range []struct{ method, path string }{
+		{http.MethodGet, "/api/v3/tasks/missing"}, {http.MethodDelete, "/api/v3/tasks/missing"},
+		{http.MethodDelete, "/api/v3/attachments/missing"}, {http.MethodGet, "/api/v3/attachments/missing/open-target"},
+		{http.MethodDelete, "/api/v3/relations/missing"}, {http.MethodGet, "/api/v3/jobs/missing"}, {http.MethodGet, "/api/v3/jobs/missing/events"},
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request(scenario.method, scenario.path, token, "", nil))
+		assertProblem(t, response, http.StatusNotFound, "not_found")
+	}
+}
+
+func TestCalendarAndDashboardContractsUseLocalDayProjection(t *testing.T) {
+	handler, store := testHandlerWithStore(t)
+	token := "0123456789012345678901234567890123456789012"
+	ctx := context.Background()
+	timezone := "Pacific/Kiritimati"
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().In(location)
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+	end := start.AddDate(0, 0, 1)
+	for _, scenario := range []struct {
+		title, status string
+		from, to      time.Time
+	}{
+		{"midnight-end", "todo", start.Add(-time.Hour), start},
+		{"scheduled-today", "todo", start.Add(time.Hour), start.Add(2 * time.Hour)},
+		{"scheduled-completed", "done", start.Add(time.Hour), start.Add(2 * time.Hour)},
+		{"scheduled-tomorrow", "todo", end, end.Add(time.Hour)},
+	} {
+		if _, err := store.CreateTask(ctx, task.Input{Title: scenario.title, Status: scenario.status, Priority: "normal", StartsAt: &scenario.from, EndsAt: &scenario.to, Timezone: timezone}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	due := end.Format("2006-01-02")
+	if _, err := store.CreateTask(ctx, task.Input{Title: "due-tomorrow", Status: "todo", Priority: "normal", DueOn: &due}); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	query := url.Values{"view": {"calendar"}, "from": {start.UTC().Format(time.RFC3339)}, "to": {end.UTC().Format(time.RFC3339)}}
+	handler.ServeHTTP(response, request(http.MethodGet, "/api/v3/tasks?"+query.Encode(), token, "", nil))
+	var calendar []task.Task
+	if err := json.Unmarshal(response.Body.Bytes(), &calendar); err != nil || response.Code != http.StatusOK {
+		t.Fatalf("calendar status=%d err=%v body=%s", response.Code, err, response.Body.String())
+	}
+	assertTaskTitles(t, calendar, []string{"scheduled-completed", "scheduled-today"})
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request(http.MethodGet, "/api/v3/dashboard?timezone="+url.QueryEscape(timezone), token, "", nil))
+	var dashboard app.Dashboard
+	if err := json.Unmarshal(response.Body.Bytes(), &dashboard); err != nil || response.Code != http.StatusOK {
+		t.Fatalf("dashboard status=%d err=%v", response.Code, err)
+	}
+	assertTaskTitles(t, dashboard.TodayTasks, []string{"scheduled-today"})
+	assertTaskTitles(t, dashboard.TomorrowTasks, []string{"due-tomorrow", "scheduled-tomorrow"})
+	assertTaskTitles(t, dashboard.OverdueTasks, []string{"midnight-end"})
+}
+
+func TestAttachmentImportAcceptedJobAndRestorePreflightFailureContracts(t *testing.T) {
+	handler, store := testHandlerWithStore(t)
+	token := "0123456789012345678901234567890123456789012"
+	owner, err := store.CreateArchive(context.Background(), archive.Input{CollectionID: "template", Title: "attachment owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(t.TempDir(), "payload.txt")
+	if err := os.WriteFile(source, []byte("attachment payload"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(map[string]any{"paths": []string{source}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request(http.MethodPost, "/api/v3/archive-records/"+owner.ID+"/attachments", token, "", body))
+	var accepted struct{ ID, State string }
+	if err := json.Unmarshal(response.Body.Bytes(), &accepted); err != nil || response.Code != http.StatusAccepted || accepted.ID == "" {
+		t.Fatalf("accepted status=%d body=%s err=%v", response.Code, response.Body.String(), err)
+	}
+	stream := httptest.NewRecorder()
+	handler.ServeHTTP(stream, request(http.MethodGet, "/api/v3/jobs/"+accepted.ID+"/events", token, "", nil))
+	if stream.Code != http.StatusOK || stream.Header().Get("Content-Type") != "text/event-stream" || !bytes.Contains(stream.Body.Bytes(), []byte(`"state":"succeeded"`)) {
+		t.Fatalf("job stream status=%d body=%s", stream.Code, stream.Body.String())
+	}
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request(http.MethodGet, "/api/v3/archive-records/"+owner.ID+"/attachments", token, "", nil))
+	var attachments []attachment.Attachment
+	if err := json.Unmarshal(response.Body.Bytes(), &attachments); err != nil || len(attachments) != 1 || attachments[0].Size != 18 {
+		t.Fatalf("attachments=%#v err=%v", attachments, err)
+	}
+	body, err = json.Marshal(map[string]string{"source": source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request(http.MethodPost, "/api/v3/restores/preflight", token, "", body))
+	assertProblem(t, response, http.StatusUnprocessableEntity, "restore_preflight_failed")
+	if bytes.Contains(response.Body.Bytes(), []byte(source)) {
+		t.Fatal("preflight problem exposed source path")
+	}
+}
+
+func assertTaskTitles(t *testing.T, items []task.Task, want []string) {
+	t.Helper()
+	titles := make([]string, 0, len(items))
+	for _, item := range items {
+		titles = append(titles, item.Title)
+	}
+	slices.Sort(titles)
+	if !slices.Equal(titles, want) {
+		t.Fatalf("titles=%v, want %v", titles, want)
+	}
+}
+
+func assertProblem(t *testing.T, response *httptest.ResponseRecorder, status int, code string) {
+	t.Helper()
+	var problem workbenchapi.Problem
+	if err := json.Unmarshal(response.Body.Bytes(), &problem); err != nil || response.Code != status || problem.Status != status || problem.Code != code || problem.TraceID == "" || response.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("problem status=%d body=%s decode=%v, want %d/%s", response.Code, response.Body.String(), err, status, code)
 	}
 }

@@ -84,21 +84,25 @@ func (s *Store) UpdateArchiveCollection(ctx context.Context, id string, input ar
 func (s *Store) DeleteArchiveCollection(ctx context.Context, id string) error {
 	return s.withTx(ctx, func(tx *sql.Tx) error {
 		var count int
-		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM archive_records WHERE archive_type_id=?`, id).Scan(&count); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM archive_records WHERE archive_type_id=? AND deleted_at IS NULL`, id).Scan(&count); err != nil {
 			return err
 		}
 		if count > 0 {
 			return app.ErrConflict
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM archive_fields WHERE archive_type_id=?`, id); err != nil {
+		now := platform.Now()
+		if _, err := tx.ExecContext(ctx, `UPDATE archive_fields SET deleted_at=?,updated_at=? WHERE archive_type_id=? AND deleted_at IS NULL`, platform.TimeText(now), platform.TimeText(now), id); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `DELETE FROM archive_collections WHERE id=?`, id)
+		result, err := tx.ExecContext(ctx, `UPDATE archive_collections SET deleted_at=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, platform.TimeText(now), platform.TimeText(now), id)
 		if err != nil {
 			return err
 		}
 		if affected, _ := result.RowsAffected(); affected == 0 {
 			return app.ErrNotFound
+		}
+		if err := writeChange(ctx, tx, "archive_collection", id, "delete", now); err != nil {
+			return err
 		}
 		return nil
 	})
@@ -194,6 +198,23 @@ func decodeFieldDefinition(id, key, label, valueType, group string, required, se
 }
 
 func encodeFieldConfig(input archive.FieldInput) (string, any, error) {
+	if (input.ValueType == "select" || input.ValueType == "multiSelect") && len(input.Options) == 0 {
+		return "", nil, errors.New("select field requires options")
+	}
+	for i, option := range input.Options {
+		if strings.TrimSpace(option) == "" || len([]rune(option)) > 200 {
+			return "", nil, errors.New("invalid option")
+		}
+		for _, other := range input.Options[:i] {
+			if option == other {
+				return "", nil, errors.New("duplicate option")
+			}
+		}
+	}
+	definition := archive.FieldDefinition{ValueType: input.ValueType, Options: input.Options, Required: input.Required}
+	if input.DefaultValue != nil && !validFieldValue(definition, input.DefaultValue) {
+		return "", nil, errors.New("invalid default value")
+	}
 	options, err := json.Marshal(input.Options)
 	if err != nil {
 		return "", nil, err

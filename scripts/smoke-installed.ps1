@@ -17,11 +17,11 @@ $installer = Get-ChildItem -LiteralPath $bundleDirectory -Filter '*.exe' |
 if (-not $installer) { throw 'NSIS installer was not produced' }
 
 $tauriConfig = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root 'apps/desktop/src-tauri/tauri.conf.json') | ConvertFrom-Json
-$installDirectory = Join-Path $env:LOCALAPPDATA $tauriConfig.productName
-$application = Join-Path $installDirectory 'personal-workbench.exe'
-$sidecar = Join-Path $installDirectory 'workbenchd.exe'
 $workspace = Join-Path ([IO.Path]::GetTempPath()) "personal-workbench-installed-smoke-$PID"
 $workspaceFull = [IO.Path]::GetFullPath($workspace)
+$installDirectory = Join-Path $workspaceFull 'installed'
+$application = Join-Path $installDirectory 'personal-workbench.exe'
+$sidecar = Join-Path $installDirectory 'workbenchd.exe'
 $configDirectory = Join-Path $workspaceFull 'app-data'
 $webviewDirectory = Join-Path $workspaceFull 'webview2'
 $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
@@ -154,7 +154,7 @@ $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
 $installedBySmoke = $false
 
 try {
-  $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+  $install = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$installDirectory") -Wait -PassThru
   if ($install.ExitCode -ne 0) {
     throw "NSIS installation failed with exit code $($install.ExitCode)"
   }
@@ -186,7 +186,7 @@ try {
 
   $marker = Join-Path $workspaceFull 'upgrade-preservation.marker'
   Set-Content -LiteralPath $marker -Value 'preserve' -Encoding ascii
-  $upgrade = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+  $upgrade = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$installDirectory") -Wait -PassThru
   if ($upgrade.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $marker)) {
     throw 'Overlay upgrade did not preserve the workspace'
   }
@@ -198,16 +198,19 @@ try {
     throw "Overlay upgrade installed sidecar version $upgradedVersion instead of $expectedVersion"
   }
 
-  $legacyRoot = Join-Path $workspaceFull 'legacy-recovery'
-  $legacyWorkspace = Join-Path $legacyRoot 'workspace'
-  $legacyConfig = Join-Path $legacyRoot 'app-data'
-  New-Item -ItemType Directory -Force -Path $legacyWorkspace, $legacyConfig | Out-Null
-  & go -C (Join-Path $root 'services/workbenchd') run (Join-Path $root 'scripts/create-schema-fixture.go') (Join-Path $legacyWorkspace 'workbench.sqlite3') 99
+  $incompatibleRoot = Join-Path $workspaceFull 'incompatible-schema'
+  $incompatibleWorkspace = Join-Path $incompatibleRoot 'workspace'
+  $incompatibleConfig = Join-Path $incompatibleRoot 'app-data'
+  New-Item -ItemType Directory -Force -Path $incompatibleWorkspace, $incompatibleConfig | Out-Null
+  & go -C (Join-Path $root 'services/workbenchd') run (Join-Path $root 'scripts/create-schema-fixture.go') (Join-Path $incompatibleWorkspace 'workbench.sqlite3') 99
   if ($LASTEXITCODE -ne 0) { throw 'Could not create incompatible workspace fixture' }
-  $legacyRegistry = ConvertTo-Json -InputObject @(@{ path = $legacyWorkspace; name = 'Legacy Recovery'; lastOpened = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() })
-  [IO.File]::WriteAllText((Join-Path $legacyConfig 'workspaces.json'), $legacyRegistry, $utf8WithoutBom)
-  $desktop = Start-TestDesktop -ApplicationPath $application -AppDataDirectory $legacyConfig
+  $incompatibleRegistry = ConvertTo-Json -InputObject @(@{ path = $incompatibleWorkspace; name = 'Incompatible Schema'; lastOpened = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() })
+  [IO.File]::WriteAllText((Join-Path $incompatibleConfig 'workspaces.json'), $incompatibleRegistry, $utf8WithoutBom)
+  $desktop = Start-TestDesktop -ApplicationPath $application -AppDataDirectory $incompatibleConfig
   Wait-ForRecoveryWindow -Desktop $desktop
+  if (Test-Path -LiteralPath (Join-Path $incompatibleConfig 'workspace')) {
+    throw 'Incompatible schema unexpectedly created a fallback workspace'
+  }
   Stop-Process -Id $desktop.Id -Force
   if (-not $desktop.WaitForExit(5000)) { throw 'Recovery test process could not be terminated' }
 

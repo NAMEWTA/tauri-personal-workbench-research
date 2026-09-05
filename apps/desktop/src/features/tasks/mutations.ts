@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createTask, updateTask } from '../../generated/api/sdk.gen'
 import type { Task, TaskInput } from '../../generated/api/types.gen'
 import { requireData } from '../../lib/http/client'
-import { taskKeys } from './queries'
+import { invalidateWorkbenchQueries } from '../../app/queryKeys'
 
 export function useCreateTask() {
   const queryClient = useQueryClient()
@@ -10,10 +10,7 @@ export function useCreateTask() {
     mutationFn: async (body: TaskInput) =>
       requireData((await createTask({ body, throwOnError: true })).data),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: taskKeys.all })
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      await queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
-      await queryClient.invalidateQueries({ queryKey: ['archive-tasks'] })
+      await invalidateWorkbenchQueries(queryClient)
     },
   })
 }
@@ -47,10 +44,7 @@ export function useUpdateTask() {
         ).data,
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: taskKeys.all })
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      await queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
-      await queryClient.invalidateQueries({ queryKey: ['archive-tasks'] })
+      await invalidateWorkbenchQueries(queryClient)
     },
   })
 }

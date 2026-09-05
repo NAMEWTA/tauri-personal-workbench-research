@@ -1,4 +1,4 @@
-# ADR-001: Process ownership
+# 单 Go Sidecar 与分层所有权
 
-Rust supervises one Go sidecar, React owns presentation, and Go exclusively owns domain logic, SQLite, attachments, search, jobs, backup, and restore. Business CRUD does not use Tauri commands.
+本文为导航文件，权威正文位于 [Speculo ADR 0001](../../speculo/.speculo/specdev/adr/0001-single-go-sidecar-and-layer-ownership.md)。请勿在此文件复制或维护决策内容。
 

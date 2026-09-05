@@ -27,12 +27,12 @@ type Config struct {
 }
 
 type Server struct {
-	service *app.Service
+	service app.APIService
 	config  Config
 	logger  *slog.Logger
 }
 
-func NewHandler(service *app.Service, config Config, logger *slog.Logger) http.Handler {
+func NewHandler(service app.APIService, config Config, logger *slog.Logger) http.Handler {
 	s := &Server{service: service, config: config, logger: logger}
 	root := chi.NewRouter()
 	root.Use(recoverer(logger), requestIDs, securityHeaders, validateHost, cors(config.AllowedOrigins))
@@ -143,8 +143,16 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listArchives(w http.ResponseWriter, r *http.Request) {
-	limit := queryInt(r, "limit", 50)
-	offset := queryInt(r, "offset", 0)
+	limit, ok := queryInt(r, "limit", 50, 1, archive.MaxPageSize)
+	if !ok {
+		invalid(w, r)
+		return
+	}
+	offset, ok := queryInt(r, "offset", 0, 0, archive.MaxPageOffset)
+	if !ok {
+		invalid(w, r)
+		return
+	}
 	result, err := s.service.ListArchiveRecords(r.Context(), r.URL.Query().Get("q"), r.URL.Query().Get("collectionId"), r.URL.Query().Get("sort"), limit, offset)
 	if err != nil {
 		writeServiceError(w, r, err)
@@ -352,7 +360,7 @@ func (s *Server) importAttachments(w http.ResponseWriter, r *http.Request) {
 		invalid(w, r)
 		return
 	}
-	result, err := s.service.StartAttachmentImport(chi.URLParam(r, "recordId"), input.Paths)
+	result, err := s.service.StartAttachmentImport(r.Context(), chi.URLParam(r, "recordId"), input.Paths)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -654,12 +662,16 @@ func decode(w http.ResponseWriter, r *http.Request, destination any) bool {
 func invalid(w http.ResponseWriter, r *http.Request) {
 	writeProblem(w, r, http.StatusUnprocessableEntity, "validation_failed", "内容有误", "请检查必填字段和字段格式。")
 }
-func queryInt(r *http.Request, name string, fallback int) int {
-	value, err := strconv.Atoi(r.URL.Query().Get(name))
-	if err != nil {
-		return fallback
+func queryInt(r *http.Request, name string, fallback, min, max int) (int, bool) {
+	raw, present := r.URL.Query()[name]
+	if !present || strings.TrimSpace(raw[0]) == "" {
+		return fallback, true
 	}
-	return value
+	value, err := strconv.Atoi(raw[0])
+	if err != nil || value < min || value > max {
+		return 0, false
+	}
+	return value, true
 }
 func queryTime(w http.ResponseWriter, r *http.Request, name string) (*time.Time, bool) {
 	raw := r.URL.Query().Get(name)

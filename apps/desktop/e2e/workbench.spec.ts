@@ -34,7 +34,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   const resetPreferences = await request.patch(`${server.backendUrl}/api/v3/preferences`, {
     headers: apiHeaders,
     data: {
-      theme: 'system',
+      theme: 'dark',
       sidebarCollapsed: false,
       inspectorWidth: 344,
       recentSearches: [],
@@ -42,42 +42,10 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   })
   expect(resetPreferences.ok()).toBeTruthy()
 
-  await page.addInitScript(() => {
-    if (sessionStorage.getItem('v2-legacy-preferences-seeded')) return
-    localStorage.setItem(
-      'workbench-layout',
-      JSON.stringify({ state: { theme: 'dark', sidebarCollapsed: true, inspectorWidth: 400 } }),
-    )
-    localStorage.setItem(
-      'workbench-recent-search-results',
-      JSON.stringify([{ id: 'legacy-task', type: 'task', title: '旧任务', subtitle: '任务' }]),
-    )
-    sessionStorage.setItem('v2-legacy-preferences-seeded', '1')
-  })
   await page.goto('/today')
   await expect(page.getByRole('heading', { name: '今日' })).toBeVisible()
   await expect(page.getByText('E2E 临时工作区').first()).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('workbench-layout'))).toBeNull()
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem('workbench-recent-search-results')))
-    .toBeNull()
-  const migratedPreferencesResponse = await request.get(`${server.backendUrl}/api/v3/preferences`, {
-    headers: apiHeaders,
-  })
-  expect(migratedPreferencesResponse.ok()).toBeTruthy()
-  const migratedPreferences = (await migratedPreferencesResponse.json()) as {
-    theme: string
-    sidebarCollapsed: boolean
-    inspectorWidth: number
-    recentSearches: Array<{ id: string }>
-  }
-  expect(migratedPreferences).toMatchObject({
-    theme: 'dark',
-    sidebarCollapsed: true,
-    inspectorWidth: 400,
-    recentSearches: [{ id: 'legacy-task' }],
-  })
 
   await page.getByLabel('任务标题').fill(taskTitle)
   await Promise.all([

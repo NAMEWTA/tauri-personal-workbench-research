@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -72,7 +73,15 @@ func (m *Manager) Start(kind string, operation func(context.Context, func(int, s
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
-		m.update(item.ID, func(value *Job) { value.State, value.Stage = "running", "preparing" })
+		defer func() {
+			cancel()
+			m.mu.Lock()
+			delete(m.cancels, item.ID)
+			m.mu.Unlock()
+		}()
+		if !m.update(item.ID, func(value *Job) { value.State, value.Stage = "running", "preparing" }) {
+			return
+		}
 		err := operation(ctx, func(progress int, stage string) {
 			m.update(item.ID, func(value *Job) {
 				value.Progress = max(0, min(100, progress))
@@ -91,9 +100,6 @@ func (m *Manager) Start(kind string, operation func(context.Context, func(int, s
 				value.State, value.Stage, value.Progress = "succeeded", "complete", 100
 			}
 		})
-		m.mu.Lock()
-		delete(m.cancels, item.ID)
-		m.mu.Unlock()
 	}()
 	return item, nil
 }
@@ -159,22 +165,31 @@ func (m *Manager) Subscribe(id string) (<-chan Job, func(), bool) {
 	}, true
 }
 
-func (m *Manager) update(id string, change func(*Job)) {
+func (m *Manager) update(id string, change func(*Job)) bool {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	value, ok := m.jobs[id]
-	if !ok {
-		m.mu.Unlock()
-		return
+	if !ok || value.Terminal() {
+		return false
 	}
+	previous := value
 	change(&value)
-	m.jobs[id] = value
-	listeners := make([]chan Job, 0, len(m.subscribers[id]))
-	for listener := range m.subscribers[id] {
-		listeners = append(listeners, listener)
+	// 进度回调可能运行于数据库事务内；仅持久化生命周期，最终状态包含最终进度。
+	if value.State != previous.State {
+		if err := m.persist(value); err != nil {
+			slog.Error("persist job state", "job_id", id, "state", value.State, "error", err)
+			value.State, value.Stage, value.Error = "failed", "failed", "任务状态无法持久化"
+			value.Progress = previous.Progress
+			finished := platform.Now()
+			value.FinishedAt = &finished
+			if err := m.persist(value); err != nil {
+				slog.Error("persist failed job state", "job_id", id, "error", err)
+			}
+		}
 	}
-	m.mu.Unlock()
-	_ = m.persist(value)
-	for _, listener := range listeners {
+	// 持久化完成后才发布内存状态，Get 和新订阅者不会看到未落盘的成功状态。
+	m.jobs[id] = value
+	for listener := range m.subscribers[id] {
 		select {
 		case listener <- value:
 		default:
@@ -188,6 +203,7 @@ func (m *Manager) update(id string, change func(*Job)) {
 			}
 		}
 	}
+	return value.State != "failed"
 }
 
 func (m *Manager) persist(item Job) error {

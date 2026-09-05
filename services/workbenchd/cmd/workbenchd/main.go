@@ -30,7 +30,7 @@ import (
 
 const protocolVersion = 3
 
-var version = "0.2.0-dev"
+var version = "0.2.9-dev"
 
 type bootstrap struct {
 	ProtocolVersion int      `json:"protocolVersion"`

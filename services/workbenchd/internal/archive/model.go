@@ -6,6 +6,9 @@ import (
 	"unicode/utf8"
 )
 
+const MaxPageSize = 200
+const MaxPageOffset = 1_000_000
+
 type Archive struct {
 	ID              string         `json:"id"`
 	CollectionID    string         `json:"collectionId"`

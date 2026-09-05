@@ -1,4 +1,4 @@
-# ADR-007: Unsigned distribution
+# 手动更新与平台信任
 
-Windows builds are unsigned NSIS and portable ZIP artifacts. There is no updater plugin or signature configuration. Releases include SHA-256 checksums and are installed manually.
+本文为导航文件，权威正文位于 [Speculo ADR 0007](../../speculo/.speculo/specdev/adr/0007-manual-updates-and-platform-trust.md)。请勿在此文件复制或维护决策内容。
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -17,11 +18,8 @@ import (
 const archiveColumns = `a.id,a.archive_type_id,t.name,t.icon,t.color,a.title,a.summary,a.body,a.created_at,a.updated_at`
 
 func (s *Store) ListArchiveRecords(ctx context.Context, query, collectionID, sortBy string, limit, offset int) (app.ArchiveRecordPage, error) {
-	if limit < 1 || limit > 200 {
-		limit = 50
-	}
-	if offset < 0 {
-		offset = 0
+	if limit < 1 || limit > archive.MaxPageSize || offset < 0 || offset > archive.MaxPageOffset {
+		return app.ArchiveRecordPage{}, app.ErrValidation
 	}
 	pattern := "%" + strings.TrimSpace(query) + "%"
 	condition := `a.deleted_at IS NULL AND t.deleted_at IS NULL AND (a.title LIKE ? OR a.summary LIKE ?)`
@@ -182,7 +180,7 @@ func (s *Store) normalizeArchiveFields(ctx context.Context, collectionID string,
 			value, present = field.DefaultValue, true
 			normalized[field.Key] = value
 		}
-		if field.Required && (!present || emptyFieldValue(value)) {
+		if (field.Required && !present) || (present && !validFieldValue(field, value)) {
 			return nil, nil, app.ErrValidation
 		}
 	}
@@ -190,6 +188,9 @@ func (s *Store) normalizeArchiveFields(ctx context.Context, collectionID string,
 }
 
 func validFieldValue(field archive.FieldDefinition, value any) bool {
+	if field.Required && emptyFieldValue(value) {
+		return false
+	}
 	if value == nil {
 		return !field.Required
 	}
@@ -212,8 +213,12 @@ func validFieldValue(field archive.FieldDefinition, value any) bool {
 		_, err := time.Parse(time.RFC3339, text)
 		return err == nil
 	case "number":
-		switch value.(type) {
-		case float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		switch number := value.(type) {
+		case float64:
+			return !math.IsNaN(number) && !math.IsInf(number, 0)
+		case float32:
+			return !math.IsNaN(float64(number)) && !math.IsInf(float64(number), 0)
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 			return true
 		default:
 			return false
@@ -259,11 +264,17 @@ func validFieldValue(field archive.FieldDefinition, value any) bool {
 }
 
 func emptyFieldValue(value any) bool {
-	if value == nil {
+	switch item := value.(type) {
+	case nil:
 		return true
+	case string:
+		return strings.TrimSpace(item) == ""
+	case []any:
+		return len(item) == 0
+	case []string:
+		return len(item) == 0
 	}
-	text, ok := value.(string)
-	return ok && strings.TrimSpace(text) == ""
+	return false
 }
 
 func writeArchiveFields(ctx context.Context, tx *sql.Tx, archiveID string, values map[string]any, definitions map[string]archive.FieldDefinition, now time.Time) error {

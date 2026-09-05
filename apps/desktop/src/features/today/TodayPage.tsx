@@ -10,21 +10,34 @@ import { QuickTaskForm } from '../tasks/QuickTaskForm'
 import { TaskRow } from '../tasks/TaskRow'
 import { useUpdateTask } from '../tasks/mutations'
 
-const date = new Intl.DateTimeFormat('zh-CN', {
+const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
   month: 'long',
   day: 'numeric',
   weekday: 'long',
-}).format(new Date())
+})
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 export function TodayPage() {
+  const [now, setNow] = useState(() => new Date())
+  const date = dateFormatter.format(now)
+  const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const update = useUpdateTask()
   const [undoTask, setUndoTask] = useState<Task>()
   const query = useQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard', dateKey],
     queryFn: async () =>
       requireData((await getDashboard({ query: { timezone }, throwOnError: true })).data),
   })
+  useEffect(() => {
+    const current = new Date()
+    const next = new Date(current)
+    next.setHours(24, 0, 0, 50)
+    const timer = window.setTimeout(
+      () => setNow(new Date()),
+      Math.max(1000, next.getTime() - current.getTime()),
+    )
+    return () => window.clearTimeout(timer)
+  }, [dateKey])
   useEffect(() => {
     if (!undoTask) return
     const timer = window.setTimeout(() => setUndoTask(undefined), 5_000)

@@ -2,54 +2,41 @@
 
 ## 工作流
 
-| 文件                   | 触发方式                                  | 作用                                                                 |
-| ---------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
-| `ci.yml`               | `main` push、pull request、其他工作流调用 | 前端、Go、OpenAPI、Rust、Windows 与 macOS 原生质量门禁               |
-| `build-installers.yml` | 手动执行                                  | 构建两种原生安装包并保存为 Actions artifacts，不创建 Release         |
-| `release.yml`          | 推送 `vX.Y.Z` 标签                        | 复用 CI，构建两种安装包，生成 SBOM、SHA-256 和 provenance 后公开发布 |
+| 工作流 | 触发 | 作用 |
+| --- | --- | --- |
+| `ci.yml` | main push、pull request、workflow_call | 契约、前端、Go、Rust、Windows/macOS 原生门禁 |
+| `build-installers.yml` | 手动触发 | 构建 Windows NSIS/portable 与 macOS DMG，保存 artifacts |
+| `release.yml` | 推送 `vX.Y.Z` 标签 | 复用 CI、构建安装包、生成 SBOM/哈希/attestation 并发布 |
 
-手动构建与标签发布调用可复用 CI 时都会传入 `force_all: true`，因此即使标签本身没有文件差异，也会执行全部验证任务。
-
-所有外部 Actions 固定到完整 commit SHA。Dependabot 每周检查 npm、Go Modules、Cargo 和 GitHub Actions 更新。
+外部 Actions 固定到完整 commit SHA；依赖更新由 Dependabot 管理。手动构建和标签发布必须传入全量验证参数，不能绕过路径过滤。
 
 ## 发布矩阵
 
-| 系统                | GitHub runner                           | Rust/Tauri target        | 安装包      |
-| ------------------- | --------------------------------------- | ------------------------ | ----------- |
-| Windows x64         | `windows-latest`                        | `x86_64-pc-windows-msvc` | NSIS `.exe` |
-| macOS Apple Silicon | `macos-latest`（当前为 macOS 26 ARM64） | `aarch64-apple-darwin`   | `.dmg`      |
+| 平台 | Target | 产物 |
+| --- | --- | --- |
+| Windows x64 | `x86_64-pc-windows-msvc` | NSIS `.exe`、portable `.zip` |
+| macOS Apple Silicon | `aarch64-apple-darwin` | `.app`、`.dmg` |
 
-`scripts/build-sidecar.mjs` 将 Tauri target 映射到对应的 `GOOS`/`GOARCH`，并把二进制写为 Tauri `externalBin` 要求的目标三元组文件名。交叉编译时不会尝试在宿主 runner 上执行异构 sidecar。
+构建脚本显式映射 Tauri target 与 Go `GOOS/GOARCH`，sidecar 文件名必须包含 target triple。异构 sidecar 只交叉编译，不在宿主 runner 上执行。
 
-Windows 构建完成后会运行 `scripts/smoke-installed.ps1`，实际验证静默安装、sidecar 启动、覆盖升级、优雅退出、卸载，以及卸载后工作区仍被保留；安装 smoke 为每次运行使用私有 `WEBVIEW2_USER_DATA_FOLDER`，避免宿主机其他 WebView2 实例影响窗口清理；随后运行 `scripts/smoke-single-instance.ps1`，先验证 sidecar 崩溃后的自动恢复，再验证重复启动时第二实例退出、首实例和唯一 sidecar 保持；最后运行 `pnpm test:native-workspace`，通过实际 Tauri WebView2 验证备份预检/恢复到新工作区、双工作区切换、SQLite/任务/偏好隔离、回环网络边界与原生退出清理。任一门禁失败时不会进入 Release 发布任务。
+Windows 门禁执行 `pnpm check`、sidecar smoke、安装/卸载 smoke、单实例 smoke 和原生工作区 smoke。macOS 门禁执行 Darwin sidecar 生命周期、`.app` 内容与可执行性检查、签名验证和 DMG `hdiutil verify`，并上传带哈希的 native/bundle evidence。
 
-Windows 本机可在已有 NSIS 产物后执行 `pnpm test:single-instance` 和 `pnpm test:native-workspace`；显式 target 构建可通过 `TAURI_ENV_TARGET_TRIPLE` 指定产物目录，单实例脚本也可直接传入 `-TargetTriple x86_64-pc-windows-msvc`。
+## 发布步骤
 
-macOS 原生 job 会在 `macos-latest` 上运行 `scripts/smoke-sidecar.mjs`，验证 Darwin sidecar 的 loopback ready、SQLite/API、偏好写入和优雅 shutdown，然后构建并检查 `.app` 的 `Info.plist`、主程序、嵌入 sidecar 和 ad-hoc 签名，并上传 `personal-workbench-macos-native-evidence`（工具链、命令、主程序/sidecar 哈希和签名结果）；安装包矩阵再构建并使用 `hdiutil verify` 校验 Apple Silicon DMG，同时上传 `personal-workbench-macos-bundle-evidence`（`.app`、sidecar、DMG 哈希及签名/镜像校验结果）。
+1. 保持 `package.json`、Tauri、Cargo 与 sidecar 版本均为目标版本（当前 `0.2.9`）。
+2. 运行 `pnpm check`、`pnpm test`、`pnpm test:smoke`、原生 smoke 和 `pnpm verify:versions`。
+3. 推送 main，等待 CI 全部通过并核对 macOS evidence artifact。
+4. 创建并推送与 package 版本一致的标签，例如 `git tag v0.2.9`。
+5. `release.yml` 再次校验版本，聚合安装包、SBOM、SHA-256 和 provenance 后创建 Release。
 
-## 创建版本
-
-1. 同步 `package.json`、桌面包、Tauri、Cargo 和 sidecar 的版本。
-2. 执行 `pnpm check`、`pnpm test`、`pnpm test:smoke` 和 `pnpm verify:versions`；Windows 构建后再执行两项原生 smoke。
-3. 提交并推送 `main`，等待 CI 通过。
-4. 创建并推送同版本标签，例如 `git tag v0.2.0 && git push origin v0.2.0`。
-5. `release.yml` 验证标签与 `package.json` 一致，聚合两种安装包后一次性创建公开 Release。
-
-Release 附带 CycloneDX `sbom.cdx.json`、`SHA256SUMS.txt` 和 GitHub artifact attestation。可使用 `gh attestation verify <file> --repo OWNER/REPO` 核验构建来源。
+任何门禁失败或证据缺失都不能发布，也不能用旧版本 artifact 替代当前证据。
 
 ## 签名边界
 
-Windows 当前没有 Authenticode 证书，系统会显示未知发布者。macOS 在 `tauri.conf.json` 中使用 `signingIdentity: "-"` 做 ad-hoc 签名，可避免 Apple Silicon 将下载的应用直接判断为损坏，但这不等同于 Apple Developer 身份签名或公证。
+Windows 当前为 unsigned，系统可能显示未知发布者。macOS 使用 `signingIdentity: "-"` 的 ad-hoc 签名；这不是 Developer ID 签名或公证。正式分发前应通过受保护的 CI secrets 接入证书和公证流程，敏感值不得进入仓库或日志。
 
-正式对外分发 macOS 版本时，应申请 Developer ID Application 证书，在 GitHub Secrets 中保存证书、证书密码、临时 keychain 密码和 App Store Connect/Apple ID 公证凭据，再按 Tauri 的 macOS signing 流程导入证书并移除 ad-hoc identity。敏感值不得写入仓库或 workflow 日志。
-
-## 参考资料
+## 相关入口
 
 - [Tauri GitHub Actions 发布](https://v2.tauri.app/distribute/pipelines/github/)
-- [tauri-action 官方 Workflow 示例](https://github.com/tauri-apps/tauri-action/tree/dev/examples)
-- [Clash Verge Rev 桌面构建 Workflow](https://github.com/clash-verge-rev/clash-verge-rev/blob/dev/.github/workflows/dev.yml)
-- [Hoppscotch 桌面构建 Workflow](https://github.com/hoppscotch/hoppscotch/blob/main/.github/workflows/build-hoppscotch-desktop.yml)
-- [Tauri macOS 签名与公证](https://v2.tauri.app/distribute/sign/macos/)
-- [Tauri Windows 安装包](https://v2.tauri.app/distribute/windows-installer/)
-- [GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+- [Tauri macOS 签名](https://v2.tauri.app/distribute/sign/macos/)
 - [GitHub artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations)

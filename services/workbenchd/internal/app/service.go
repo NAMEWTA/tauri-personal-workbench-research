@@ -11,6 +11,7 @@ import (
 	"github.com/personal-workbench/workbenchd/internal/attachment"
 	"github.com/personal-workbench/workbenchd/internal/backup"
 	"github.com/personal-workbench/workbenchd/internal/job"
+	"github.com/personal-workbench/workbenchd/internal/platform"
 	"github.com/personal-workbench/workbenchd/internal/preferences"
 	"github.com/personal-workbench/workbenchd/internal/relation"
 	"github.com/personal-workbench/workbenchd/internal/task"
@@ -53,39 +54,6 @@ type Activity struct {
 	ID        string    `json:"id"`
 	Action    string    `json:"action"`
 	ChangedAt time.Time `json:"changedAt"`
-}
-
-type Repository interface {
-	WorkspaceMeta(context.Context) (string, int, error)
-	Preferences(context.Context) (preferences.Values, error)
-	UpdatePreferences(context.Context, preferences.Update) (preferences.Values, error)
-	ListArchiveCollections(context.Context) ([]archive.CollectionDefinition, error)
-	GetArchiveCollection(context.Context, string) (archive.CollectionDefinition, error)
-	CreateArchiveCollection(context.Context, archive.CollectionInput) (archive.CollectionDefinition, error)
-	UpdateArchiveCollection(context.Context, string, archive.CollectionInput) (archive.CollectionDefinition, error)
-	DeleteArchiveCollection(context.Context, string) error
-	CreateArchiveField(context.Context, string, archive.FieldInput) (archive.FieldDefinition, error)
-	UpdateArchiveField(context.Context, string, archive.FieldInput) (archive.FieldDefinition, error)
-	DeleteArchiveField(context.Context, string) error
-	ListArchiveRecords(context.Context, string, string, string, int, int) (ArchiveRecordPage, error)
-	GetArchive(context.Context, string) (archive.Archive, error)
-	CreateArchive(context.Context, archive.Input) (archive.Archive, error)
-	UpdateArchive(context.Context, string, archive.Input) (archive.Archive, error)
-	TrashArchive(context.Context, string) error
-	ListTasks(context.Context, task.Filter) ([]task.Task, error)
-	GetTask(context.Context, string) (task.Task, error)
-	CreateTask(context.Context, task.Input) (task.Task, error)
-	UpdateTask(context.Context, string, task.Input) (task.Task, error)
-	TrashTask(context.Context, string) error
-	Search(context.Context, string) ([]SearchResult, error)
-	SearchHealthy(context.Context) bool
-	RebuildSearch(context.Context, func(int, string)) error
-	ListTrash(context.Context) ([]TrashEntry, error)
-	RestoreTrash(context.Context, string) error
-	ListRelations(context.Context, string) ([]relation.Relation, error)
-	CreateRelation(context.Context, string, relation.Input) (relation.Relation, error)
-	DeleteRelation(context.Context, string) error
-	ListActivity(context.Context, string, string) ([]Activity, error)
 }
 
 type Service struct {
@@ -270,12 +238,22 @@ func (s *Service) DeleteRelation(ctx context.Context, id string) error {
 	return s.repo.DeleteRelation(ctx, id)
 }
 func (s *Service) ListAttachments(ctx context.Context, id string) ([]attachment.Attachment, error) {
-	return s.attachments.List(ctx, id)
+	items, err := s.attachments.List(ctx, id)
+	if errors.Is(err, attachment.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	return items, err
 }
 func (s *Service) ImportAttachments(ctx context.Context, id string, paths []string) ([]attachment.Attachment, error) {
 	return s.attachments.Import(ctx, id, paths)
 }
-func (s *Service) StartAttachmentImport(id string, paths []string) (job.Job, error) {
+func (s *Service) StartAttachmentImport(ctx context.Context, id string, paths []string) (job.Job, error) {
+	if _, err := s.attachments.List(ctx, id); err != nil {
+		if errors.Is(err, attachment.ErrNotFound) {
+			return job.Job{}, ErrNotFound
+		}
+		return job.Job{}, err
+	}
 	return s.jobs.Start("attachment", func(ctx context.Context, progress func(int, string)) error {
 		_, err := s.attachments.ImportWithProgress(ctx, id, paths, progress)
 		return err
@@ -312,6 +290,10 @@ func (s *Service) Dashboard(ctx context.Context, timezone string) (Dashboard, er
 	if err != nil {
 		return Dashboard{}, err
 	}
+	today, err := s.repo.ListTasks(ctx, task.Filter{View: "today", Timezone: timezone})
+	if err != nil {
+		return Dashboard{}, err
+	}
 	tomorrow, err := s.repo.ListTasks(ctx, task.Filter{View: "tomorrow", Timezone: timezone})
 	if err != nil {
 		return Dashboard{}, err
@@ -321,24 +303,16 @@ func (s *Service) Dashboard(ctx context.Context, timezone string) (Dashboard, er
 		return Dashboard{}, err
 	}
 	now := time.Now().In(location)
-	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location).UTC()
+	start, _ := platform.LocalDayRange(now, location)
 	todayKey := now.Format("2006-01-02")
-	result := Dashboard{OverdueTasks: []task.Task{}, TodayTasks: []task.Task{}, TomorrowTasks: tomorrow, RecentArchives: archives.Items}
+	result := Dashboard{OverdueTasks: []task.Task{}, TodayTasks: today, TomorrowTasks: tomorrow, RecentArchives: archives.Items}
 	for _, item := range all {
 		overdue := item.DueOn != nil && *item.DueOn < todayKey
-		if item.EndsAt != nil && item.EndsAt.Before(start) {
+		if item.EndsAt != nil && !item.EndsAt.After(start) {
 			overdue = true
 		}
 		if overdue {
 			result.OverdueTasks = append(result.OverdueTasks, item)
-			continue
-		}
-		today := item.DueOn != nil && *item.DueOn == todayKey
-		if item.StartsAt != nil && item.EndsAt != nil && item.StartsAt.Before(start.AddDate(0, 0, 1)) && item.EndsAt.After(start) {
-			today = true
-		}
-		if today {
-			result.TodayTasks = append(result.TodayTasks, item)
 		}
 	}
 	return result, nil

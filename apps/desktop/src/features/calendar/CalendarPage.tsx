@@ -38,7 +38,7 @@ export default function CalendarPage() {
       requireData(
         (
           await listTasks({
-            query: { view: 'all', timezone, from: range.from, to: range.to },
+            query: { view: 'calendar', timezone, from: range.from, to: range.to },
             throwOnError: true,
           })
         ).data,

@@ -1,4 +1,4 @@
-# ADR-006: Managed attachments
+# 托管附件所有权与原子导入
 
-Go canonicalizes selected source paths, streams content through SHA-256 to a temporary file, atomically renames into a UUID-scoped workspace path, then commits metadata. The UI never constructs managed paths.
+本文为导航文件，权威正文位于 [Speculo ADR 0006](../../speculo/.speculo/specdev/adr/0006-managed-attachment-ownership-and-atomic-import.md)。请勿在此文件复制或维护决策内容。
 

@@ -11,6 +11,15 @@ func (s *Store) ListActivity(ctx context.Context, entityType, entityID string) (
 	if entityType != "archive" && entityType != "task" {
 		return nil, app.ErrValidation
 	}
+	if entityType == "archive" {
+		if _, err := s.GetArchive(ctx, entityID); err != nil {
+			return nil, err
+		}
+	} else {
+		if _, err := s.GetTask(ctx, entityID); err != nil {
+			return nil, err
+		}
+	}
 	rows, err := s.db.QueryContext(ctx, `SELECT id,action,changed_at FROM change_log WHERE entity_type=? AND entity_id=? ORDER BY changed_at DESC,id DESC LIMIT 100`, entityType, entityID)
 	if err != nil {
 		return nil, err

@@ -415,11 +415,11 @@ mod tests {
     #[test]
     fn parses_valid_ready_line() {
         let ready = parse_ready_line(
-            br#"{"type":"ready","protocolVersion":3,"port":49152,"pid":42,"origin":"http://127.0.0.1:49152","workspaceId":"workspace","serviceVersion":"0.2.0"}"#,
+            br#"{"type":"ready","protocolVersion":3,"port":49152,"pid":42,"origin":"http://127.0.0.1:49152","workspaceId":"workspace","serviceVersion":"0.2.9"}"#,
         )
         .expect("ready line should parse");
         assert_eq!(ready.port, 49152);
-        assert_eq!(ready.service_version, "0.2.0");
+        assert_eq!(ready.service_version, "0.2.9");
     }
 
     #[test]
@@ -472,7 +472,7 @@ mod tests {
                 base_url: "http://127.0.0.1:49152".into(),
                 token: "token".into(),
                 protocol_version: 3,
-                service_version: "0.2.0".into(),
+                service_version: "0.2.9".into(),
             },
         )));
     }

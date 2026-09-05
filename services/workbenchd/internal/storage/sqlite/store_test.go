@@ -2,7 +2,13 @@ package sqlite_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"math"
 	"path/filepath"
+	"reflect"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +24,7 @@ import (
 
 func openStore(t *testing.T) *workbenchsqlite.Store {
 	t.Helper()
-	store, err := workbenchsqlite.Open(context.Background(), t.TempDir(), "V2 测试", "0.2.0")
+	store, err := workbenchsqlite.Open(context.Background(), t.TempDir(), "V2 测试", "0.2.9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,11 +35,11 @@ func openStore(t *testing.T) *workbenchsqlite.Store {
 func TestOpenCreatesV2BaselineAndLocksWorkspace(t *testing.T) {
 	ctx := context.Background()
 	workspace := t.TempDir()
-	store, err := workbenchsqlite.Open(ctx, workspace, "V2 工作区", "0.2.0")
+	store, err := workbenchsqlite.Open(ctx, workspace, "V2 工作区", "0.2.9")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := workbenchsqlite.Open(ctx, workspace, "V2 工作区", "0.2.0"); err == nil {
+	if _, err := workbenchsqlite.Open(ctx, workspace, "V2 工作区", "0.2.9"); err == nil {
 		t.Fatal("expected concurrent open to fail")
 	}
 	name, version, err := store.WorkspaceMeta(ctx)
@@ -45,16 +51,71 @@ func TestOpenCreatesV2BaselineAndLocksWorkspace(t *testing.T) {
 	}
 }
 
+func TestSQLiteConnectionPragmasApplyToEveryPooledConnection(t *testing.T) {
+	store := openStore(t)
+	db := store.DB()
+	db.SetMaxOpenConns(4)
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	errs := make(chan error, 4)
+	acquired := make(chan struct{}, 4)
+	release := make(chan struct{})
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			conn, err := db.Conn(ctx)
+			acquired <- struct{}{}
+			<-release
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer conn.Close()
+			for pragma, want := range map[string]int{"foreign_keys": 1, "busy_timeout": 5000, "synchronous": 1} {
+				var got int
+				if err := conn.QueryRowContext(ctx, "PRAGMA "+pragma).Scan(&got); err != nil {
+					errs <- err
+					return
+				}
+				if got != want {
+					errs <- fmt.Errorf("%s=%d, want %d", pragma, got, want)
+					return
+				}
+			}
+			var journal string
+			if err := conn.QueryRowContext(ctx, "PRAGMA journal_mode").Scan(&journal); err != nil {
+				errs <- err
+				return
+			}
+			if journal != "wal" {
+				errs <- fmt.Errorf("journal_mode=%s", journal)
+			}
+		}()
+	}
+	for i := 0; i < 4; i++ {
+		<-acquired
+	}
+	close(release)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestWorkspaceDataIsIsolatedAcrossSQLiteFiles(t *testing.T) {
 	ctx := context.Background()
 	workspaceA := t.TempDir()
 	workspaceB := t.TempDir()
-	storeA, err := workbenchsqlite.Open(ctx, workspaceA, "工作区 A", "0.2.0")
+	storeA, err := workbenchsqlite.Open(ctx, workspaceA, "工作区 A", "0.2.9")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = storeA.Close() }()
-	storeB, err := workbenchsqlite.Open(ctx, workspaceB, "工作区 B", "0.2.0")
+	storeB, err := workbenchsqlite.Open(ctx, workspaceB, "工作区 B", "0.2.9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +364,7 @@ func TestTaskDueDateAndRecurringCompletion(t *testing.T) {
 func TestWorkspacePreferencesPersistAcrossReopen(t *testing.T) {
 	ctx := context.Background()
 	workspace := t.TempDir()
-	store, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.0")
+	store, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +389,7 @@ func TestWorkspacePreferencesPersistAcrossReopen(t *testing.T) {
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.0")
+	reopened, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,5 +401,293 @@ func TestWorkspacePreferencesPersistAcrossReopen(t *testing.T) {
 	badWidth := 999
 	if _, err := reopened.UpdatePreferences(ctx, preferences.Update{InspectorWidth: &badWidth}); err != preferences.ErrInvalid {
 		t.Fatalf("invalid width err=%v", err)
+	}
+}
+
+func TestTaskViewsRespectLocalDatesAndHalfOpenIntervals(t *testing.T) {
+	for _, timezone := range []string{"Pacific/Kiritimati", "America/New_York"} {
+		t.Run(timezone, func(t *testing.T) {
+			store := openStore(t)
+			ctx := context.Background()
+			location, err := time.LoadLocation(timezone)
+			if err != nil {
+				t.Fatal(err)
+			}
+			now := time.Now().In(location)
+			start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
+			end := start.AddDate(0, 0, 1)
+			createScheduled := func(title, status string, from, to time.Time) {
+				t.Helper()
+				from, to = from.UTC(), to.UTC()
+				if _, err := store.CreateTask(ctx, task.Input{Title: title, Status: status, Priority: "normal", StartsAt: &from, EndsAt: &to, Timezone: timezone}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			createScheduled("expired", "todo", start.Add(-3*time.Hour), start.Add(-time.Hour))
+			createScheduled("ends-at-midnight", "todo", start.Add(-time.Hour), start)
+			createScheduled("today", "todo", start.Add(time.Hour), start.Add(2*time.Hour))
+			createScheduled("spanning", "todo", start.Add(-time.Hour), end.Add(time.Hour))
+			createScheduled("starts-at-tomorrow", "todo", end, end.Add(time.Hour))
+			createScheduled("completed", "done", start.Add(time.Hour), start.Add(2*time.Hour))
+			for title, day := range map[string]time.Time{"due-today": start, "due-tomorrow": end, "due-after-tomorrow": end.AddDate(0, 0, 1)} {
+				due := day.Format("2006-01-02")
+				if _, err := store.CreateTask(ctx, task.Input{Title: title, Status: "todo", Priority: "normal", DueOn: &due}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, scenario := range []struct {
+				name   string
+				filter task.Filter
+				want   []string
+			}{
+				{"today", task.Filter{View: "today", Timezone: timezone}, []string{"due-today", "spanning", "today"}},
+				{"tomorrow", task.Filter{View: "tomorrow", Timezone: timezone}, []string{"due-tomorrow", "spanning", "starts-at-tomorrow"}},
+				{"calendar", task.Filter{View: "calendar", From: &start, To: &end}, []string{"completed", "spanning", "today"}},
+				{"completed", task.Filter{View: "completed"}, []string{"completed"}},
+				{"all", task.Filter{View: "all"}, []string{"due-after-tomorrow", "due-today", "due-tomorrow", "ends-at-midnight", "expired", "spanning", "starts-at-tomorrow", "today"}},
+			} {
+				t.Run(scenario.name, func(t *testing.T) {
+					items, err := store.ListTasks(ctx, scenario.filter)
+					if err != nil {
+						t.Fatal(err)
+					}
+					got := make([]string, 0, len(items))
+					for _, item := range items {
+						got = append(got, item.Title)
+					}
+					slices.Sort(got)
+					if !slices.Equal(got, scenario.want) {
+						t.Fatalf("titles=%v, want %v", got, scenario.want)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestTaskParentValidationRejectsMissingDeletedAndCyclicLinks(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	input := task.Input{Title: "parent", Status: "todo", Priority: "normal"}
+	parent, err := store.CreateTask(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.Title, input.ParentID = "child", &parent.ID
+	child, err := store.CreateTask(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.Title, input.ParentID = "grandchild", &child.ID
+	grandchild, err := store.CreateTask(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := store.CreateTask(ctx, task.Input{Title: "deleted", Status: "todo", Priority: "normal"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.TrashTask(ctx, deleted.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, scenario := range []struct {
+		name, parentID string
+		want           error
+	}{
+		{"self", parent.ID, app.ErrValidation}, {"cycle", grandchild.ID, app.ErrValidation},
+		{"missing", "missing-parent", app.ErrNotFound}, {"deleted", deleted.ID, app.ErrNotFound},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			candidate := task.Input{Title: "changed", Status: "todo", Priority: "normal", ParentID: &scenario.parentID}
+			if _, err := store.UpdateTask(ctx, parent.ID, candidate); !errors.Is(err, scenario.want) {
+				t.Fatalf("update err=%v, want %v", err, scenario.want)
+			}
+			persisted, err := store.GetTask(ctx, parent.ID)
+			if err != nil || persisted.ParentID != nil || persisted.Title != "parent" {
+				t.Fatalf("failed update changed task: %#v err=%v", persisted, err)
+			}
+			if scenario.name == "missing" || scenario.name == "deleted" {
+				if _, err := store.CreateTask(ctx, candidate); !errors.Is(err, scenario.want) {
+					t.Fatalf("create err=%v, want %v", err, scenario.want)
+				}
+			}
+		})
+	}
+}
+
+func TestTaskRecurrenceRejectsUnsupportedWritesAndCreatesSupportedOccurrences(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	base := task.Input{Title: "recurrence", Status: "todo", Priority: "normal"}
+	item, err := store.CreateTask(ctx, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rule := range []string{"FREQ=YEARLY", "FREQ=DAILY;INTERVAL=2", "FREQ=WEEKLY;BYDAY=MO", "not-a-rule"} {
+		input := base
+		input.Recurrence = rule
+		if _, err := store.CreateTask(ctx, input); !errors.Is(err, app.ErrValidation) {
+			t.Fatalf("create %q err=%v", rule, err)
+		}
+		input.Status = "done"
+		if _, err := store.UpdateTask(ctx, item.ID, input); !errors.Is(err, app.ErrValidation) {
+			t.Fatalf("update %q err=%v", rule, err)
+		}
+	}
+	persisted, err := store.GetTask(ctx, item.ID)
+	if err != nil || persisted.Status != "todo" || persisted.Recurrence != "" {
+		t.Fatalf("invalid rule changed task: %#v err=%v", persisted, err)
+	}
+	for _, scenario := range []struct{ rule, want string }{{" FREQ=DAILY ", "2026-01-16"}, {"freq=weekly", "2026-01-22"}, {"FREQ=MONTHLY", "2026-02-15"}} {
+		t.Run(scenario.rule, func(t *testing.T) {
+			due := "2026-01-15"
+			input := task.Input{Title: scenario.rule, Status: "todo", Priority: "normal", Recurrence: scenario.rule, DueOn: &due}
+			created, err := store.CreateTask(ctx, input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			input.Status = "done"
+			if _, err := store.UpdateTask(ctx, created.ID, input); err != nil {
+				t.Fatal(err)
+			}
+			items, err := store.ListTasks(ctx, task.Filter{View: "all", Query: scenario.rule})
+			if err != nil || len(items) != 1 || items[0].DueOn == nil || *items[0].DueOn != scenario.want {
+				t.Fatalf("occurrence=%#v err=%v, want %s", items, err, scenario.want)
+			}
+		})
+	}
+}
+
+func TestCorruptTaskRemindersAreReportedByReadAndList(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	item, err := store.CreateTask(ctx, task.Input{Title: "reminder", Status: "todo", Priority: "normal"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, raw := range []string{`[`, `{}`, `[1]`} {
+		if _, err := store.DB().ExecContext(ctx, `UPDATE tasks SET reminders_json=? WHERE id=?`, raw, item.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.GetTask(ctx, item.ID); err == nil {
+			t.Fatalf("GetTask accepted corrupt reminders %q", raw)
+		}
+		if _, err := store.ListTasks(ctx, task.Filter{View: "all"}); err == nil {
+			t.Fatalf("ListTasks accepted corrupt reminders %q", raw)
+		}
+	}
+}
+
+func TestArchiveFieldDefaultsAndExplicitValuesShareValidation(t *testing.T) {
+	for _, scenario := range []struct {
+		name, kind     string
+		options        []string
+		required       bool
+		valid, invalid any
+	}{
+		{"number", "number", nil, false, float64(42), "42"},
+		{"finite-number", "number", nil, false, float64(0), math.Inf(1)},
+		{"date", "date", nil, false, "2026-09-05", "2026-02-30"},
+		{"datetime", "datetime", nil, false, "2026-09-05T10:00:00+08:00", "2026-09-05"},
+		{"select", "select", []string{"ready", "done"}, false, "ready", "missing"},
+		{"multi-select", "multiSelect", []string{"ready", "done"}, false, []any{"ready"}, []any{"missing"}},
+		{"required-text", "text", nil, true, "value", " "},
+		{"required-multi-select", "multiSelect", []string{"ready"}, true, []any{"ready"}, []any{}},
+		{"boolean", "boolean", nil, true, false, "false"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			store := openStore(t)
+			ctx := context.Background()
+			input := archive.FieldInput{Key: "value", Label: "Value", ValueType: scenario.kind, Options: scenario.options, Required: scenario.required, Sensitive: true, DefaultValue: scenario.invalid}
+			if _, err := store.CreateArchiveField(ctx, "template", input); !errors.Is(err, app.ErrValidation) {
+				t.Fatalf("invalid default accepted: err=%v", err)
+			}
+			input.DefaultValue = scenario.valid
+			field, err := store.CreateArchiveField(ctx, "template", input)
+			if err != nil || !field.Sensitive {
+				t.Fatalf("field=%#v err=%v", field, err)
+			}
+			created, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "defaults"})
+			if err != nil || !reflect.DeepEqual(created.Fields["value"], scenario.valid) {
+				t.Fatalf("default=%#v err=%v", created.Fields, err)
+			}
+			if _, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "invalid value", Fields: map[string]any{"value": scenario.invalid}}); !errors.Is(err, app.ErrValidation) {
+				t.Fatalf("invalid explicit value err=%v", err)
+			}
+			input.DefaultValue = scenario.invalid
+			if _, err := store.UpdateArchiveField(ctx, field.ID, input); !errors.Is(err, app.ErrValidation) {
+				t.Fatalf("invalid updated default err=%v", err)
+			}
+		})
+	}
+}
+
+func TestArchiveFieldOptionsAndRequiredValuesRejectInvalidData(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	for _, options := range [][]string{nil, {}, {""}, {" "}, {"one", "one"}} {
+		if _, err := store.CreateArchiveField(ctx, "template", archive.FieldInput{Key: "choice", Label: "Choice", ValueType: "select", Options: options}); !errors.Is(err, app.ErrValidation) {
+			t.Fatalf("options=%v err=%v", options, err)
+		}
+	}
+	field, err := store.CreateArchiveField(ctx, "template", archive.FieldInput{Key: "required", Label: "Required", ValueType: "text", Required: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, values := range []map[string]any{nil, {"required": nil}, {"required": ""}, {"required": " "}} {
+		if _, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "missing required", Fields: values}); !errors.Is(err, app.ErrValidation) {
+			t.Fatalf("values=%v err=%v", values, err)
+		}
+	}
+	if _, err := store.DB().ExecContext(ctx, `UPDATE archive_fields SET default_value_json='12' WHERE id=?`, field.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "corrupt default"}); !errors.Is(err, app.ErrValidation) {
+		t.Fatalf("stored invalid default bypassed validation: %v", err)
+	}
+}
+
+func TestCollectionDeletionIgnoresTrashedRecordsAndPreservesTheirFieldValues(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	collection, err := store.CreateArchiveCollection(ctx, archive.CollectionInput{Name: "Disposable", Icon: "Table2", Color: "#527A9E"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	field, err := store.CreateArchiveField(ctx, collection.ID, archive.FieldInput{Key: "value", Label: "Value", ValueType: "text"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := store.CreateArchive(ctx, archive.Input{CollectionID: collection.ID, Title: "history", Fields: map[string]any{"value": "retained"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DeleteArchiveCollection(ctx, collection.ID); !errors.Is(err, app.ErrConflict) {
+		t.Fatalf("active record delete err=%v", err)
+	}
+	if err := store.TrashArchive(ctx, item.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DeleteArchiveCollection(ctx, collection.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.GetArchiveCollection(ctx, collection.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("deleted collection err=%v", err)
+	}
+	var count int
+	if err := store.DB().QueryRowContext(ctx, `SELECT count(*) FROM archive_record_values WHERE archive_id=? AND field_definition_id=?`, item.ID, field.ID).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("history values=%d err=%v", count, err)
+	}
+	if err := store.DeleteArchiveCollection(ctx, collection.ID); !errors.Is(err, app.ErrNotFound) {
+		t.Fatalf("second deletion err=%v", err)
+	}
+}
+
+func TestArchivePaginationRejectsInvalidStorageInputs(t *testing.T) {
+	store := openStore(t)
+	for _, bounds := range [][2]int{{0, 0}, {-1, 0}, {201, 0}, {50, -1}, {50, 1_000_001}} {
+		if _, err := store.ListArchiveRecords(context.Background(), "", "", "updated", bounds[0], bounds[1]); !errors.Is(err, app.ErrValidation) {
+			t.Fatalf("bounds=%v err=%v", bounds, err)
+		}
 	}
 }

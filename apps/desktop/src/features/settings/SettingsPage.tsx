@@ -9,6 +9,7 @@ import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { useJob } from '../jobs/useJob'
 import { requireData } from '../../lib/http/client'
 import { useLayoutStore } from '../../stores/layout'
+import { useFlushPreferences } from './preferences-context'
 
 type WorkspaceEntry = { path: string; name: string; lastOpened: number }
 type BackendDiagnostics = { state: string; detail?: unknown }
@@ -17,6 +18,7 @@ export function SettingsPage() {
   const queryClient = useQueryClient()
   const { meta, connection } = useBackend()
   const { theme, setTheme } = useLayoutStore()
+  const flushPreferences = useFlushPreferences()
   const tauriAvailable = '__TAURI_INTERNALS__' in window
   const recent = useQuery({
     queryKey: ['recent-workspaces'],
@@ -50,6 +52,7 @@ export function SettingsPage() {
       if (!tauriAvailable) throw new Error('工作区切换仅支持桌面端')
       const selected = path ?? (await invoke<string | null>('select_workspace_directory'))
       if (!selected) return false
+      await flushPreferences()
       await invoke('open_workspace', { path: selected })
       return true
     },

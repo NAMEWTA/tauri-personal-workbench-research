@@ -1,17 +1,35 @@
 import { createRootRoute, createRoute, createRouter, Navigate } from '@tanstack/react-router'
 import { lazy, Suspense } from 'react'
+import type { ComponentType, LazyExoticComponent } from 'react'
 import { AppShell } from '../components/layout/AppShell'
 import { LoadingState } from '../components/ui/StateView'
-import { ArchivesPage } from '../features/archives/ArchivesPage'
-import { ArchiveDetailPage } from '../features/archives/ArchiveDetailPage'
-import { ArchiveTypesPage } from '../features/archives/ArchiveTypesPage'
 import { TodayPage } from '../features/today/TodayPage'
 import { TasksPage } from '../features/tasks/TasksPage'
-import { TrashPage } from '../features/trash/TrashPage'
-import { SettingsPage } from '../features/settings/SettingsPage'
-import { BackupPage } from '../features/backup/BackupPage'
 
 const CalendarPage = lazy(() => import('../features/calendar/CalendarPage'))
+const ArchivesPage = lazy(() =>
+  import('../features/archives/ArchivesPage').then((m) => ({ default: m.ArchivesPage })),
+)
+const ArchiveDetailPage = lazy(() =>
+  import('../features/archives/ArchiveDetailPage').then((m) => ({ default: m.ArchiveDetailPage })),
+)
+const ArchiveTypesPage = lazy(() =>
+  import('../features/archives/ArchiveTypesPage').then((m) => ({ default: m.ArchiveTypesPage })),
+)
+const BackupPage = lazy(() =>
+  import('../features/backup/BackupPage').then((m) => ({ default: m.BackupPage })),
+)
+const TrashPage = lazy(() =>
+  import('../features/trash/TrashPage').then((m) => ({ default: m.TrashPage })),
+)
+const SettingsPage = lazy(() =>
+  import('../features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+)
+const lazyRoute = (Component: LazyExoticComponent<ComponentType>) => () => (
+  <Suspense fallback={<LoadingState />}>
+    <Component />
+  </Suspense>
+)
 const rootRoute = createRootRoute({ component: AppShell })
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -40,37 +58,37 @@ const calendarRoute = createRoute({
 const archivesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/archives',
-  component: ArchivesPage,
+  component: lazyRoute(ArchivesPage),
 })
 const archiveDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/archives/$recordId',
-  component: ArchiveDetailPage,
+  component: lazyRoute(ArchiveDetailPage),
 })
 const archiveTypesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/archive-collections',
-  component: ArchiveTypesPage,
+  component: lazyRoute(ArchiveTypesPage),
 })
 const backupRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/backup',
-  component: BackupPage,
+  component: lazyRoute(BackupPage),
 })
 const trashRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/trash',
-  component: TrashPage,
+  component: lazyRoute(TrashPage),
 })
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/$section',
-  component: SettingsPage,
+  component: lazyRoute(SettingsPage),
 })
 const diagnosticsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/diagnostics',
-  component: SettingsPage,
+  component: lazyRoute(SettingsPage),
 })
 const routeTree = rootRoute.addChildren([
   indexRoute,

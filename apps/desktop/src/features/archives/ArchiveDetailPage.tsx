@@ -10,6 +10,7 @@ import { archiveKeys, archiveQuery, archiveTypesQuery } from './queries'
 import { ArchiveResources } from './ArchiveResources'
 import { ArchiveFieldControl } from './ArchiveFieldControl'
 import { useLayoutStore } from '../../stores/layout'
+import { invalidateWorkbenchQueries } from '../../app/queryKeys'
 
 export function ArchiveDetailPage() {
   const { recordId } = useParams({ from: '/archives/$recordId' })
@@ -51,7 +52,7 @@ function ArchiveEditor({ archive }: { archive: ArchiveRecord }) {
       ),
     onSuccess: async (data) => {
       queryClient.setQueryData(archiveKeys.detail(recordId), data)
-      await queryClient.invalidateQueries({ queryKey: archiveKeys.all })
+      await invalidateWorkbenchQueries(queryClient)
     },
   })
   const remove = useMutation({
@@ -59,7 +60,7 @@ function ArchiveEditor({ archive }: { archive: ArchiveRecord }) {
       await trashArchiveRecord({ path: { recordId }, throwOnError: true })
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: archiveKeys.all })
+      await invalidateWorkbenchQueries(queryClient)
       void navigate({ to: '/archives' })
     },
   })

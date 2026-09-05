@@ -15,6 +15,7 @@ export function usePreferences() {
 export function useUpdatePreferences() {
   const queryClient = useQueryClient()
   return useMutation({
+    scope: { id: 'preferences' },
     mutationFn: async (body: PreferencesUpdate) =>
       requireData((await updatePreferences({ body, throwOnError: true })).data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: preferencesKey }),

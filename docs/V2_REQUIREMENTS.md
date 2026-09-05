@@ -1,37 +1,19 @@
-# Personal Workbench V2 Requirements
+# 当前领域要求
 
-## Unified task and calendar model
+## 任务和日历
 
-- A task is the only schedulable entity.
-- A task may be unscheduled or have one start/end work interval.
-- A task may also have an independent due date, recurrence rule, reminders, estimate, and parent task.
-- Calendar views are projections of scheduled tasks; creating an item in the calendar creates a task.
-- Task views are ordered: Today, Tomorrow, All, Completed.
-- All contains every non-completed task, including unscheduled tasks.
-- Task details use the global inspector from every page.
+- 任务是唯一可排程实体，可无排程或拥有一个开始/结束区间。
+- 任务可独立设置 due date、重复规则、提醒、估算和 parent。
+- Today、Tomorrow、All、Completed 是任务视图；Calendar 是排程任务投影。
+- 日历创建、拖选和编辑复用同一个任务编辑器；全局 inspector 在窄屏显示为抽屉。
 
-## Archive associations
+## 档案与关联
 
-- A task may reference one primary archive record.
-- Archive selection supports archive-type filtering and fuzzy title search.
-- Archive references and archive-to-archive relations are navigable.
-- An archive exposes one combined associated-items section backed by tasks.
+- 档案类型是用户创建的 archive collection，不使用固定代码枚举。
+- collection 拥有有序 field definitions，包含分组、类型、选项、默认值和敏感标记。
+- record 表单根据 collection fields 渲染；任务可关联一个主档案 record。
+- 档案关系、关联任务和附件在详情页提供统一导航和错误状态。
 
-## Custom archive schema
+## 发布基线
 
-- An archive type is a user-created archive collection, not a fixed code enum.
-- The first workspace contains only one empty “模板档案” collection.
-- Each collection owns ordered field definitions with groups, validation, options, defaults, and sensitivity metadata.
-- Each collection contains multiple archive records, and every record form renders from the collection fields.
-
-## Inspector behavior
-
-- Selecting a task automatically opens the inspector.
-- Calendar, Today, Tasks, and Archive pages share one task editor.
-- Creating from a calendar range pre-fills the task interval.
-- The inspector becomes an overlay drawer below 1120 px.
-- No empty placeholder inspector is shown.
-
-## Compatibility
-
-V2 is a development reset. It does not migrate V1 databases or accept V1 backups. The database is rebuilt from a single V2 baseline migration.
+当前版本只支持单一 V2 数据基线和 `/api/v3`。旧数据库、旧备份和旧 localStorage 状态直接拒绝或忽略，不执行兼容迁移。

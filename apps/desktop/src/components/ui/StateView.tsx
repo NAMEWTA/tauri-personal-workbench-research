@@ -1,4 +1,5 @@
 import { AlertCircle, Inbox, RefreshCw } from 'lucide-react'
+import { safeErrorMessage } from './error-message'
 
 export function LoadingState({ label = '正在读取…' }: { label?: string }) {
   return (
@@ -24,7 +25,7 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
     <div className="state-view error">
       <AlertCircle size={24} />
       <strong>读取失败</strong>
-      <span>{error instanceof Error ? error.message : '请稍后重试。'}</span>
+      <span>{safeErrorMessage(error)}</span>
       {retry && (
         <button className="button" type="button" onClick={retry}>
           <RefreshCw size={15} />

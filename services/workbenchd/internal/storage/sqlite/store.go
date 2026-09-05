@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,8 +16,20 @@ import (
 	workspacepkg "github.com/personal-workbench/workbenchd/internal/workspace"
 	"github.com/personal-workbench/workbenchd/migrations"
 	"github.com/pressly/goose/v3"
-	_ "modernc.org/sqlite"
+	modernsqlite "modernc.org/sqlite"
 )
+
+func init() {
+	// SQLite PRAGMA state is connection-scoped; apply it to every pooled connection.
+	modernsqlite.RegisterConnectionHook(func(conn modernsqlite.ExecQuerierContext, _ string) error {
+		for _, statement := range []string{"PRAGMA foreign_keys = ON", "PRAGMA journal_mode = WAL", "PRAGMA synchronous = NORMAL", "PRAGMA busy_timeout = 5000"} {
+			if _, err := conn.ExecContext(context.Background(), statement, []driver.NamedValue{}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
 
 var gooseMigrationMu sync.Mutex
 
@@ -65,10 +78,13 @@ func Open(ctx context.Context, workspacePath, workspaceName, appVersion string) 
 }
 
 func (s *Store) initialize(ctx context.Context, workspaceName, appVersion string) error {
-	for _, statement := range []string{"PRAGMA foreign_keys = ON", "PRAGMA journal_mode = WAL", "PRAGMA synchronous = NORMAL", "PRAGMA busy_timeout = 5000"} {
-		if _, err := s.db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("sqlite configure: %w", err)
-		}
+	// The connection hook above configures every connection; verify the first one.
+	var foreignKeys int
+	if err := s.db.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&foreignKeys); err != nil {
+		return fmt.Errorf("sqlite configure foreign_keys: %w", err)
+	}
+	if foreignKeys != 1 {
+		return fmt.Errorf("sqlite configure foreign_keys: expected 1, got %d", foreignKeys)
 	}
 	gooseMigrationMu.Lock()
 	migrationErr := func() error {

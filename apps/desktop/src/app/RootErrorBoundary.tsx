@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
+import { safeErrorMessage } from '../components/ui/error-message'
 
 type State = { error?: Error }
 
@@ -20,7 +21,7 @@ export class RootErrorBoundary extends Component<{ children: ReactNode }, State>
       <main className="gate-screen diagnostic-screen">
         <AlertTriangle size={28} />
         <h1>界面遇到问题</h1>
-        <p>{this.state.error.message}</p>
+        <p>{safeErrorMessage(this.state.error)}</p>
         <button className="button primary" onClick={() => window.location.reload()}>
           <RotateCcw size={16} />
           重新载入

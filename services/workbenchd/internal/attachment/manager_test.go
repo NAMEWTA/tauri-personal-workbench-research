@@ -2,6 +2,7 @@ package attachment_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -143,5 +144,67 @@ func TestAttachmentBatchFailureRemovesEarlierFilesAndRows(t *testing.T) {
 	})
 	if files != 0 {
 		t.Fatalf("managed files left after rollback: %d", files)
+	}
+}
+
+func TestAttachmentImportRejectsMissingAndDeletedOwnersWithoutOrphans(t *testing.T) {
+	for _, scenario := range []string{"missing", "deleted", "deleted-after-copy"} {
+		t.Run(scenario, func(t *testing.T) {
+			ctx := context.Background()
+			workspace := t.TempDir()
+			store, err := workbenchsqlite.Open(ctx, workspace, "附件所有者验证", "0.2.9")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = store.Close() })
+			ownerID := "missing"
+			if scenario != "missing" {
+				owner, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "owner"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				ownerID = owner.ID
+				if scenario == "deleted" {
+					if err := store.TrashArchive(ctx, ownerID); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			source := filepath.Join(t.TempDir(), "source.txt")
+			if err := os.WriteFile(source, []byte("payload"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			manager := attachment.New(store.DB(), workspace)
+			_, err = manager.ImportWithProgress(ctx, ownerID, []string{source}, func(_ int, stage string) {
+				if scenario == "deleted-after-copy" && stage == "recording" {
+					if err := store.TrashArchive(ctx, ownerID); err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+			if !errors.Is(err, attachment.ErrNotFound) {
+				t.Fatalf("import err=%v", err)
+			}
+			if _, err := manager.List(ctx, ownerID); !errors.Is(err, attachment.ErrNotFound) {
+				t.Fatalf("list err=%v", err)
+			}
+			for _, query := range []string{`SELECT count(*) FROM attachments`, `SELECT count(*) FROM change_log WHERE action='attachment_import'`} {
+				var count int
+				if err := store.DB().QueryRowContext(ctx, query).Scan(&count); err != nil || count != 0 {
+					t.Fatalf("orphan rows=%d err=%v", count, err)
+				}
+			}
+			if err := filepath.WalkDir(filepath.Join(workspace, "attachments"), func(path string, entry os.DirEntry, walkErr error) error {
+				if walkErr != nil {
+					return walkErr
+				}
+				if !entry.IsDir() {
+					t.Errorf("orphan attachment file: %s", path)
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

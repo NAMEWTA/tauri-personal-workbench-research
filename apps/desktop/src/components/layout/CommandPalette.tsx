@@ -9,11 +9,13 @@ import { useLayoutStore } from '../../stores/layout'
 import { preferencesKey, usePreferences } from '../../features/settings/preferences'
 import { updatePreferences } from '../../generated/api/sdk.gen'
 import { ErrorState } from '../ui/StateView'
+import { useDebouncedValue } from '../../lib/useDebouncedValue'
 
 const icons = { archive: Archive, task: CheckSquare2, attachment: Archive }
 const groupLabels = { archive: '档案', task: '任务', attachment: '附件' }
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = useState('')
+  const debouncedQuery = useDebouncedValue(query.trim(), 250)
   const input = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -26,14 +28,18 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     onSuccess: () => queryClient.invalidateQueries({ queryKey: preferencesKey }),
   })
   const results = useQuery({
-    queryKey: ['search', query],
-    queryFn: async () =>
-      requireData((await search({ query: { q: query }, throwOnError: true })).data),
-    enabled: open && query.trim().length > 0,
+    queryKey: ['search', open ? debouncedQuery : ''],
+    queryFn: async ({ signal }) =>
+      requireData(
+        (await search({ query: { q: debouncedQuery }, signal, throwOnError: true })).data,
+      ),
+    enabled: open && debouncedQuery.length >= 2,
   })
 
   useEffect(() => {
-    if (open) setTimeout(() => input.current?.focus(), 0)
+    if (!open) return
+    const timer = setTimeout(() => input.current?.focus(), 0)
+    return () => clearTimeout(timer)
   }, [open])
   if (!open) return null
 
@@ -93,11 +99,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
               {recent.map(renderItem)}
             </div>
           )}
-          {results.isFetching && <p className="palette-hint">正在搜索…</p>}
+          {results.isFetching && debouncedQuery.length >= 2 && (
+            <p className="palette-hint">正在搜索…</p>
+          )}
           {results.isError && (
             <ErrorState error={results.error} retry={() => void results.refetch()} />
           )}
-          {query !== '' &&
+          {debouncedQuery.length >= 2 &&
             (Object.keys(groupLabels) as Array<SearchResult['type']>).map((type) => {
               const items = results.data?.filter((item) => item.type === type) ?? []
               return items.length ? (
@@ -107,7 +115,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                 </div>
               ) : null
             })}
-          {results.data?.length === 0 && <p className="palette-hint">没有找到匹配内容。</p>}
+          {debouncedQuery.length >= 2 && results.data?.length === 0 && (
+            <p className="palette-hint">没有找到匹配内容。</p>
+          )}
         </div>
       </section>
     </div>

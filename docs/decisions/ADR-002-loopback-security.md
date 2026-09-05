@@ -1,4 +1,4 @@
-# ADR-002: Loopback security
+# Loopback HTTP 启动与安全
 
-React connects directly to a random `127.0.0.1` HTTP port. Rust generates a 256-bit per-launch token and sends it through sidecar stdin. Go validates Host, Origin, and Bearer authorization; the token is never persisted.
+本文为导航文件，权威正文位于 [Speculo ADR 0002](../../speculo/.speculo/specdev/adr/0002-loopback-http-bootstrap-security.md)。请勿在此文件复制或维护决策内容。
 

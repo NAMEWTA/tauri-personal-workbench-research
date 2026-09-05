@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -27,8 +28,7 @@ func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task,
 	condition := `t.deleted_at IS NULL`
 	args := []any{}
 	now := time.Now().In(location)
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location).UTC()
-	todayEnd := todayStart.In(location).AddDate(0, 0, 1).UTC()
+	todayStart, todayEnd := platform.LocalDayRange(now, location)
 	tomorrowEnd := todayEnd.In(location).AddDate(0, 0, 1).UTC()
 	switch filter.View {
 	case "", "all":
@@ -39,11 +39,16 @@ func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task,
 		condition += ` AND t.status<>'done' AND (t.due_on>=? OR t.starts_at>=?)`
 		args = append(args, now.Format("2006-01-02"), platform.TimeText(now.UTC()))
 	case "today":
-		condition += ` AND t.status<>'done' AND (t.due_on=? OR (t.starts_at IS NOT NULL AND (t.ends_at<? OR (t.starts_at<? AND t.ends_at>?))))`
-		args = append(args, now.Format("2006-01-02"), platform.TimeText(todayStart), platform.TimeText(todayEnd), platform.TimeText(todayStart))
-	case "tomorrow":
 		condition += ` AND t.status<>'done' AND (t.due_on=? OR (t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?))`
-		args = append(args, tomorrowEnd.In(location).Format("2006-01-02"), platform.TimeText(tomorrowEnd), platform.TimeText(todayEnd))
+		args = append(args, now.Format("2006-01-02"), platform.TimeText(todayEnd), platform.TimeText(todayStart))
+	case "tomorrow":
+		tomorrowStart := todayEnd
+		tomorrowEnd = tomorrowStart.In(location).AddDate(0, 0, 1).UTC()
+		condition += ` AND t.status<>'done' AND (t.due_on=? OR (t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?))`
+		args = append(args, tomorrowStart.In(location).Format("2006-01-02"), platform.TimeText(tomorrowEnd), platform.TimeText(tomorrowStart))
+	case "calendar":
+		// Calendar is a time projection and includes completed scheduled tasks.
+		condition += ` AND t.starts_at IS NOT NULL AND t.ends_at IS NOT NULL`
 	case "completed":
 		condition += ` AND t.status='done'`
 	default:
@@ -114,6 +119,12 @@ func (s *Store) CreateTask(ctx context.Context, input task.Input) (task.Task, er
 	if err := s.validateTaskArchive(ctx, input.RecordID); err != nil {
 		return task.Task{}, err
 	}
+	if err := s.validateParent(ctx, input.ParentID, ""); err != nil {
+		return task.Task{}, err
+	}
+	if err := validateRecurrence(input.Recurrence); err != nil {
+		return task.Task{}, err
+	}
 	now := platform.Now()
 	var completedAt *time.Time
 	if input.Status == "done" {
@@ -146,6 +157,12 @@ func (s *Store) UpdateTask(ctx context.Context, id string, input task.Input) (ta
 		return task.Task{}, err
 	}
 	if err := s.validateTaskArchive(ctx, input.RecordID); err != nil {
+		return task.Task{}, err
+	}
+	if err := s.validateParent(ctx, input.ParentID, id); err != nil {
+		return task.Task{}, err
+	}
+	if err := validateRecurrence(input.Recurrence); err != nil {
 		return task.Task{}, err
 	}
 	now := platform.Now()
@@ -184,7 +201,7 @@ func (s *Store) UpdateTask(ctx context.Context, id string, input task.Input) (ta
 
 func createNextRecurringTask(ctx context.Context, tx *sql.Tx, input task.Input, now time.Time) error {
 	shift := func(value time.Time) time.Time {
-		switch strings.ToUpper(input.Recurrence) {
+		switch strings.ToUpper(strings.TrimSpace(input.Recurrence)) {
 		case "FREQ=DAILY":
 			return value.AddDate(0, 0, 1)
 		case "FREQ=WEEKLY":
@@ -230,7 +247,51 @@ func (s *Store) validateTaskArchive(ctx context.Context, archiveID *string) erro
 		return err
 	}
 	if exists == 0 {
+		return app.ErrNotFound
+	}
+	return nil
+}
+
+func validateRecurrence(value string) error {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "FREQ=DAILY", "FREQ=WEEKLY", "FREQ=MONTHLY":
+		return nil
+	default:
 		return app.ErrValidation
+	}
+}
+
+func (s *Store) validateParent(ctx context.Context, parentID *string, taskID string) error {
+	if parentID == nil || strings.TrimSpace(*parentID) == "" {
+		return nil
+	}
+	current := strings.TrimSpace(*parentID)
+	seen := map[string]bool{}
+	for current != "" {
+		if current == taskID || seen[current] {
+			return app.ErrValidation
+		}
+		seen[current] = true
+		var next sql.NullString
+		var deleted sql.NullString
+		err := s.db.QueryRowContext(ctx, `SELECT parent_id,deleted_at FROM tasks WHERE id=?`, current).Scan(&next, &deleted)
+		if errors.Is(err, sql.ErrNoRows) {
+			return app.ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if deleted.Valid {
+			return app.ErrNotFound
+		}
+		if next.Valid {
+			current = next.String
+		} else {
+			current = ""
+		}
 	}
 	return nil
 }
@@ -259,7 +320,9 @@ func scanTask(row scanner) (task.Task, error) {
 		item.EstimateMins = &value
 	}
 	if remindersJSON.Valid && remindersJSON.String != "" {
-		_ = json.Unmarshal([]byte(remindersJSON.String), &item.Reminders)
+		if err := json.Unmarshal([]byte(remindersJSON.String), &item.Reminders); err != nil {
+			return task.Task{}, fmt.Errorf("decode reminders: %w", err)
+		}
 	}
 	if item.Reminders == nil {
 		item.Reminders = []string{}
