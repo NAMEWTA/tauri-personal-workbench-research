@@ -1,6 +1,6 @@
 # 个人工作台 0.2.10 验收记录
 
-状态：待 0.2.10 发布门禁通过
+状态：已通过发布门禁
 
 本文只记录当前 `0.2.10` 的可复核证据。任何来自旧版本、旧哈希或未实际执行的命令都不得写入本页。
 
@@ -26,7 +26,7 @@
 | 原生工作区隔离、恢复和退出 | `pnpm test:native-workspace` | 通过（Windows 本机，2026-09-05） |
 | 单实例与 sidecar 恢复 | `pnpm test:single-instance` | 通过（Windows 本机，2026-09-05） |
 | Windows 安装包 smoke | `scripts/smoke-installed.ps1` | 通过（NSIS 0.2.10，2026-09-05） |
-| macOS sidecar、app、DMG | CI native/bundle artifacts | 待 0.2.10 release workflow |
+| macOS sidecar、app、DMG | CI native/bundle artifacts | 通过（release workflow 33964739288，2026-09-05） |
 | 生成代码无漂移 | `pnpm generate` + deterministic rerun | 通过（2026-09-05） |
 
 ## 证据规则
@@ -38,7 +38,11 @@
 
 ## 当前发布证据
 
-- 0.2.10 release workflow 成功后回填提交、workflow 和 macOS artifact。
+- 代码验收提交：`6ec86eb5a5429d061f41e104a49a078d2922d570`
+- 完整 release workflow：[33964739288](https://github.com/NAMEWTA/tauri-personal-workbench-research/actions/runs/33964739288)
+- GitHub Release：[v0.2.10](https://github.com/NAMEWTA/tauri-personal-workbench-research/releases/tag/v0.2.10)
+- macOS native artifact：`macos-native-evidence.txt`，ARM64 app/sidecar，codesign verified。
+- macOS bundle artifact：`macos-bundle-evidence.txt`，ARM64 DMG，hdiutil verified。
 
 ## 限制
 
