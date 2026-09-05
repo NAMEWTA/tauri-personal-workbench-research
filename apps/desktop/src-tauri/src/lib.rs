@@ -44,7 +44,9 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(SidecarManager::default())
         .manage(WorkspaceRegistry::default())
+        .manage(lifecycle::StartupNotice::default())
         .invoke_handler(tauri::generate_handler![
+            commands::get_startup_notice,
             commands::backend_connection_info,
             commands::backend_diagnostics,
             commands::retry_backend,

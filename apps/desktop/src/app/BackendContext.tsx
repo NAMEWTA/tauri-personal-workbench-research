@@ -8,6 +8,7 @@ import { clearApi, configureApi, requireData, type BackendConnection } from '../
 import { BackendContext } from './backend-context'
 import { validateLocalBackendUrl } from './backend-url'
 import { queryClient } from './queryClient'
+import { safeBackendErrorMessage } from './backend-error'
 
 type BackendDiagnostics = { state: string; detail?: unknown }
 
@@ -36,6 +37,7 @@ async function connectionInfo(): Promise<BackendConnection> {
 function BackendBootstrap({ children }: { children: ReactNode }) {
   const [generation, setGeneration] = useState(0)
   const [recoveryError, setRecoveryError] = useState('')
+  const [startupNoticeDismissed, setStartupNoticeDismissed] = useState(false)
   const tauriAvailable = '__TAURI_INTERNALS__' in window
   const query = useQuery({
     queryKey: ['backend', generation],
@@ -58,6 +60,13 @@ function BackendBootstrap({ children }: { children: ReactNode }) {
         : Promise.resolve<BackendDiagnostics>({ state: '仅 Web 预览' }),
     enabled: query.isError,
   })
+  const startupNoticeQuery = useQuery({
+    queryKey: ['startup-notice'],
+    queryFn: () => invoke<string | null>('get_startup_notice'),
+    enabled: tauriAvailable && query.isSuccess,
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  })
   const recover = async (command: 'retry_backend' | 'open_workspace') => {
     setRecoveryError('')
     try {
@@ -73,7 +82,7 @@ function BackendBootstrap({ children }: { children: ReactNode }) {
       clearApi()
       setGeneration((value) => value + 1)
     } catch (error) {
-      setRecoveryError(typeof error === 'string' ? error : '恢复操作未能完成。')
+      setRecoveryError(safeBackendErrorMessage(error))
     }
   }
 
@@ -113,10 +122,8 @@ function BackendBootstrap({ children }: { children: ReactNode }) {
   if (query.isError) {
     const detail =
       diagnostics.data?.state === 'failed' && typeof diagnostics.data.detail === 'string'
-        ? diagnostics.data.detail
-        : query.error instanceof Error
-          ? query.error.message
-          : '无法连接工作区服务。'
+        ? safeBackendErrorMessage(diagnostics.data.detail)
+        : safeBackendErrorMessage(query.error)
     return (
       <main className="gate-screen diagnostic-screen">
         <AlertTriangle size={28} aria-hidden="true" />
@@ -145,7 +152,26 @@ function BackendBootstrap({ children }: { children: ReactNode }) {
       </main>
     )
   }
-  return <BackendContext.Provider value={query.data}>{children}</BackendContext.Provider>
+  return (
+    <BackendContext.Provider value={query.data}>
+      <div className="backend-surface">
+        {startupNoticeQuery.data && !startupNoticeDismissed && (
+          <div className="startup-notice" role="status">
+            <span>{startupNoticeQuery.data}</span>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="关闭提示"
+              onClick={() => setStartupNoticeDismissed(true)}
+            >
+              ×
+            </button>
+          </div>
+        )}
+        <div className="backend-content">{children}</div>
+      </div>
+    </BackendContext.Provider>
+  )
 }
 
 export function BackendGate({ children }: { children: ReactNode }) {

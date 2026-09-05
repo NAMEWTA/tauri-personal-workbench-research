@@ -117,16 +117,40 @@ jobs:
       - name: Smoke test installed Windows bundle
         if: runner.os == 'Windows'
         shell: powershell
-        run: ./scripts/smoke-installed.ps1 -TargetTriple '${{ matrix.target }}'
+        run: ./scripts/smoke-installed.ps1 -TargetTriple '${{ matrix.target }}' -EvidenceDirectory artifacts/windows-startup-evidence
+      - name: Upload installed WebView2 acceptance evidence
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-startup-evidence
+          path: artifacts/windows-startup-evidence
+          if-no-files-found: warn
       - name: Smoke test native single-instance behavior
         if: runner.os == 'Windows'
         shell: powershell
         run: ./scripts/smoke-single-instance.ps1 -TargetTriple '${{ matrix.target }}'
+      - name: Package Windows portable application
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/package-portable.ps1 -TargetTriple '${{ matrix.target }}'
+      - name: Stage release downloads
+        shell: bash
+        run: |
+          mkdir -p artifacts/installers
+          case '${{ matrix.bundles }}' in
+            nsis)
+              cp target/${{ matrix.target }}/release/bundle/nsis/*.exe "artifacts/installers/personal-workbench-${GITHUB_REF_NAME#v}-windows-x64-setup.exe"
+              cp artifacts/personal-workbench-portable-windows-x64.zip artifacts/installers/
+              ;;
+            dmg)
+              cp target/${{ matrix.target }}/release/bundle/dmg/*.dmg "artifacts/installers/personal-workbench-${GITHUB_REF_NAME#v}-darwin-aarch64.dmg"
+              ;;
+          esac
       - name: Upload installer artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: target/${{ matrix.target }}/release/bundle/${{ matrix.bundles }}/*
+          path: artifacts/installers/*
           if-no-files-found: error
 
   metadata:

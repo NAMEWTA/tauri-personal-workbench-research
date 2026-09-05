@@ -66,7 +66,7 @@ func TestTerminalPersistenceFailureNeverPublishesSuccess(t *testing.T) {
 		{"all-writes-rejected", "1=1", false},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
-			store, err := workbenchsqlite.Open(context.Background(), t.TempDir(), "任务持久化失败", "0.2.10")
+			store, err := workbenchsqlite.Open(context.Background(), t.TempDir(), "任务持久化失败", "0.2.11")
 			if err != nil {
 				t.Fatal(err)
 			}

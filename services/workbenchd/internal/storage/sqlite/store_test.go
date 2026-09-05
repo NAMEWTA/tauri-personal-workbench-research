@@ -24,7 +24,7 @@ import (
 
 func openStore(t *testing.T) *workbenchsqlite.Store {
 	t.Helper()
-	store, err := workbenchsqlite.Open(context.Background(), t.TempDir(), "V2 测试", "0.2.10")
+	store, err := workbenchsqlite.Open(context.Background(), t.TempDir(), "V2 测试", "0.2.11")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,11 +35,11 @@ func openStore(t *testing.T) *workbenchsqlite.Store {
 func TestOpenCreatesV2BaselineAndLocksWorkspace(t *testing.T) {
 	ctx := context.Background()
 	workspace := t.TempDir()
-	store, err := workbenchsqlite.Open(ctx, workspace, "V2 工作区", "0.2.10")
+	store, err := workbenchsqlite.Open(ctx, workspace, "V2 工作区", "0.2.11")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := workbenchsqlite.Open(ctx, workspace, "V2 工作区", "0.2.10"); err == nil {
+	if _, err := workbenchsqlite.Open(ctx, workspace, "V2 工作区", "0.2.11"); err == nil {
 		t.Fatal("expected concurrent open to fail")
 	}
 	name, version, err := store.WorkspaceMeta(ctx)
@@ -110,12 +110,12 @@ func TestWorkspaceDataIsIsolatedAcrossSQLiteFiles(t *testing.T) {
 	ctx := context.Background()
 	workspaceA := t.TempDir()
 	workspaceB := t.TempDir()
-	storeA, err := workbenchsqlite.Open(ctx, workspaceA, "工作区 A", "0.2.10")
+	storeA, err := workbenchsqlite.Open(ctx, workspaceA, "工作区 A", "0.2.11")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = storeA.Close() }()
-	storeB, err := workbenchsqlite.Open(ctx, workspaceB, "工作区 B", "0.2.10")
+	storeB, err := workbenchsqlite.Open(ctx, workspaceB, "工作区 B", "0.2.11")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestTaskDueDateAndRecurringCompletion(t *testing.T) {
 func TestWorkspacePreferencesPersistAcrossReopen(t *testing.T) {
 	ctx := context.Background()
 	workspace := t.TempDir()
-	store, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.10")
+	store, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.11")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +389,7 @@ func TestWorkspacePreferencesPersistAcrossReopen(t *testing.T) {
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.10")
+	reopened, err := workbenchsqlite.Open(ctx, workspace, "偏好测试", "0.2.11")
 	if err != nil {
 		t.Fatal(err)
 	}

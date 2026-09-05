@@ -152,7 +152,7 @@ func TestAttachmentImportRejectsMissingAndDeletedOwnersWithoutOrphans(t *testing
 		t.Run(scenario, func(t *testing.T) {
 			ctx := context.Background()
 			workspace := t.TempDir()
-			store, err := workbenchsqlite.Open(ctx, workspace, "附件所有者验证", "0.2.10")
+			store, err := workbenchsqlite.Open(ctx, workspace, "附件所有者验证", "0.2.11")
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -2,7 +2,9 @@
 
 个人工作台是一个离线优先的单用户桌面应用。Tauri 2/Rust 负责窗口、工作区生命周期和 Go sidecar 监督；React 负责界面；Go `workbenchd` 独占 HTTP API、SQLite、档案、任务、附件、搜索、后台作业、备份与恢复。
 
-当前应用版本为 `0.2.10`。本版本使用单一数据库基线和 `/api/v3` 契约，不读取旧 localStorage，不迁移旧数据库，也不接受旧备份格式。
+当前应用版本为 `0.2.11`。本版本使用单一数据库基线和 `/api/v3` 契约，不读取旧 localStorage，不迁移旧数据库，也不接受旧备份格式。
+
+启动时若自动选中的工作区结构不受支持，程序会保留原目录，在默认工作区旁创建独立的新工作区，并在首页明确提示。新工作区保存为下次启动入口。手动打开不受支持的工作区仍会被拒绝；原数据不会自动导入。
 
 ## 开发环境
 
@@ -31,7 +33,7 @@ pnpm verify:versions
 - [RESEARCH.md](RESEARCH.md)：当前进程边界、数据所有权、API 和安全基线。
 - [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)：当前发布前修复、重构和验收门禁。
 - [docs/V2_REQUIREMENTS.md](docs/V2_REQUIREMENTS.md)：当前领域行为与数据模型要求。
-- [docs/V2_ACCEPTANCE.md](docs/V2_ACCEPTANCE.md)：0.2.10 验收证据记录。
+- [docs/V2_ACCEPTANCE.md](docs/V2_ACCEPTANCE.md)：0.2.11 验收证据记录。
 - [docs/CI_CD.md](docs/CI_CD.md)：CI、构建和发布流程。
 - [speculo/.speculo/specdev/adr/](speculo/.speculo/specdev/adr/)：架构决策唯一正文。
 

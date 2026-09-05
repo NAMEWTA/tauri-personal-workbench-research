@@ -41,5 +41,11 @@ func main() {
 	if _, err := db.Exec(`INSERT INTO goose_db_version(version_id,is_applied) VALUES(0,1),(?,1)`, version); err != nil {
 		panic(err)
 	}
+	if _, err := db.Exec(`PRAGMA journal_mode = WAL`); err != nil {
+		panic(err)
+	}
+	if _, err := db.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+		panic(err)
+	}
 	fmt.Printf("Created incompatible schema fixture %d at %s\n", version, database)
 }

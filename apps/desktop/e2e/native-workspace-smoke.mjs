@@ -4,15 +4,20 @@ import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { chromium } from '@playwright/test'
 
 const root = resolve(import.meta.dirname, '../../..')
 const target = process.env.TAURI_ENV_TARGET_TRIPLE?.trim()
-const releaseDirectory = target
-  ? join(root, 'target', target, 'release')
-  : join(root, 'target', 'release')
-const application = join(releaseDirectory, 'personal-workbench.exe')
+const configuredApplication = process.env.WORKBENCH_NATIVE_APPLICATION?.trim()
+const releaseDirectory = configuredApplication
+  ? dirname(resolve(configuredApplication))
+  : target
+    ? join(root, 'target', target, 'release')
+    : join(root, 'target', 'release')
+const application = configuredApplication
+  ? resolve(configuredApplication)
+  : join(releaseDirectory, 'personal-workbench.exe')
 const sidecar = join(releaseDirectory, 'workbenchd.exe')
 
 if (process.platform !== 'win32') throw new Error('Native workspace smoke only supports Windows')

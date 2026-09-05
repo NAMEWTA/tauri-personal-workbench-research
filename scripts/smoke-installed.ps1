@@ -1,6 +1,8 @@
-param(
+﻿param(
   [string]$TargetTriple = '',
-  [switch]$SkipUninstall
+  [switch]$SkipUninstall,
+  [string]$EvidenceDirectory = '',
+  [string]$InstallerPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,9 +13,13 @@ $bundleDirectory = if ($TargetTriple) {
 } else {
   Join-Path $root 'target/release/bundle/nsis'
 }
-$installer = Get-ChildItem -LiteralPath $bundleDirectory -Filter '*.exe' |
-  Sort-Object LastWriteTime -Descending |
-  Select-Object -First 1
+$installer = if ($InstallerPath) {
+  Get-Item -LiteralPath $InstallerPath
+} else {
+  Get-ChildItem -LiteralPath $bundleDirectory -Filter '*.exe' |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+}
 if (-not $installer) { throw 'NSIS installer was not produced' }
 
 $tauriConfig = Get-Content -Raw -Encoding utf8 -LiteralPath (Join-Path $root 'apps/desktop/src-tauri/tauri.conf.json') | ConvertFrom-Json
@@ -63,60 +69,13 @@ function Wait-ForDesktopReady($Desktop, [string]$DatabasePath) {
   }
 }
 
-function Wait-ForRecoveryWindow($Desktop) {
-  $deadline = [DateTime]::UtcNow.AddSeconds(20)
-  do {
-    Start-Sleep -Milliseconds 250
-    $Desktop.Refresh()
-  } while ((-not $Desktop.HasExited) -and $Desktop.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
-
-  if ($Desktop.HasExited -or $Desktop.MainWindowHandle -eq 0) {
-    throw "Recovery window was not visible (exited=$($Desktop.HasExited), window=$($Desktop.MainWindowHandle))"
-  }
-  Start-Sleep -Seconds 1
-  $Desktop.Refresh()
-  if ($Desktop.HasExited) {
-    throw 'Recovery application exited after showing its window'
-  }
-}
-
 function Close-TestDesktop($Desktop, [string]$Label) {
   $Desktop.Refresh()
-  $initialSidecarIds = @(
-    Get-DesktopSidecars -DesktopId $Desktop.Id |
-      ForEach-Object { [int]$_.ProcessId }
-  )
   Write-Output "$Label close requested (pid=$($Desktop.Id), window=$($Desktop.MainWindowHandle), exited=$($Desktop.HasExited))"
   if (-not $Desktop.CloseMainWindow()) { throw "$Label did not accept a close request" }
-  # The graceful path may spend up to five seconds on the shutdown request and
-  # another five seconds waiting for the sidecar before forcing termination.
+  # 关闭超时必须使验收失败；强制清理只在 finally 中进行。
   if (-not $Desktop.WaitForExit(30000)) {
-    # WebView2 can defer the final process signal while it unregisters its
-    # window class. Give that bounded cleanup race a short grace period, while
-    # still requiring the process to exit before accepting the smoke result.
-    $graceDeadline = [DateTime]::UtcNow.AddSeconds(15)
-    do {
-      Start-Sleep -Milliseconds 250
-      $Desktop.Refresh()
-    } while (-not $Desktop.HasExited -and [DateTime]::UtcNow -lt $graceDeadline)
-
-    if (-not $Desktop.HasExited) {
-      $remainingSidecars = @(Get-DesktopSidecars -DesktopId $Desktop.Id)
-      $actualProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($Desktop.Id)" -ErrorAction SilentlyContinue
-      $actualChildren = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ParentProcessId -eq $Desktop.Id })
-      Write-Warning "$Label timeout state: process=$($actualProcess.Name) window=$($Desktop.MainWindowHandle) children=$($actualChildren.Name -join ',') sidecars=$($remainingSidecars.Count)"
-      if ($Desktop.MainWindowHandle -ne 0 -or $remainingSidecars.Count -gt 0) {
-        Write-Warning "$Label did not finish the WebView2 graceful-close race; forcing bounded cleanup"
-        $sidecarIds = @($initialSidecarIds + @($remainingSidecars | ForEach-Object { [int]$_.ProcessId })) | Select-Object -Unique
-        foreach ($sidecarId in $sidecarIds) {
-          Stop-Process -Id $sidecarId -Force -ErrorAction SilentlyContinue
-        }
-        Stop-Process -Id $Desktop.Id -Force -ErrorAction SilentlyContinue
-        if (-not $Desktop.WaitForExit(5000)) {
-          throw "$Label UI host could not be terminated after graceful-close timeout"
-        }
-      }
-    }
+    throw "$Label did not exit after a native close request"
   }
 
   $deadline = [DateTime]::UtcNow.AddSeconds(10)
@@ -159,7 +118,10 @@ try {
     throw "NSIS installation failed with exit code $($install.ExitCode)"
   }
   $installedBySmoke = $true
-  $installDirectory = Get-InstalledDirectory -Fallback $installDirectory
+  $reportedDirectory = [IO.Path]::GetFullPath((Get-InstalledDirectory -Fallback $installDirectory))
+  if ($reportedDirectory.TrimEnd('\') -ne $installDirectory.TrimEnd('\')) {
+    throw 'Installer did not use the isolated smoke installation directory'
+  }
   $application = Join-Path $installDirectory 'personal-workbench.exe'
   $sidecar = Join-Path $installDirectory 'workbenchd.exe'
   if (-not (Test-Path -LiteralPath $application) -or -not (Test-Path -LiteralPath $sidecar)) {
@@ -198,21 +160,17 @@ try {
     throw "Overlay upgrade installed sidecar version $upgradedVersion instead of $expectedVersion"
   }
 
-  $incompatibleRoot = Join-Path $workspaceFull 'incompatible-schema'
-  $incompatibleWorkspace = Join-Path $incompatibleRoot 'workspace'
-  $incompatibleConfig = Join-Path $incompatibleRoot 'app-data'
-  New-Item -ItemType Directory -Force -Path $incompatibleWorkspace, $incompatibleConfig | Out-Null
-  & go -C (Join-Path $root 'services/workbenchd') run (Join-Path $root 'scripts/create-schema-fixture.go') (Join-Path $incompatibleWorkspace 'workbench.sqlite3') 99
-  if ($LASTEXITCODE -ne 0) { throw 'Could not create incompatible workspace fixture' }
-  $incompatibleRegistry = ConvertTo-Json -InputObject @(@{ path = $incompatibleWorkspace; name = 'Incompatible Schema'; lastOpened = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() })
-  [IO.File]::WriteAllText((Join-Path $incompatibleConfig 'workspaces.json'), $incompatibleRegistry, $utf8WithoutBom)
-  $desktop = Start-TestDesktop -ApplicationPath $application -AppDataDirectory $incompatibleConfig
-  Wait-ForRecoveryWindow -Desktop $desktop
-  if (Test-Path -LiteralPath (Join-Path $incompatibleConfig 'workspace')) {
-    throw 'Incompatible schema unexpectedly created a fallback workspace'
+  # 用真实安装的 WebView2 验证页面和用户操作，窗口/进程存在不能代表可用。
+  & node (Join-Path $root 'apps/desktop/e2e/native-startup-smoke.mjs') $application $EvidenceDirectory
+  if ($LASTEXITCODE -ne 0) { throw 'Installed WebView2 startup acceptance failed' }
+  $previousNativeApplication = $env:WORKBENCH_NATIVE_APPLICATION
+  try {
+    $env:WORKBENCH_NATIVE_APPLICATION = $application
+    & node (Join-Path $root 'apps/desktop/e2e/native-workspace-smoke.mjs')
+    if ($LASTEXITCODE -ne 0) { throw 'Installed WebView2 workspace acceptance failed' }
+  } finally {
+    $env:WORKBENCH_NATIVE_APPLICATION = $previousNativeApplication
   }
-  Stop-Process -Id $desktop.Id -Force
-  if (-not $desktop.WaitForExit(5000)) { throw 'Recovery test process could not be terminated' }
 
   if (-not $SkipUninstall) {
     $uninstaller = Join-Path $installDirectory 'uninstall.exe'

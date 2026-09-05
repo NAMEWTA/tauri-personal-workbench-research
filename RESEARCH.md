@@ -1,6 +1,6 @@
 # 个人工作台架构基线
 
-本文档描述 `0.2.10` 当前实现，作为目录、进程边界、调用流和安全约束的事实入口。架构决策正文位于 [Speculo ADR](speculo/.speculo/specdev/adr/)。
+本文档描述 `0.2.11` 当前实现，作为目录、进程边界、调用流和安全约束的事实入口。架构决策正文位于 [Speculo ADR](speculo/.speculo/specdev/adr/)。
 
 ## 总体结构
 

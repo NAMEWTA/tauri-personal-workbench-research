@@ -1,5 +1,6 @@
 use crate::bootstrap::Bootstrap;
 use crate::error::WorkbenchError;
+use crate::lifecycle::StartupNotice;
 use crate::sidecar_manager::{ConnectionInfo, PublicState, SidecarManager};
 use crate::workspace_registry::{WorkspaceEntry, WorkspaceRegistry, canonicalize_workspace_path};
 use std::fs;
@@ -7,6 +8,15 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
+
+#[tauri::command]
+pub fn get_startup_notice(notice: State<'_, StartupNotice>) -> Option<String> {
+    notice
+        .0
+        .lock()
+        .expect("startup notice mutex poisoned")
+        .clone()
+}
 
 #[tauri::command]
 pub fn backend_connection_info(
