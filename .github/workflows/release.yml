@@ -89,8 +89,8 @@ jobs:
           app=$(find "target/${{ matrix.target }}/release/bundle/macos" -maxdepth 1 -type d -name '*.app' -print -quit)
           test -n "$app"
           test -f "$app/Contents/Info.plist"
-          executable_name=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
-          executable="$app/Contents/MacOS/$executable_name"
+          executable=$(find "$app/Contents/MacOS" -maxdepth 1 -type f ! -name 'workbenchd*' -print -quit)
+          test -n "$executable"
           test -x "$executable"
           sidecar=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'workbenchd*' -print -quit)
           test -n "$sidecar"
@@ -109,8 +109,8 @@ jobs:
         run: |
           mkdir -p artifacts
           app=$(find "target/${{ matrix.target }}/release/bundle/macos" -maxdepth 1 -type d -name '*.app' -print -quit)
-          executable_name=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")
-          executable="$app/Contents/MacOS/$executable_name"
+          executable=$(find "$app/Contents/MacOS" -maxdepth 1 -type f ! -name 'workbenchd*' -print -quit)
+          test -n "$executable"
           sidecar=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'workbenchd*' -print -quit)
           dmg=$(find "target/${{ matrix.target }}/release/bundle/dmg" -type f -name '*.dmg' -print -quit)
           {
