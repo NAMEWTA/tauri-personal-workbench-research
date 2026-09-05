@@ -63,16 +63,6 @@ pub async fn start_backend(app: &AppHandle) -> Result<(), WorkbenchError> {
         manager.stop().await;
         return Err(error);
     }
-    if let Some(window) = app.get_webview_window("main") {
-        if let Err(error) = window.show() {
-            manager.stop().await;
-            return Err(WorkbenchError::Operation(error.to_string()));
-        }
-        if let Err(error) = window.set_focus() {
-            manager.stop().await;
-            return Err(WorkbenchError::Operation(error.to_string()));
-        }
-    }
     Ok(())
 }
 

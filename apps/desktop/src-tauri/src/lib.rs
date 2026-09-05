@@ -19,15 +19,13 @@ use workspace_registry::WorkspaceRegistry;
 fn shutdown(handle: tauri::AppHandle) {
     std::thread::spawn(move || {
         tauri::async_runtime::block_on(handle.state::<SidecarManager>().stop());
-        // WebView2 can occasionally leave native window teardown stuck after
-        // Tauri accepts the close request. The sidecar is stopped above, so
-        // terminate the host directly instead of leaving a zombie process.
-        // This also keeps the shutdown contract deterministic in installed
-        // WebView2 smoke tests and on machines with a slow browser teardown.
         handle.exit(0);
         #[cfg(target_os = "windows")]
-        std::thread::sleep(Duration::from_secs(2));
-        std::process::exit(0);
+        {
+            // sidecar 已停止；为 WebView2 原生窗口销毁偶发阻塞设置有界退出兜底。
+            std::thread::sleep(Duration::from_secs(2));
+            std::process::exit(0);
+        }
     });
 }
 
@@ -63,10 +61,6 @@ pub fn run() {
             let handle = app.handle().clone();
             if let Err(error) = tauri::async_runtime::block_on(lifecycle::start_backend(&handle)) {
                 eprintln!("startup failed: {error}");
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
             }
             Ok(())
         })
@@ -75,6 +69,14 @@ pub fn run() {
 
     let exiting = Arc::new(AtomicBool::new(false));
     app.run(move |handle, event| match event {
+        tauri::RunEvent::Ready => {
+            // 正式事件循环接管后才显示窗口，避免快速关闭绕过生命周期回调。
+            if let Some(window) = handle.get_webview_window("main") {
+                if let Err(error) = window.show().and_then(|()| window.set_focus()) {
+                    eprintln!("failed to show main window: {error}");
+                }
+            }
+        }
         tauri::RunEvent::WindowEvent {
             event: tauri::WindowEvent::CloseRequested { api, .. },
             ..
