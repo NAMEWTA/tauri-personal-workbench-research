@@ -1,4 +1,4 @@
-# 0.2.9 发布前实施计划
+# 0.2.10 发布前实施计划
 
 本计划以当前工作树为基线，目标是完成一次不带旧兼容路径的可发布重构。实现必须保持单一 `/api/v3` 契约、单一 V2 数据基线和 Go sidecar 数据所有权。
 
@@ -21,7 +21,7 @@
 ## 兼容路径与文档
 
 - 删除 legacy preferences 模块、旧 localStorage key、V1 数据库/备份分支及对应测试夹具；源码守护检查不得出现旧名称。
-- 当前文档只描述 `0.2.9`、`/api/v3`、`archive_collections`/`archive_records` 和实际支持的平台；历史计划不作为开发入口。
+- 当前文档只描述 `0.2.10`、`/api/v3`、`archive_collections`/`archive_records` 和实际支持的平台；历史计划不作为开发入口。
 - Speculo ADR 为唯一正文，根 `docs/decisions` 只提供索引；发布证据只来自当前 CI artifact。
 
 ## 完成门禁

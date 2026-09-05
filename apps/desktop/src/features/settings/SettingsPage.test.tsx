@@ -7,7 +7,7 @@ import { PreferencesFlushContext } from './preferences-context'
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }))
 vi.mock('../../app/backend-context', () => ({
   useBackend: () => ({
-    meta: { workspaceName: '当前工作区', schemaVersion: 2, serviceVersion: '0.2.9' },
+    meta: { workspaceName: '当前工作区', schemaVersion: 2, serviceVersion: '0.2.10' },
     connection: { protocolVersion: 3 },
   }),
 }))

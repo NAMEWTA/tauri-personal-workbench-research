@@ -23,10 +23,10 @@ Windows 门禁执行 `pnpm check`、sidecar smoke、安装/卸载 smoke、单实
 
 ## 发布步骤
 
-1. 保持 `package.json`、Tauri、Cargo 与 sidecar 版本均为目标版本（当前 `0.2.9`）。
+1. 保持 `package.json`、Tauri、Cargo 与 sidecar 版本均为目标版本（当前 `0.2.10`）。
 2. 运行 `pnpm check`、`pnpm test`、`pnpm test:smoke`、原生 smoke 和 `pnpm verify:versions`。
 3. 推送 main，等待 CI 全部通过并核对 macOS evidence artifact。
-4. 创建并推送与 package 版本一致的标签，例如 `git tag v0.2.9`。
+4. 创建并推送与 package 版本一致的标签，例如 `git tag v0.2.10`。
 5. `release.yml` 再次校验版本，聚合安装包、SBOM、SHA-256 和 provenance 后创建 Release。
 
 任何门禁失败或证据缺失都不能发布，也不能用旧版本 artifact 替代当前证据。

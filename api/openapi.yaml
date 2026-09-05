@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Personal Workbench API
-  version: 0.2.9
+  version: 0.2.10
   description: Local loopback API owned by the workbenchd sidecar.
   license:
     name: Private use
