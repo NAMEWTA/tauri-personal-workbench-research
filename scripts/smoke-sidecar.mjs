@@ -170,7 +170,7 @@ async function main() {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({
-      collectionId: "person",
+      collectionId: "template",
       title: "sidecar restart archive",
     }),
   });
