@@ -19,15 +19,15 @@ use workspace_registry::WorkspaceRegistry;
 fn shutdown(handle: tauri::AppHandle) {
     std::thread::spawn(move || {
         tauri::async_runtime::block_on(handle.state::<SidecarManager>().stop());
+        // WebView2 can occasionally leave native window teardown stuck after
+        // Tauri accepts the close request. The sidecar is stopped above, so
+        // terminate the host directly instead of leaving a zombie process.
+        // This also keeps the shutdown contract deterministic in installed
+        // WebView2 smoke tests and on machines with a slow browser teardown.
         handle.exit(0);
         #[cfg(target_os = "windows")]
-        {
-            // WebView2 can occasionally leave the native window teardown stuck
-            // after Tauri has accepted the exit request. The sidecar is already
-            // stopped above, so bound this host-only cleanup race as a fallback.
-            std::thread::sleep(Duration::from_secs(2));
-            std::process::exit(0);
-        }
+        std::thread::sleep(Duration::from_secs(2));
+        std::process::exit(0);
     });
 }
 
