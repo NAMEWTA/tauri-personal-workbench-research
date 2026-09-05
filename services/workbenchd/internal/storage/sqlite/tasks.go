@@ -29,7 +29,6 @@ func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task,
 	args := []any{}
 	now := time.Now().In(location)
 	todayStart, todayEnd := platform.LocalDayRange(now, location)
-	tomorrowEnd := todayEnd.In(location).AddDate(0, 0, 1).UTC()
 	switch filter.View {
 	case "", "all":
 		condition += ` AND t.status<>'done'`
@@ -43,7 +42,7 @@ func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task,
 		args = append(args, now.Format("2006-01-02"), platform.TimeText(todayEnd), platform.TimeText(todayStart))
 	case "tomorrow":
 		tomorrowStart := todayEnd
-		tomorrowEnd = tomorrowStart.In(location).AddDate(0, 0, 1).UTC()
+		tomorrowEnd := tomorrowStart.In(location).AddDate(0, 0, 1).UTC()
 		condition += ` AND t.status<>'done' AND (t.due_on=? OR (t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?))`
 		args = append(args, tomorrowStart.In(location).Format("2006-01-02"), platform.TimeText(tomorrowEnd), platform.TimeText(tomorrowStart))
 	case "calendar":

@@ -71,7 +71,7 @@ func TestSQLiteConnectionPragmasApplyToEveryPooledConnection(t *testing.T) {
 				errs <- err
 				return
 			}
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			for pragma, want := range map[string]int{"foreign_keys": 1, "busy_timeout": 5000, "synchronous": 1} {
 				var got int
 				if err := conn.QueryRowContext(ctx, "PRAGMA "+pragma).Scan(&got); err != nil {
