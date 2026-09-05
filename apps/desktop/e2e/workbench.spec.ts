@@ -122,8 +122,9 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await page.locator('.sidebar').getByRole('link', { name: '任务', exact: true }).click()
   const views = page.getByLabel('任务视图').getByRole('button')
   await expect(views).toHaveText(['收件箱', '今天', '即将到来', '全部', '已完成'])
-  await expect(page.getByText(taskTitle)).toBeVisible()
-  await page.getByText(taskTitle).click()
+  const taskButton = page.getByRole('button', { name: taskTitle, exact: true })
+  await expect(taskButton).toBeVisible()
+  await taskButton.click()
   await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible()
   await page.getByRole('button', { name: '关闭任务详情' }).click()
 
