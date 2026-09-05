@@ -26,7 +26,7 @@
 | 原生工作区隔离、恢复和退出 | `pnpm test:native-workspace` | 通过（Windows 本机，2026-09-05） |
 | 单实例与 sidecar 恢复 | `pnpm test:single-instance` | 通过（Windows 本机，2026-09-05） |
 | Windows 安装包 smoke | `scripts/smoke-installed.ps1` | 通过（NSIS 0.2.9，2026-09-05） |
-| macOS sidecar、app、DMG | CI native/bundle artifacts | 通过（workflow 33962031192，2026-09-05） |
+| macOS sidecar、app、DMG | CI native/bundle artifacts | 通过（workflow 33963073172，2026-09-05） |
 | 生成代码无漂移 | `pnpm generate` + deterministic rerun | 通过（2026-09-05） |
 
 ## 证据规则
@@ -38,8 +38,8 @@
 
 ## 当前发布证据
 
-- 代码验收提交：`75b5bc848f8468ca6130427b0e1ef289152c7c2f`
-- 完整 workflow：[33962031192](https://github.com/NAMEWTA/tauri-personal-workbench-research/actions/runs/33962031192)
+- 代码验收提交：`68273e94809fa85d33e730df68a4378b5fa5d891`
+- 完整 workflow：[33963073172](https://github.com/NAMEWTA/tauri-personal-workbench-research/actions/runs/33963073172)
 - macOS native artifact：`personal-workbench-macos-native-evidence`，ARM64 app/sidecar，codesign verified。
 - macOS bundle artifact：`personal-workbench-macos-bundle-evidence`，ARM64 DMG，hdiutil verified。
 
