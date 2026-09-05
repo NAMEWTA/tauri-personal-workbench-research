@@ -71,10 +71,10 @@ pub fn run() {
     app.run(move |handle, event| match event {
         tauri::RunEvent::Ready => {
             // 正式事件循环接管后才显示窗口，避免快速关闭绕过生命周期回调。
-            if let Some(window) = handle.get_webview_window("main") {
-                if let Err(error) = window.show().and_then(|()| window.set_focus()) {
-                    eprintln!("failed to show main window: {error}");
-                }
+            if let Some(window) = handle.get_webview_window("main")
+                && let Err(error) = window.show().and_then(|()| window.set_focus())
+            {
+                eprintln!("failed to show main window: {error}");
             }
         }
         tauri::RunEvent::WindowEvent {
