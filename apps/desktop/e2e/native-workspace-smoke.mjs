@@ -81,8 +81,8 @@ async function backendSnapshot(page) {
     const connection = await window.__TAURI_INTERNALS__.invoke('backend_connection_info')
     const headers = { Authorization: `Bearer ${connection.token}` }
     const [metaResponse, preferencesResponse] = await Promise.all([
-      fetch(`${connection.baseUrl}/api/v2/meta`, { headers }),
-      fetch(`${connection.baseUrl}/api/v2/preferences`, { headers }),
+      fetch(`${connection.baseUrl}/api/v3/meta`, { headers }),
+      fetch(`${connection.baseUrl}/api/v3/preferences`, { headers }),
     ])
     if (!metaResponse.ok || !preferencesResponse.ok) {
       throw new Error(
@@ -129,7 +129,7 @@ async function apiJson(snapshot, pathname, init = {}) {
 async function waitForJob(snapshot, jobId) {
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline) {
-    const job = await apiJson(snapshot, `/api/v2/jobs/${jobId}`)
+    const job = await apiJson(snapshot, `/api/v3/jobs/${jobId}`)
     if (job.state === 'succeeded') return job
     if (job.state === 'failed' || job.state === 'cancelled') {
       throw new Error(`Background job ${jobId} ended in ${job.state}`)
@@ -142,7 +142,7 @@ async function waitForJob(snapshot, jobId) {
 async function waitForCompletedBackup(snapshot) {
   const deadline = Date.now() + 30_000
   while (Date.now() < deadline) {
-    const backups = await apiJson(snapshot, '/api/v2/backups')
+    const backups = await apiJson(snapshot, '/api/v3/backups')
     const completed = backups.find((item) => item.state === 'succeeded' && item.path)
     if (completed) return completed
     await wait(150)
@@ -158,7 +158,7 @@ async function waitForWorkspace(page, name, previousBackendUrl) {
       try {
         const connection = await window.__TAURI_INTERNALS__.invoke('backend_connection_info')
         if (previous && connection.baseUrl === previous) return false
-        const response = await fetch(`${connection.baseUrl}/api/v2/meta`, {
+        const response = await fetch(`${connection.baseUrl}/api/v3/meta`, {
           headers: { Authorization: `Bearer ${connection.token}` },
         })
         if (!response.ok) return false
@@ -177,7 +177,7 @@ async function waitForBackendReady(page) {
     async () => {
       try {
         const connection = await window.__TAURI_INTERNALS__.invoke('backend_connection_info')
-        const response = await fetch(`${connection.baseUrl}/api/v2/meta`, {
+        const response = await fetch(`${connection.baseUrl}/api/v3/meta`, {
           headers: { Authorization: `Bearer ${connection.token}` },
         })
         return response.ok
@@ -211,7 +211,7 @@ async function createTask(page, title) {
   await Promise.all([
     page.waitForResponse(
       (response) =>
-        response.url().endsWith('/api/v2/tasks') && response.request().method() === 'POST',
+        response.url().endsWith('/api/v3/tasks') && response.request().method() === 'POST',
     ),
     page.getByRole('button', { name: '添加' }).click(),
   ])
@@ -326,21 +326,21 @@ try {
   await createTask(page, taskA)
 
   await mkdir(backupDirectory, { recursive: true })
-  await apiJson(initial, '/api/v2/backup-settings', {
+  await apiJson(initial, '/api/v3/backup-settings', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ backupDirectory }),
   })
-  const backupJob = await apiJson(initial, '/api/v2/backups', { method: 'POST' })
+  const backupJob = await apiJson(initial, '/api/v3/backups', { method: 'POST' })
   await waitForJob(initial, backupJob.id)
   const completedBackup = await waitForCompletedBackup(initial)
-  const restoreReport = await apiJson(initial, '/api/v2/restores/preflight', {
+  const restoreReport = await apiJson(initial, '/api/v3/restores/preflight', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ source: completedBackup.path }),
   })
   assert.equal(restoreReport.workspaceName, basename(workspaceA))
-  const restoreJob = await apiJson(initial, '/api/v2/restores', {
+  const restoreJob = await apiJson(initial, '/api/v3/restores', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ source: completedBackup.path, destination: restoredWorkspace }),
@@ -367,7 +367,7 @@ try {
   await Promise.all([
     page.waitForResponse(
       (response) =>
-        response.url().endsWith('/api/v2/preferences') && response.request().method() === 'PATCH',
+        response.url().endsWith('/api/v3/preferences') && response.request().method() === 'PATCH',
     ),
     page.getByRole('button', { name: '深色' }).click(),
   ])

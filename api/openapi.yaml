@@ -26,7 +26,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
-  /api/v2/meta:
+  /api/v3/meta:
     get:
       summary: Get service and workspace metadata
       operationId: getMeta
@@ -39,7 +39,7 @@ paths:
                 $ref: "#/components/schemas/Meta"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/preferences:
+  /api/v3/preferences:
     get:
       summary: Read workspace-scoped UI preferences
       operationId: getPreferences
@@ -70,7 +70,7 @@ paths:
                 $ref: "#/components/schemas/Preferences"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/dashboard:
+  /api/v3/dashboard:
     get:
       summary: Get the today dashboard
       operationId: getDashboard
@@ -85,10 +85,10 @@ paths:
                 $ref: "#/components/schemas/Dashboard"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/archive-types:
+  /api/v3/archive-collections:
     get:
       summary: List custom archive types and field definitions
-      operationId: listArchiveTypes
+      operationId: listArchiveCollections
       responses:
         "200":
           description: Archive type definitions
@@ -97,61 +97,61 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ArchiveTypeDefinition"
+                  $ref: "#/components/schemas/ArchiveCollectionDefinition"
         default:
           $ref: "#/components/responses/Problem"
     post:
       summary: Create a custom archive type
-      operationId: createArchiveType
+      operationId: createArchiveCollection
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/ArchiveTypeInput" }
+            schema: { $ref: "#/components/schemas/ArchiveCollectionInput" }
       responses:
         "201":
           description: Created archive type
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ArchiveTypeDefinition" }
+              schema: { $ref: "#/components/schemas/ArchiveCollectionDefinition" }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/archive-types/{typeId}:
+  /api/v3/archive-collections/{collectionId}:
     parameters:
-      - $ref: "#/components/parameters/ArchiveTypeId"
+      - $ref: "#/components/parameters/ArchiveCollectionId"
     get:
       summary: Get a custom archive type
-      operationId: getArchiveType
+      operationId: getArchiveCollection
       responses:
         "200":
           description: Archive type
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ArchiveTypeDefinition" }
+              schema: { $ref: "#/components/schemas/ArchiveCollectionDefinition" }
         default: { $ref: "#/components/responses/Problem" }
     patch:
       summary: Update a custom archive type
-      operationId: updateArchiveType
+      operationId: updateArchiveCollection
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/ArchiveTypeInput" }
+            schema: { $ref: "#/components/schemas/ArchiveCollectionInput" }
       responses:
         "200":
           description: Updated archive type
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ArchiveTypeDefinition" }
+              schema: { $ref: "#/components/schemas/ArchiveCollectionDefinition" }
         default: { $ref: "#/components/responses/Problem" }
     delete:
       summary: Delete an unused archive type
-      operationId: deleteArchiveType
+      operationId: deleteArchiveCollection
       responses:
         "204": { description: Archive type deleted }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/archive-types/{typeId}/fields:
+  /api/v3/archive-collections/{collectionId}/fields:
     parameters:
-      - $ref: "#/components/parameters/ArchiveTypeId"
+      - $ref: "#/components/parameters/ArchiveCollectionId"
     post:
       summary: Add a custom field
       operationId: createArchiveField
@@ -167,7 +167,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ArchiveFieldDefinition" }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/archive-fields/{fieldId}:
+  /api/v3/archive-fields/{fieldId}:
     parameters:
       - name: fieldId
         in: path
@@ -194,13 +194,13 @@ paths:
       responses:
         "204": { description: Custom field deleted }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/archives:
+  /api/v3/archive-records:
     get:
       summary: List and filter archives
-      operationId: listArchives
+      operationId: listArchiveRecords
       parameters:
         - $ref: "#/components/parameters/Query"
-        - name: typeId
+        - name: collectionId
           in: query
           schema: { type: string }
         - name: sort
@@ -214,71 +214,71 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ArchivePage"
+                $ref: "#/components/schemas/ArchiveRecordPage"
         default:
           $ref: "#/components/responses/Problem"
     post:
       summary: Create an archive
-      operationId: createArchive
+      operationId: createArchiveRecord
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ArchiveInput"
+              $ref: "#/components/schemas/ArchiveRecordInput"
       responses:
         "201":
           description: Created archive
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Archive"
+                $ref: "#/components/schemas/ArchiveRecord"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/archives/{archiveId}:
+  /api/v3/archive-records/{recordId}:
     parameters:
-      - $ref: "#/components/parameters/ArchiveId"
+      - $ref: "#/components/parameters/ArchiveRecordId"
     get:
       summary: Get an archive
-      operationId: getArchive
+      operationId: getArchiveRecord
       responses:
         "200":
           description: Archive details
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Archive"
+                $ref: "#/components/schemas/ArchiveRecord"
         default:
           $ref: "#/components/responses/Problem"
     patch:
       summary: Update an archive
-      operationId: updateArchive
+      operationId: updateArchiveRecord
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ArchiveInput"
+              $ref: "#/components/schemas/ArchiveRecordInput"
       responses:
         "200":
           description: Updated archive
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Archive"
+                $ref: "#/components/schemas/ArchiveRecord"
         default:
           $ref: "#/components/responses/Problem"
     delete:
       summary: Move an archive to trash
-      operationId: trashArchive
+      operationId: trashArchiveRecord
       responses:
         "204":
           description: Moved to trash
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/archives/{archiveId}/relations:
+  /api/v3/archive-records/{recordId}/relations:
     parameters:
-      - $ref: "#/components/parameters/ArchiveId"
+      - $ref: "#/components/parameters/ArchiveRecordId"
     get:
       summary: List archive relations
       operationId: listArchiveRelations
@@ -306,7 +306,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Relation" }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/relations/{relationId}:
+  /api/v3/relations/{relationId}:
     delete:
       summary: Remove an entity relation
       operationId: deleteRelation
@@ -318,9 +318,9 @@ paths:
       responses:
         "204": { description: Relation removed }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/archives/{archiveId}/attachments:
+  /api/v3/archive-records/{recordId}/attachments:
     parameters:
-      - $ref: "#/components/parameters/ArchiveId"
+      - $ref: "#/components/parameters/ArchiveRecordId"
     get:
       summary: List archive attachments
       operationId: listArchiveAttachments
@@ -348,9 +348,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Job" }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/archives/{archiveId}/activity:
+  /api/v3/archive-records/{recordId}/activity:
     parameters:
-      - $ref: "#/components/parameters/ArchiveId"
+      - $ref: "#/components/parameters/ArchiveRecordId"
     get:
       summary: List archive activity
       operationId: listArchiveActivity
@@ -363,7 +363,7 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/Activity" }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/attachments/{attachmentId}:
+  /api/v3/attachments/{attachmentId}:
     delete:
       summary: Remove a managed attachment
       operationId: deleteAttachment
@@ -375,7 +375,7 @@ paths:
       responses:
         "204": { description: Attachment removed }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/attachments/{attachmentId}/open-target:
+  /api/v3/attachments/{attachmentId}/open-target:
     get:
       summary: Resolve a managed attachment for native opening
       operationId: getAttachmentOpenTarget
@@ -395,7 +395,7 @@ paths:
                 properties:
                   path: { type: string }
         default: { $ref: "#/components/responses/Problem" }
-  /api/v2/tasks:
+  /api/v3/tasks:
     get:
       summary: List unified tasks for a view, calendar range, or archive
       operationId: listTasks
@@ -404,13 +404,22 @@ paths:
           in: query
           schema:
             type: string
-            enum: [today, tomorrow, all, completed]
+            enum: [inbox, today, tomorrow, upcoming, all, completed, calendar]
             default: all
         - $ref: "#/components/parameters/Timezone"
         - $ref: "#/components/parameters/Query"
-        - name: archiveId
+        - name: recordId
           in: query
           schema: { type: string, format: uuid }
+        - name: includeUnscheduled
+          in: query
+          schema: { type: boolean, default: false }
+        - name: dueFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dueTo
+          in: query
+          schema: { type: string, format: date }
         - name: from
           in: query
           schema: { type: string, format: date-time }
@@ -446,7 +455,7 @@ paths:
                 $ref: "#/components/schemas/Task"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/tasks/{taskId}:
+  /api/v3/tasks/{taskId}:
     parameters:
       - name: taskId
         in: path
@@ -490,7 +499,7 @@ paths:
           description: Moved to trash
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/search:
+  /api/v3/search:
     get:
       summary: Search workspace entities
       operationId: search
@@ -507,7 +516,7 @@ paths:
                   $ref: "#/components/schemas/SearchResult"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/search/status:
+  /api/v3/search/status:
     get:
       summary: Check full-text search index health
       operationId: getSearchStatus
@@ -520,7 +529,7 @@ paths:
                 $ref: "#/components/schemas/SearchStatus"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/search/rebuild:
+  /api/v3/search/rebuild:
     post:
       summary: Rebuild the full-text search index
       operationId: rebuildSearch
@@ -533,7 +542,7 @@ paths:
                 $ref: "#/components/schemas/Job"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/trash:
+  /api/v3/trash:
     get:
       summary: List trashed entities
       operationId: listTrash
@@ -548,7 +557,7 @@ paths:
                   $ref: "#/components/schemas/TrashEntry"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/trash/{trashId}/restore:
+  /api/v3/trash/{trashId}/restore:
     post:
       summary: Restore a trashed entity
       operationId: restoreTrash
@@ -564,7 +573,7 @@ paths:
           description: Entity restored
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/backups:
+  /api/v3/backups:
     get:
       summary: List backup history
       operationId: listBackups
@@ -591,7 +600,7 @@ paths:
                 $ref: "#/components/schemas/Job"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/backup-settings:
+  /api/v3/backup-settings:
     get:
       summary: Read backup settings
       operationId: getBackupSettings
@@ -622,7 +631,7 @@ paths:
                 $ref: "#/components/schemas/BackupSettings"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/jobs/{jobId}:
+  /api/v3/jobs/{jobId}:
     get:
       summary: Get background job state
       operationId: getJob
@@ -659,7 +668,7 @@ paths:
                 $ref: "#/components/schemas/Job"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/jobs/{jobId}/events:
+  /api/v3/jobs/{jobId}/events:
     get:
       summary: Subscribe to background job progress
       operationId: getJobEvents
@@ -677,7 +686,7 @@ paths:
                 $ref: "#/components/schemas/Job"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/restores/preflight:
+  /api/v3/restores/preflight:
     post:
       summary: Validate a backup before restore
       operationId: preflightRestore
@@ -699,7 +708,7 @@ paths:
                 $ref: "#/components/schemas/RestoreReport"
         default:
           $ref: "#/components/responses/Problem"
-  /api/v2/restores:
+  /api/v3/restores:
     post:
       summary: Restore a backup to a new workspace
       operationId: createRestore
@@ -772,15 +781,15 @@ components:
       schema:
         type: string
         maxLength: 100
-    ArchiveId:
-      name: archiveId
+    ArchiveRecordId:
+      name: recordId
       in: path
       required: true
       schema:
         type: string
         format: uuid
-    ArchiveTypeId:
-      name: typeId
+    ArchiveCollectionId:
+      name: collectionId
       in: path
       required: true
       schema:
@@ -808,16 +817,16 @@ components:
         serviceVersion: { type: string }
         workspaceName: { type: string }
         schemaVersion: { type: integer }
-    Archive:
+    ArchiveRecord:
       type: object
       required:
-        [id, typeId, typeName, typeIcon, typeColor, title, summary, body, fields, createdAt, updatedAt]
+        [id, collectionId, collectionName, collectionIcon, collectionColor, title, summary, body, fields, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
-        typeId: { type: string }
-        typeName: { type: string }
-        typeIcon: { type: string }
-        typeColor: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        collectionId: { type: string }
+        collectionName: { type: string }
+        collectionIcon: { type: string }
+        collectionColor: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
         title: { type: string }
         summary: { type: string }
         body: { type: string }
@@ -835,7 +844,7 @@ components:
         key: { type: string }
         label: { type: string }
         valueType:
-          { type: string, enum: [text, multiline, number, date, datetime, boolean, select] }
+          { type: string, enum: [text, multiline, number, date, datetime, boolean, select, multiSelect, url, email, phone, relation, attachment] }
         group: { type: string }
         required: { type: boolean }
         sensitive: { type: boolean }
@@ -850,7 +859,7 @@ components:
         key: { type: string, minLength: 1, maxLength: 80 }
         label: { type: string, minLength: 1, maxLength: 80 }
         valueType:
-          { type: string, enum: [text, multiline, number, date, datetime, boolean, select] }
+          { type: string, enum: [text, multiline, number, date, datetime, boolean, select, multiSelect, url, email, phone, relation, attachment] }
         group: { type: string, maxLength: 80 }
         required: { type: boolean }
         sensitive: { type: boolean }
@@ -858,7 +867,7 @@ components:
           { type: array, maxItems: 100, items: { type: string } }
         defaultValue: {}
         sortOrder: { type: integer }
-    ArchiveTypeDefinition:
+    ArchiveCollectionDefinition:
       type: object
       required: [id, name, icon, color, sortOrder, fields]
       properties:
@@ -871,7 +880,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ArchiveFieldDefinition"
-    ArchiveTypeInput:
+    ArchiveCollectionInput:
       type: object
       required: [name, icon, color, sortOrder]
       properties:
@@ -879,38 +888,38 @@ components:
         icon: { type: string, maxLength: 40 }
         color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
         sortOrder: { type: integer }
-    ArchiveInput:
+    ArchiveRecordInput:
       type: object
-      required: [typeId, title]
+      required: [collectionId, title]
       properties:
-        typeId: { type: string }
+        collectionId: { type: string }
         title: { type: string, minLength: 1, maxLength: 200 }
         summary: { type: string, maxLength: 500 }
         body: { type: string, maxLength: 1000000 }
         fields:
           type: object
           additionalProperties: true
-    ArchivePage:
+    ArchiveRecordPage:
       type: object
       required: [items, total, limit, offset]
       properties:
         items:
           type: array
-          items: { $ref: "#/components/schemas/Archive" }
+          items: { $ref: "#/components/schemas/ArchiveRecord" }
         total: { type: integer }
         limit: { type: integer }
         offset: { type: integer }
     Relation:
       type: object
       required:
-        [id, sourceId, targetId, targetTitle, targetTypeId, targetTypeName, relationType, notes, createdAt]
+        [id, sourceId, targetId, targetTitle, targetCollectionId, targetCollectionName, relationType, notes, createdAt]
       properties:
         id: { type: string, format: uuid }
         sourceId: { type: string, format: uuid }
         targetId: { type: string, format: uuid }
         targetTitle: { type: string }
-        targetTypeId: { type: string }
-        targetTypeName: { type: string }
+        targetCollectionId: { type: string }
+        targetCollectionName: { type: string }
         relationType: { type: string }
         notes: { type: string }
         createdAt: { type: string, format: date-time }
@@ -943,7 +952,7 @@ components:
     Task:
       type: object
       required:
-        [id, title, status, priority, allDay, timezone, archiveTitle, notes, createdAt, updatedAt]
+        [id, title, status, priority, allDay, timezone, recordTitle, notes, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -953,11 +962,19 @@ components:
           { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
         endsAt:
           { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        dueOn:
+          { oneOf: [{ type: string, format: date }, { type: "null" }] }
         allDay: { type: boolean }
         timezone: { type: string }
-        archiveId: { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
-        archiveTitle: { type: string }
+        recordId: { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
+        recordTitle: { type: string }
         notes: { type: string }
+        recurrence: { type: string }
+        reminders: { type: array, items: { type: string, format: date-time } }
+        parentId:
+          { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
+        estimateMinutes:
+          { oneOf: [{ type: integer }, { type: "null" }] }
         completedAt:
           { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
         createdAt: { type: string, format: date-time }
@@ -973,10 +990,18 @@ components:
           { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
         endsAt:
           { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
+        dueOn:
+          { oneOf: [{ type: string, format: date }, { type: "null" }] }
         allDay: { type: boolean }
         timezone: { type: string, maxLength: 100 }
-        archiveId: { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
+        recordId: { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
         notes: { type: string, maxLength: 1000000 }
+        recurrence: { type: string, maxLength: 500 }
+        reminders: { type: array, maxItems: 20, items: { type: string, format: date-time } }
+        parentId:
+          { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
+        estimateMinutes:
+          { oneOf: [{ type: integer, minimum: 1, maximum: 100000 }, { type: "null" }] }
     Dashboard:
       type: object
       required:
@@ -989,7 +1014,7 @@ components:
         tomorrowTasks:
           { type: array, items: { $ref: "#/components/schemas/Task" } }
         recentArchives:
-          { type: array, items: { $ref: "#/components/schemas/Archive" } }
+          { type: array, items: { $ref: "#/components/schemas/ArchiveRecord" } }
     Activity:
       type: object
       required: [id, action, changedAt]

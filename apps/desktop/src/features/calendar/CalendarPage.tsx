@@ -2,15 +2,17 @@ import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
+import { Draggable } from '@fullcalendar/interaction'
 import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { listTasks } from '../../generated/api/sdk.gen'
 import type { TaskInput } from '../../generated/api/types.gen'
 import { requireData } from '../../lib/http/client'
 import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { ArchivePicker } from '../archives/ArchivePicker'
 import { useCreateTask, useUpdateTask } from '../tasks/mutations'
+import { tasksQuery } from '../tasks/queries'
 import { useLayoutStore } from '../../stores/layout'
 import { initialTaskDraft, taskDraftFromCalendarSelection } from './calendar-draft'
 
@@ -21,7 +23,7 @@ const localInput = (date: Date) =>
 export default function CalendarPage() {
   const [creating, setCreating] = useState(false)
   const [draft, setDraft] = useState<TaskInput>(initialTaskDraft)
-  const [archiveTitle, setArchiveTitle] = useState('')
+  const [recordTitle, setArchiveTitle] = useState('')
   const [range, setRange] = useState(() => {
     const now = new Date()
     return {
@@ -42,8 +44,22 @@ export default function CalendarPage() {
         ).data,
       ),
   })
+  const inbox = useQuery(tasksQuery('inbox'))
+  const unplannedRef = useRef<HTMLDivElement>(null)
   const create = useCreateTask()
   const update = useUpdateTask()
+  useEffect(() => {
+    if (!unplannedRef.current) return
+    const draggable = new Draggable(unplannedRef.current, {
+      itemSelector: '.calendar-unplanned-item',
+      eventData: (element) => ({
+        id: element.getAttribute('data-task-id') ?? undefined,
+        title: element.textContent ?? '',
+        duration: '01:00',
+      }),
+    })
+    return () => draggable.destroy()
+  }, [inbox.data])
   const setTime = (key: 'startsAt' | 'endsAt', value: string) =>
     setDraft({ ...draft, [key]: value ? new Date(value).toISOString() : null })
   return (
@@ -114,11 +130,11 @@ export default function CalendarPage() {
           <div className="calendar-picker">
             <span>关联档案</span>
             <ArchivePicker
-              value={draft.archiveId}
-              valueTitle={archiveTitle}
+              value={draft.recordId}
+              valueTitle={recordTitle}
               onChange={(id, title) => {
                 setArchiveTitle(title ?? '')
-                setDraft({ ...draft, archiveId: id })
+                setDraft({ ...draft, recordId: id })
               }}
             />
           </div>
@@ -134,72 +150,112 @@ export default function CalendarPage() {
       ) : query.isError ? (
         <ErrorState error={query.error} retry={() => void query.refetch()} />
       ) : (
-        <div className="calendar-surface">
-          <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            locale="zh-cn"
-            height="auto"
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: 'dayGridMonth,timeGridWeek,timeGridDay',
-            }}
-            buttonText={{ today: '今天', month: '月', week: '周', day: '日' }}
-            datesSet={(info) =>
-              setRange({ from: info.start.toISOString(), to: info.end.toISOString() })
-            }
-            events={query.data.map((item) => ({
-              id: item.id,
-              title: item.title,
-              start: item.startsAt!,
-              end: item.endsAt!,
-              allDay: item.allDay,
-              classNames: ['calendar-entry', `calendar-priority-${item.priority}`],
-            }))}
-            selectable
-            select={(info) => {
-              setDraft(taskDraftFromCalendarSelection(info.start, info.end, info.allDay))
-              setArchiveTitle('')
-              setCreating(true)
-            }}
-            editable
-            eventClick={(info) => selectTask(info.event.id)}
-            eventDrop={(info) => {
-              const item = query.data.find((task) => task.id === info.event.id)
-              if (!item || !info.event.start) return info.revert()
-              const duration = new Date(item.endsAt!).getTime() - new Date(item.startsAt!).getTime()
-              update.mutate(
-                {
-                  task: item,
-                  changes: {
-                    startsAt: info.event.start.toISOString(),
-                    endsAt: (
-                      info.event.end ?? new Date(info.event.start.getTime() + duration)
-                    ).toISOString(),
-                    allDay: info.event.allDay,
+        <div className="calendar-workspace">
+          <aside className="calendar-unplanned" ref={unplannedRef}>
+            <div className="section-heading">
+              <h2>未排程</h2>
+              <span>{inbox.data?.length ?? 0}</span>
+            </div>
+            {inbox.data?.length ? (
+              inbox.data.map((task) => (
+                <button
+                  key={task.id}
+                  type="button"
+                  className="calendar-unplanned-item"
+                  data-task-id={task.id}
+                  onClick={() => selectTask(task.id)}
+                >
+                  {task.title}
+                </button>
+              ))
+            ) : (
+              <p className="quiet-empty">没有未排程任务</p>
+            )}
+          </aside>
+          <div className="calendar-surface">
+            <FullCalendar
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              locale="zh-cn"
+              height="auto"
+              headerToolbar={{
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay',
+              }}
+              buttonText={{ today: '今天', month: '月', week: '周', day: '日' }}
+              datesSet={(info) =>
+                setRange({ from: info.start.toISOString(), to: info.end.toISOString() })
+              }
+              events={query.data.map((item) => ({
+                id: item.id,
+                title: item.title,
+                start: item.startsAt!,
+                end: item.endsAt!,
+                allDay: item.allDay,
+                classNames: ['calendar-entry', `calendar-priority-${item.priority}`],
+              }))}
+              selectable
+              select={(info) => {
+                setDraft(taskDraftFromCalendarSelection(info.start, info.end, info.allDay))
+                setArchiveTitle('')
+                setCreating(true)
+              }}
+              editable
+              eventClick={(info) => selectTask(info.event.id)}
+              eventDrop={(info) => {
+                const item = query.data.find((task) => task.id === info.event.id)
+                if (!item || !info.event.start) return info.revert()
+                const duration =
+                  new Date(item.endsAt!).getTime() - new Date(item.startsAt!).getTime()
+                update.mutate(
+                  {
+                    task: item,
+                    changes: {
+                      startsAt: info.event.start.toISOString(),
+                      endsAt: (
+                        info.event.end ?? new Date(info.event.start.getTime() + duration)
+                      ).toISOString(),
+                      allDay: info.event.allDay,
+                    },
                   },
-                },
-                { onError: info.revert },
-              )
-            }}
-            eventResize={(info) => {
-              const item = query.data.find((task) => task.id === info.event.id)
-              if (!item || !info.event.start || !info.event.end) return info.revert()
-              update.mutate(
-                {
-                  task: item,
-                  changes: {
-                    startsAt: info.event.start.toISOString(),
-                    endsAt: info.event.end.toISOString(),
-                    allDay: info.event.allDay,
+                  { onError: info.revert },
+                )
+              }}
+              eventResize={(info) => {
+                const item = query.data.find((task) => task.id === info.event.id)
+                if (!item || !info.event.start || !info.event.end) return info.revert()
+                update.mutate(
+                  {
+                    task: item,
+                    changes: {
+                      startsAt: info.event.start.toISOString(),
+                      endsAt: info.event.end.toISOString(),
+                      allDay: info.event.allDay,
+                    },
                   },
-                },
-                { onError: info.revert },
-              )
-            }}
-            dayMaxEvents
-          />
+                  { onError: info.revert },
+                )
+              }}
+              eventReceive={(info) => {
+                const item = inbox.data?.find((task) => task.id === info.event.id)
+                if (!item || !info.event.start) return info.revert()
+                const end = info.event.end ?? new Date(info.event.start.getTime() + 60 * 60_000)
+                update.mutate(
+                  {
+                    task: item,
+                    changes: {
+                      startsAt: info.event.start.toISOString(),
+                      endsAt: end.toISOString(),
+                      allDay: info.event.allDay,
+                    },
+                  },
+                  { onError: info.revert },
+                )
+              }}
+              dayMaxEvents
+            />
+          </div>
         </div>
       )}
     </div>

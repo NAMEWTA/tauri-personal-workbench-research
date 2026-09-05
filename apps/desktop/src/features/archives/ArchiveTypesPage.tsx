@@ -4,22 +4,22 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import {
   createArchiveField,
-  createArchiveType,
+  createArchiveCollection,
   deleteArchiveField,
-  deleteArchiveType,
+  deleteArchiveCollection,
   updateArchiveField,
-  updateArchiveType,
+  updateArchiveCollection,
 } from '../../generated/api/sdk.gen'
 import type {
   ArchiveFieldDefinition,
   ArchiveFieldInput,
-  ArchiveTypeInput,
+  ArchiveCollectionInput,
 } from '../../generated/api/types.gen'
 import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { requireData } from '../../lib/http/client'
 import { archiveKeys, archiveTypesQuery } from './queries'
 
-const emptyType: ArchiveTypeInput = {
+const emptyType: ArchiveCollectionInput = {
   name: '',
   icon: 'FolderKanban',
   color: '#527A9E',
@@ -42,7 +42,7 @@ export function ArchiveTypesPage() {
   const [selectedId, setSelectedId] = useState('')
   const activeSelectedId = selectedId || types.data?.[0]?.id || ''
   const selected = types.data?.find((item) => item.id === activeSelectedId)
-  const [typeDraft, setTypeDraft] = useState<ArchiveTypeInput>(emptyType)
+  const [typeDraft, setTypeDraft] = useState<ArchiveCollectionInput>(emptyType)
   const effectiveTypeDraft = typeDraft.name
     ? typeDraft
     : selected
@@ -60,8 +60,8 @@ export function ArchiveTypesPage() {
     await queryClient.invalidateQueries({ queryKey: archiveKeys.all })
   }
   const createType = useMutation({
-    mutationFn: async (body: ArchiveTypeInput) =>
-      requireData((await createArchiveType({ body, throwOnError: true })).data),
+    mutationFn: async (body: ArchiveCollectionInput) =>
+      requireData((await createArchiveCollection({ body, throwOnError: true })).data),
     onSuccess: async (item) => {
       setNewTypeName('')
       setTypeDraft({
@@ -75,11 +75,11 @@ export function ArchiveTypesPage() {
     },
   })
   const saveType = useMutation({
-    mutationFn: async (body: ArchiveTypeInput) =>
+    mutationFn: async (body: ArchiveCollectionInput) =>
       requireData(
         (
-          await updateArchiveType({
-            path: { typeId: activeSelectedId },
+          await updateArchiveCollection({
+            path: { collectionId: activeSelectedId },
             body,
             throwOnError: true,
           })
@@ -89,7 +89,10 @@ export function ArchiveTypesPage() {
   })
   const removeType = useMutation({
     mutationFn: async () => {
-      await deleteArchiveType({ path: { typeId: activeSelectedId }, throwOnError: true })
+      await deleteArchiveCollection({
+        path: { collectionId: activeSelectedId },
+        throwOnError: true,
+      })
     },
     onSuccess: async () => {
       setSelectedId('')
@@ -114,7 +117,7 @@ export function ArchiveTypesPage() {
         : requireData(
             (
               await createArchiveField({
-                path: { typeId: activeSelectedId },
+                path: { collectionId: activeSelectedId },
                 body: fieldDraft,
                 throwOnError: true,
               })
@@ -156,7 +159,7 @@ export function ArchiveTypesPage() {
             <ArrowLeft size={15} />
             档案
           </Link>
-          <h1>档案类型</h1>
+          <h1>档案集合</h1>
         </div>
       </div>
       {operationError && <p className="form-error">操作失败，请检查内容后重试。</p>}
@@ -214,7 +217,7 @@ export function ArchiveTypesPage() {
             <div className="type-editor">
               <section>
                 <div className="section-heading">
-                  <h2>类型设置</h2>
+                  <h2>集合设置</h2>
                   <button
                     className="button danger-quiet"
                     onClick={() => {
@@ -275,12 +278,12 @@ export function ArchiveTypesPage() {
                   disabled={!effectiveTypeDraft.name.trim() || saveType.isPending}
                 >
                   <Save size={15} />
-                  保存类型
+                  保存集合
                 </button>
               </section>
               <section>
                 <div className="section-heading">
-                  <h2>扩展属性</h2>
+                  <h2>记录字段</h2>
                 </div>
                 <div className="field-definition-list">
                   {selected.fields.map((field) => (
@@ -341,7 +344,11 @@ export function ArchiveTypesPage() {
                           setFieldDraft({
                             ...fieldDraft,
                             valueType: event.target.value as ArchiveFieldInput['valueType'],
-                            options: event.target.value === 'select' ? fieldDraft.options : [],
+                            options:
+                              event.target.value === 'select' ||
+                              event.target.value === 'multiSelect'
+                                ? fieldDraft.options
+                                : [],
                           })
                         }
                       >
@@ -352,6 +359,12 @@ export function ArchiveTypesPage() {
                         <option value="datetime">日期时间</option>
                         <option value="boolean">开关</option>
                         <option value="select">选项</option>
+                        <option value="multiSelect">多选</option>
+                        <option value="url">网址</option>
+                        <option value="email">邮箱</option>
+                        <option value="phone">电话</option>
+                        <option value="relation">关联记录</option>
+                        <option value="attachment">附件</option>
                       </select>
                     </label>
                     <label>
@@ -364,7 +377,8 @@ export function ArchiveTypesPage() {
                       />
                     </label>
                   </div>
-                  {fieldDraft.valueType === 'select' && (
+                  {(fieldDraft.valueType === 'select' ||
+                    fieldDraft.valueType === 'multiSelect') && (
                     <label>
                       选项（逗号分隔）
                       <input

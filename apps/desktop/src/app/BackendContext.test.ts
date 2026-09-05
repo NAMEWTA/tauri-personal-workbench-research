@@ -31,7 +31,7 @@ describe('validateLocalBackendUrl', () => {
         {
           baseUrl: 'https://example.com',
           token: 'token',
-          protocolVersion: 2,
+          protocolVersion: 3,
           serviceVersion: 'test',
         },
         () => undefined,

@@ -24,7 +24,7 @@ func TestOnlineBackupIncludesDatabaseAndAttachments(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	owner, err := store.CreateArchive(ctx, archive.Input{TypeID: "organization", Title: "示例企业"})
+	owner, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "示例企业"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestPreflightAndRestoreToNewWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = store.Close() }()
-	created, err := store.CreateArchive(ctx, archive.Input{TypeID: "person", Title: "恢复验证档案"})
+	created, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "恢复验证档案"})
 	if err != nil {
 		t.Fatal(err)
 	}

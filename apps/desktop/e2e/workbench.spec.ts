@@ -12,10 +12,10 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   })
   const unique = `${testInfo.project.name}-${Date.now()}`
   const taskTitle = `统一任务-${unique}`
-  const archiveTitle = `个人档案-${unique}`
+  const archiveTitle = `项目记录-${unique}`
   const relatedArchiveTitle = `关联档案-${unique}`
-  const identityNumber = `3101011990${String(Date.now()).slice(-8)}`
-  const typeName = `项目-${unique}`
+  const contactEmail = `e2e-${Date.now()}@example.com`
+  const collectionName = `项目-${unique}`
   const server = JSON.parse(readFileSync(resolve('test-results/.e2e-server.json'), 'utf8')) as {
     backendUrl: string
     token: string
@@ -26,12 +26,12 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
     Origin: 'http://127.0.0.1:1420',
   }
   const backupDirectory = join(server.workspace, 'configured-backups')
-  const configured = await request.put(`${server.backendUrl}/api/v2/backup-settings`, {
+  const configured = await request.put(`${server.backendUrl}/api/v3/backup-settings`, {
     headers: apiHeaders,
     data: { backupDirectory },
   })
   expect(configured.ok()).toBeTruthy()
-  const resetPreferences = await request.patch(`${server.backendUrl}/api/v2/preferences`, {
+  const resetPreferences = await request.patch(`${server.backendUrl}/api/v3/preferences`, {
     headers: apiHeaders,
     data: {
       theme: 'system',
@@ -62,7 +62,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem('workbench-recent-search-results')))
     .toBeNull()
-  const migratedPreferencesResponse = await request.get(`${server.backendUrl}/api/v2/preferences`, {
+  const migratedPreferencesResponse = await request.get(`${server.backendUrl}/api/v3/preferences`, {
     headers: apiHeaders,
   })
   expect(migratedPreferencesResponse.ok()).toBeTruthy()
@@ -83,7 +83,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await Promise.all([
     page.waitForResponse(
       (response) =>
-        response.url().endsWith('/api/v2/tasks') && response.request().method() === 'POST',
+        response.url().endsWith('/api/v3/tasks') && response.request().method() === 'POST',
     ),
     page.getByRole('button', { name: '添加' }).click(),
   ])
@@ -121,7 +121,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
 
   await page.locator('.sidebar').getByRole('link', { name: '任务', exact: true }).click()
   const views = page.getByLabel('任务视图').getByRole('button')
-  await expect(views).toHaveText(['今天', '明天', '全部', '已完成'])
+  await expect(views).toHaveText(['收件箱', '今天', '即将到来', '全部', '已完成'])
   await expect(page.getByText(taskTitle)).toBeVisible()
   await page.getByText(taskTitle).click()
   await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible()
@@ -134,34 +134,39 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await page.getByRole('button', { name: '关闭任务详情' }).click()
 
   await page.locator('.sidebar').getByRole('link', { name: '档案', exact: true }).click()
-  await page.getByRole('link', { name: '档案类型' }).click()
-  await page.getByLabel('新类型名称').fill(typeName)
+  await page.getByRole('link', { name: '管理集合' }).click()
+  await page.getByLabel('新类型名称').fill(collectionName)
   await page.getByRole('button', { name: '创建' }).click()
-  await expect(page.getByRole('button', { name: new RegExp(typeName) })).toBeVisible()
+  await expect(page.getByRole('button', { name: new RegExp(collectionName) })).toBeVisible()
   await page.getByLabel('属性名称').fill('阶段')
   await page.getByLabel('属性键').fill('stage')
   await page.getByLabel('字段类型').selectOption('select')
   await page.getByLabel('选项（逗号分隔）').fill('规划,执行')
   await page.getByRole('button', { name: '添加属性' }).click()
   await expect(page.getByText('stage · select')).toBeVisible()
+  await page.getByLabel('属性名称').fill('邮箱')
+  await page.getByLabel('属性键').fill('email')
+  await page.getByLabel('字段类型').selectOption('email')
+  await page.getByRole('button', { name: '添加属性' }).click()
+  await expect(page.getByText('email · email')).toBeVisible()
 
   await page.locator('.back-link').click()
-  await page.getByRole('button', { name: '新建档案' }).click()
-  await page.locator('.dialog').getByLabel('档案类型').selectOption('person')
+  await page.getByRole('button', { name: '新建记录' }).click()
+  await page.locator('.dialog').getByLabel('所属集合').selectOption({ label: collectionName })
   await page.getByLabel('名称').fill(archiveTitle)
-  await page.getByLabel('摘要').fill('由 Playwright 通过真实 V2 API 创建')
-  await page.getByLabel('证件号码').fill(identityNumber)
+  await page.getByLabel('摘要').fill('由 Playwright 通过真实 API 创建')
+  await page.getByLabel('邮箱').fill(contactEmail)
   await page.getByRole('button', { name: '保存' }).click()
   await expect(page.getByText(archiveTitle)).toBeVisible()
 
   await page.keyboard.press('Control+K')
-  await page.getByLabel('搜索关键词').fill(identityNumber)
+  await page.getByLabel('搜索关键词').fill(contactEmail)
   await expect(page.getByRole('button', { name: new RegExp(archiveTitle) })).toBeVisible()
   await page.getByRole('button', { name: new RegExp(archiveTitle) }).click()
   await expect(page.getByRole('heading', { name: '活动' })).toBeVisible()
   await expect(page.getByText('创建档案')).toBeVisible()
-  const archiveId = new URL(page.url()).pathname.split('/').pop()
-  expect(archiveId).toBeTruthy()
+  const recordId = new URL(page.url()).pathname.split('/').pop()
+  expect(recordId).toBeTruthy()
 
   const archiveSummary = page.getByLabel('摘要')
   await archiveSummary.fill('未保存的档案摘要')
@@ -176,12 +181,12 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
     void dialog.accept()
   })
   await page.getByRole('button', { name: '档案', exact: true }).click()
-  await page.goto(`/archives/${archiveId}`)
+  await page.goto(`/archives/${recordId}`)
   await expect(page.getByRole('heading', { name: archiveTitle })).toBeVisible()
 
-  const relatedArchiveResponse = await request.post(`${server.backendUrl}/api/v2/archives`, {
+  const relatedArchiveResponse = await request.post(`${server.backendUrl}/api/v3/archive-records`, {
     headers: apiHeaders,
-    data: { typeId: 'organization', title: relatedArchiveTitle },
+    data: { collectionId: 'template', title: relatedArchiveTitle },
   })
   expect(relatedArchiveResponse.ok()).toBeTruthy()
   await page.reload()
@@ -207,13 +212,13 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await expect(relationLink).toBeVisible()
   await relationLink.click()
   await expect(page.getByRole('heading', { name: relatedArchiveTitle })).toBeVisible()
-  await page.goto(`/archives/${archiveId}`)
+  await page.goto(`/archives/${recordId}`)
   await expect(page.getByRole('heading', { name: archiveTitle })).toBeVisible()
 
   const attachmentSource = join(server.workspace, 'e2e-attachment.txt')
   writeFileSync(attachmentSource, 'Playwright attachment persistence')
   const imported = await request.post(
-    `${server.backendUrl}/api/v2/archives/${archiveId}/attachments`,
+    `${server.backendUrl}/api/v3/archive-records/${recordId}/attachments`,
     { headers: apiHeaders, data: { paths: [attachmentSource] } },
   )
   expect(imported.ok()).toBeTruthy()
@@ -221,7 +226,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await expect
     .poll(
       async () => {
-        const response = await request.get(`${server.backendUrl}/api/v2/jobs/${attachmentJob.id}`, {
+        const response = await request.get(`${server.backendUrl}/api/v3/jobs/${attachmentJob.id}`, {
           headers: apiHeaders,
         })
         return response.ok() ? ((await response.json()) as { state: string }).state : 'error'
@@ -258,7 +263,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
     await Promise.all([
       page.waitForResponse(
         (response) =>
-          response.url().endsWith('/api/v2/preferences') && response.request().method() === 'PATCH',
+          response.url().endsWith('/api/v3/preferences') && response.request().method() === 'PATCH',
       ),
       page.getByRole('button', { name: '浅色' }).click(),
     ])
@@ -266,7 +271,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await Promise.all([
     page.waitForResponse(
       (response) =>
-        response.url().endsWith('/api/v2/preferences') && response.request().method() === 'PATCH',
+        response.url().endsWith('/api/v3/preferences') && response.request().method() === 'PATCH',
     ),
     darkTheme.click(),
   ])

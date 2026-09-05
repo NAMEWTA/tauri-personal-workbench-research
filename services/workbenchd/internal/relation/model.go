@@ -7,15 +7,15 @@ import (
 )
 
 type Relation struct {
-	ID             string    `json:"id"`
-	SourceID       string    `json:"sourceId"`
-	TargetID       string    `json:"targetId"`
-	TargetTitle    string    `json:"targetTitle"`
-	TargetTypeID   string    `json:"targetTypeId"`
-	TargetTypeName string    `json:"targetTypeName"`
-	RelationType   string    `json:"relationType"`
-	Notes          string    `json:"notes"`
-	CreatedAt      time.Time `json:"createdAt"`
+	ID                   string    `json:"id"`
+	SourceID             string    `json:"sourceId"`
+	TargetID             string    `json:"targetId"`
+	TargetTitle          string    `json:"targetTitle"`
+	TargetCollectionID   string    `json:"targetTypeId"`
+	TargetCollectionName string    `json:"targetCollectionName"`
+	RelationType         string    `json:"relationType"`
+	Notes                string    `json:"notes"`
+	CreatedAt            time.Time `json:"createdAt"`
 }
 
 type Input struct {

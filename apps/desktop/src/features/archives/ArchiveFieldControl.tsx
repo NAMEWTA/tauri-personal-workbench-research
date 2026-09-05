@@ -38,6 +38,25 @@ export function ArchiveFieldControl({
       </select>
     )
   }
+  if (field.valueType === 'multiSelect') {
+    const selected = Array.isArray(value) ? value.map(String) : []
+    return (
+      <select
+        multiple
+        required={field.required}
+        value={selected}
+        onChange={(event) =>
+          onChange(Array.from(event.target.selectedOptions, (option) => option.value))
+        }
+      >
+        {field.options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    )
+  }
   if (field.valueType === 'boolean') {
     return (
       <input

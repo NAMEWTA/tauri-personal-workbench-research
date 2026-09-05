@@ -34,10 +34,10 @@ func (s *Store) searchFTS(ctx context.Context, query string) ([]app.SearchResult
 				WHEN 'attachment' THEN COALESCE(owner.title,'')
 				ELSE '' END
 		FROM search_index i
-		LEFT JOIN archives ar ON i.entity_type='archive' AND ar.id=i.entity_id AND ar.deleted_at IS NULL
+		LEFT JOIN archive_records ar ON i.entity_type='archive' AND ar.id=i.entity_id AND ar.deleted_at IS NULL
 		LEFT JOIN tasks t ON i.entity_type='task' AND t.id=i.entity_id AND t.deleted_at IS NULL
 		LEFT JOIN attachments a ON i.entity_type='attachment' AND a.id=i.entity_id AND a.deleted_at IS NULL
-		LEFT JOIN archives owner ON owner.id=a.entity_id AND owner.deleted_at IS NULL
+		LEFT JOIN archive_records owner ON owner.id=a.entity_id AND owner.deleted_at IS NULL
 		WHERE search_index MATCH ?
 			AND (i.entity_type<>'attachment' OR (a.id IS NOT NULL AND owner.id IS NOT NULL))
 		ORDER BY bm25(search_index),i.title
@@ -52,15 +52,15 @@ func (s *Store) searchLike(ctx context.Context, query string) ([]app.SearchResul
 	pattern := "%" + query + "%"
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT 'archive',a.id,a.title,a.summary
-		FROM archives a
+		FROM archive_records a
 		WHERE a.deleted_at IS NULL AND (a.title LIKE ? OR a.summary LIKE ? OR a.body LIKE ? OR EXISTS (
-			SELECT 1 FROM archive_field_values v WHERE v.archive_id=a.id AND v.value_json LIKE ?))
+			SELECT 1 FROM archive_record_values v WHERE v.archive_id=a.id AND v.value_json LIKE ?))
 		UNION ALL
 		SELECT 'task',t.id,t.title,t.notes
 		FROM tasks t WHERE t.deleted_at IS NULL AND (t.title LIKE ? OR t.notes LIKE ?)
 		UNION ALL
 		SELECT 'attachment',owner.id,att.display_name,owner.title
-		FROM attachments att JOIN archives owner ON owner.id=att.entity_id
+		FROM attachments att JOIN archive_records owner ON owner.id=att.entity_id
 		WHERE att.deleted_at IS NULL AND owner.deleted_at IS NULL AND (att.display_name LIKE ? OR att.media_type LIKE ?)
 		LIMIT 50`, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern)
 	if err != nil {
@@ -89,7 +89,7 @@ func quoteFTS(query string) string {
 func (s *Store) SearchHealthy(ctx context.Context) bool {
 	var expected, indexed int
 	if err := s.db.QueryRowContext(ctx, `SELECT
-		(SELECT count(*) FROM archives WHERE deleted_at IS NULL)+
+		(SELECT count(*) FROM archive_records WHERE deleted_at IS NULL)+
 		(SELECT count(*) FROM tasks WHERE deleted_at IS NULL)+
 		(SELECT count(*) FROM attachments WHERE deleted_at IS NULL)`).Scan(&expected); err != nil {
 		return false
@@ -109,7 +109,7 @@ func (s *Store) RebuildSearch(ctx context.Context, progress func(int, string)) e
 		progress(25, "archives")
 		if _, err := tx.ExecContext(ctx, `INSERT INTO search_index(entity_type,entity_id,title,content)
 			SELECT 'archive',a.id,a.title,a.summary || ' ' || a.body || ' ' || COALESCE(group_concat(v.value_json,' '),'')
-			FROM archives a LEFT JOIN archive_field_values v ON v.archive_id=a.id
+			FROM archive_records a LEFT JOIN archive_record_values v ON v.archive_id=a.id
 			WHERE a.deleted_at IS NULL GROUP BY a.id`); err != nil {
 			return err
 		}

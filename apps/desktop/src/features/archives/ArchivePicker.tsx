@@ -16,11 +16,11 @@ export function ArchivePicker({
   onChange: (id: string | null, title?: string) => void
   onOpen?: (id: string) => void
 }) {
-  const [typeId, setTypeId] = useState('')
+  const [collectionId, setTypeId] = useState('')
   const [query, setQuery] = useState('')
   const debouncedQuery = useDebouncedValue(query)
   const types = useQuery(archiveTypesQuery)
-  const archives = useQuery(archivesQuery(debouncedQuery, typeId, 'title', 30))
+  const archives = useQuery(archivesQuery(debouncedQuery, collectionId, 'title', 30))
   return (
     <div className="archive-picker">
       {value && (
@@ -58,14 +58,18 @@ export function ArchivePicker({
         </div>
       ) : (
         <div className="segmented picker-types" aria-label="按档案类型筛选">
-          <button type="button" className={!typeId ? 'active' : ''} onClick={() => setTypeId('')}>
+          <button
+            type="button"
+            className={!collectionId ? 'active' : ''}
+            onClick={() => setTypeId('')}
+          >
             全部
           </button>
           {types.data.map((item) => (
             <button
               type="button"
               key={item.id}
-              className={typeId === item.id ? 'active' : ''}
+              className={collectionId === item.id ? 'active' : ''}
               onClick={() => setTypeId(item.id)}
             >
               {item.name}
@@ -95,9 +99,9 @@ export function ArchivePicker({
                 className={item.id === value ? 'active' : ''}
                 onClick={() => onChange(item.id, item.title)}
               >
-                <span style={{ backgroundColor: item.typeColor }} />
+                <span style={{ backgroundColor: item.collectionColor }} />
                 <strong>{item.title}</strong>
-                <small>{item.typeName}</small>
+                <small>{item.collectionName}</small>
               </button>
             ))}
             {archives.data.items.length === 0 && <p className="quiet-empty">没有匹配档案。</p>}

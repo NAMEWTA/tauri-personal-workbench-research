@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelJobData, CancelJobErrors, CancelJobResponses, CreateArchiveData, CreateArchiveErrors, CreateArchiveFieldData, CreateArchiveFieldErrors, CreateArchiveFieldResponses, CreateArchiveRelationData, CreateArchiveRelationErrors, CreateArchiveRelationResponses, CreateArchiveResponses, CreateArchiveTypeData, CreateArchiveTypeErrors, CreateArchiveTypeResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateRestoreData, CreateRestoreErrors, CreateRestoreResponses, CreateTaskData, CreateTaskErrors, CreateTaskResponses, DeleteArchiveFieldData, DeleteArchiveFieldErrors, DeleteArchiveFieldResponses, DeleteArchiveTypeData, DeleteArchiveTypeErrors, DeleteArchiveTypeResponses, DeleteAttachmentData, DeleteAttachmentErrors, DeleteAttachmentResponses, DeleteRelationData, DeleteRelationErrors, DeleteRelationResponses, GetArchiveData, GetArchiveErrors, GetArchiveResponses, GetArchiveTypeData, GetArchiveTypeErrors, GetArchiveTypeResponses, GetAttachmentOpenTargetData, GetAttachmentOpenTargetErrors, GetAttachmentOpenTargetResponses, GetBackupSettingsData, GetBackupSettingsErrors, GetBackupSettingsResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetHealthData, GetHealthResponses, GetJobData, GetJobErrors, GetJobEventsData, GetJobEventsErrors, GetJobEventsResponse, GetJobEventsResponses, GetJobResponses, GetMetaData, GetMetaErrors, GetMetaResponses, GetPreferencesData, GetPreferencesErrors, GetPreferencesResponses, GetSearchStatusData, GetSearchStatusErrors, GetSearchStatusResponses, GetTaskData, GetTaskErrors, GetTaskResponses, ImportArchiveAttachmentsData, ImportArchiveAttachmentsErrors, ImportArchiveAttachmentsResponses, ListArchiveActivityData, ListArchiveActivityErrors, ListArchiveActivityResponses, ListArchiveAttachmentsData, ListArchiveAttachmentsErrors, ListArchiveAttachmentsResponses, ListArchiveRelationsData, ListArchiveRelationsErrors, ListArchiveRelationsResponses, ListArchivesData, ListArchivesErrors, ListArchivesResponses, ListArchiveTypesData, ListArchiveTypesErrors, ListArchiveTypesResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTrashData, ListTrashErrors, ListTrashResponses, PreflightRestoreData, PreflightRestoreErrors, PreflightRestoreResponses, RebuildSearchData, RebuildSearchErrors, RebuildSearchResponses, RestoreTrashData, RestoreTrashErrors, RestoreTrashResponses, SearchData, SearchErrors, SearchResponses, ShutdownData, ShutdownErrors, ShutdownResponses, TrashArchiveData, TrashArchiveErrors, TrashArchiveResponses, TrashTaskData, TrashTaskErrors, TrashTaskResponses, UpdateArchiveData, UpdateArchiveErrors, UpdateArchiveFieldData, UpdateArchiveFieldErrors, UpdateArchiveFieldResponses, UpdateArchiveResponses, UpdateArchiveTypeData, UpdateArchiveTypeErrors, UpdateArchiveTypeResponses, UpdateBackupSettingsData, UpdateBackupSettingsErrors, UpdateBackupSettingsResponses, UpdatePreferencesData, UpdatePreferencesErrors, UpdatePreferencesResponses, UpdateTaskData, UpdateTaskErrors, UpdateTaskResponses } from './types.gen';
+import type { CancelJobData, CancelJobErrors, CancelJobResponses, CreateArchiveCollectionData, CreateArchiveCollectionErrors, CreateArchiveCollectionResponses, CreateArchiveFieldData, CreateArchiveFieldErrors, CreateArchiveFieldResponses, CreateArchiveRecordData, CreateArchiveRecordErrors, CreateArchiveRecordResponses, CreateArchiveRelationData, CreateArchiveRelationErrors, CreateArchiveRelationResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateRestoreData, CreateRestoreErrors, CreateRestoreResponses, CreateTaskData, CreateTaskErrors, CreateTaskResponses, DeleteArchiveCollectionData, DeleteArchiveCollectionErrors, DeleteArchiveCollectionResponses, DeleteArchiveFieldData, DeleteArchiveFieldErrors, DeleteArchiveFieldResponses, DeleteAttachmentData, DeleteAttachmentErrors, DeleteAttachmentResponses, DeleteRelationData, DeleteRelationErrors, DeleteRelationResponses, GetArchiveCollectionData, GetArchiveCollectionErrors, GetArchiveCollectionResponses, GetArchiveRecordData, GetArchiveRecordErrors, GetArchiveRecordResponses, GetAttachmentOpenTargetData, GetAttachmentOpenTargetErrors, GetAttachmentOpenTargetResponses, GetBackupSettingsData, GetBackupSettingsErrors, GetBackupSettingsResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetHealthData, GetHealthResponses, GetJobData, GetJobErrors, GetJobEventsData, GetJobEventsErrors, GetJobEventsResponse, GetJobEventsResponses, GetJobResponses, GetMetaData, GetMetaErrors, GetMetaResponses, GetPreferencesData, GetPreferencesErrors, GetPreferencesResponses, GetSearchStatusData, GetSearchStatusErrors, GetSearchStatusResponses, GetTaskData, GetTaskErrors, GetTaskResponses, ImportArchiveAttachmentsData, ImportArchiveAttachmentsErrors, ImportArchiveAttachmentsResponses, ListArchiveActivityData, ListArchiveActivityErrors, ListArchiveActivityResponses, ListArchiveAttachmentsData, ListArchiveAttachmentsErrors, ListArchiveAttachmentsResponses, ListArchiveCollectionsData, ListArchiveCollectionsErrors, ListArchiveCollectionsResponses, ListArchiveRecordsData, ListArchiveRecordsErrors, ListArchiveRecordsResponses, ListArchiveRelationsData, ListArchiveRelationsErrors, ListArchiveRelationsResponses, ListBackupsData, ListBackupsErrors, ListBackupsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListTrashData, ListTrashErrors, ListTrashResponses, PreflightRestoreData, PreflightRestoreErrors, PreflightRestoreResponses, RebuildSearchData, RebuildSearchErrors, RebuildSearchResponses, RestoreTrashData, RestoreTrashErrors, RestoreTrashResponses, SearchData, SearchErrors, SearchResponses, ShutdownData, ShutdownErrors, ShutdownResponses, TrashArchiveRecordData, TrashArchiveRecordErrors, TrashArchiveRecordResponses, TrashTaskData, TrashTaskErrors, TrashTaskResponses, UpdateArchiveCollectionData, UpdateArchiveCollectionErrors, UpdateArchiveCollectionResponses, UpdateArchiveFieldData, UpdateArchiveFieldErrors, UpdateArchiveFieldResponses, UpdateArchiveRecordData, UpdateArchiveRecordErrors, UpdateArchiveRecordResponses, UpdateBackupSettingsData, UpdateBackupSettingsErrors, UpdateBackupSettingsResponses, UpdatePreferencesData, UpdatePreferencesErrors, UpdatePreferencesResponses, UpdateTaskData, UpdateTaskErrors, UpdateTaskResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -28,7 +28,7 @@ export const getHealth = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const getMeta = <ThrowOnError extends boolean = false>(options?: Options<GetMetaData, ThrowOnError>): RequestResult<GetMetaResponses, GetMetaErrors, ThrowOnError> => (options?.client ?? client).get<GetMetaResponses, GetMetaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/meta',
+    url: '/api/v3/meta',
     ...options
 });
 
@@ -37,7 +37,7 @@ export const getMeta = <ThrowOnError extends boolean = false>(options?: Options<
  */
 export const getPreferences = <ThrowOnError extends boolean = false>(options?: Options<GetPreferencesData, ThrowOnError>): RequestResult<GetPreferencesResponses, GetPreferencesErrors, ThrowOnError> => (options?.client ?? client).get<GetPreferencesResponses, GetPreferencesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/preferences',
+    url: '/api/v3/preferences',
     ...options
 });
 
@@ -46,7 +46,7 @@ export const getPreferences = <ThrowOnError extends boolean = false>(options?: O
  */
 export const updatePreferences = <ThrowOnError extends boolean = false>(options: Options<UpdatePreferencesData, ThrowOnError>): RequestResult<UpdatePreferencesResponses, UpdatePreferencesErrors, ThrowOnError> => (options.client ?? client).patch<UpdatePreferencesResponses, UpdatePreferencesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/preferences',
+    url: '/api/v3/preferences',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -59,25 +59,25 @@ export const updatePreferences = <ThrowOnError extends boolean = false>(options:
  */
 export const getDashboard = <ThrowOnError extends boolean = false>(options?: Options<GetDashboardData, ThrowOnError>): RequestResult<GetDashboardResponses, GetDashboardErrors, ThrowOnError> => (options?.client ?? client).get<GetDashboardResponses, GetDashboardErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/dashboard',
+    url: '/api/v3/dashboard',
     ...options
 });
 
 /**
  * List custom archive types and field definitions
  */
-export const listArchiveTypes = <ThrowOnError extends boolean = false>(options?: Options<ListArchiveTypesData, ThrowOnError>): RequestResult<ListArchiveTypesResponses, ListArchiveTypesErrors, ThrowOnError> => (options?.client ?? client).get<ListArchiveTypesResponses, ListArchiveTypesErrors, ThrowOnError>({
+export const listArchiveCollections = <ThrowOnError extends boolean = false>(options?: Options<ListArchiveCollectionsData, ThrowOnError>): RequestResult<ListArchiveCollectionsResponses, ListArchiveCollectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListArchiveCollectionsResponses, ListArchiveCollectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archive-types',
+    url: '/api/v3/archive-collections',
     ...options
 });
 
 /**
  * Create a custom archive type
  */
-export const createArchiveType = <ThrowOnError extends boolean = false>(options: Options<CreateArchiveTypeData, ThrowOnError>): RequestResult<CreateArchiveTypeResponses, CreateArchiveTypeErrors, ThrowOnError> => (options.client ?? client).post<CreateArchiveTypeResponses, CreateArchiveTypeErrors, ThrowOnError>({
+export const createArchiveCollection = <ThrowOnError extends boolean = false>(options: Options<CreateArchiveCollectionData, ThrowOnError>): RequestResult<CreateArchiveCollectionResponses, CreateArchiveCollectionErrors, ThrowOnError> => (options.client ?? client).post<CreateArchiveCollectionResponses, CreateArchiveCollectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archive-types',
+    url: '/api/v3/archive-collections',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -88,27 +88,27 @@ export const createArchiveType = <ThrowOnError extends boolean = false>(options:
 /**
  * Delete an unused archive type
  */
-export const deleteArchiveType = <ThrowOnError extends boolean = false>(options: Options<DeleteArchiveTypeData, ThrowOnError>): RequestResult<DeleteArchiveTypeResponses, DeleteArchiveTypeErrors, ThrowOnError> => (options.client ?? client).delete<DeleteArchiveTypeResponses, DeleteArchiveTypeErrors, ThrowOnError>({
+export const deleteArchiveCollection = <ThrowOnError extends boolean = false>(options: Options<DeleteArchiveCollectionData, ThrowOnError>): RequestResult<DeleteArchiveCollectionResponses, DeleteArchiveCollectionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteArchiveCollectionResponses, DeleteArchiveCollectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archive-types/{typeId}',
+    url: '/api/v3/archive-collections/{collectionId}',
     ...options
 });
 
 /**
  * Get a custom archive type
  */
-export const getArchiveType = <ThrowOnError extends boolean = false>(options: Options<GetArchiveTypeData, ThrowOnError>): RequestResult<GetArchiveTypeResponses, GetArchiveTypeErrors, ThrowOnError> => (options.client ?? client).get<GetArchiveTypeResponses, GetArchiveTypeErrors, ThrowOnError>({
+export const getArchiveCollection = <ThrowOnError extends boolean = false>(options: Options<GetArchiveCollectionData, ThrowOnError>): RequestResult<GetArchiveCollectionResponses, GetArchiveCollectionErrors, ThrowOnError> => (options.client ?? client).get<GetArchiveCollectionResponses, GetArchiveCollectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archive-types/{typeId}',
+    url: '/api/v3/archive-collections/{collectionId}',
     ...options
 });
 
 /**
  * Update a custom archive type
  */
-export const updateArchiveType = <ThrowOnError extends boolean = false>(options: Options<UpdateArchiveTypeData, ThrowOnError>): RequestResult<UpdateArchiveTypeResponses, UpdateArchiveTypeErrors, ThrowOnError> => (options.client ?? client).patch<UpdateArchiveTypeResponses, UpdateArchiveTypeErrors, ThrowOnError>({
+export const updateArchiveCollection = <ThrowOnError extends boolean = false>(options: Options<UpdateArchiveCollectionData, ThrowOnError>): RequestResult<UpdateArchiveCollectionResponses, UpdateArchiveCollectionErrors, ThrowOnError> => (options.client ?? client).patch<UpdateArchiveCollectionResponses, UpdateArchiveCollectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archive-types/{typeId}',
+    url: '/api/v3/archive-collections/{collectionId}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ export const updateArchiveType = <ThrowOnError extends boolean = false>(options:
  */
 export const createArchiveField = <ThrowOnError extends boolean = false>(options: Options<CreateArchiveFieldData, ThrowOnError>): RequestResult<CreateArchiveFieldResponses, CreateArchiveFieldErrors, ThrowOnError> => (options.client ?? client).post<CreateArchiveFieldResponses, CreateArchiveFieldErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archive-types/{typeId}/fields',
+    url: '/api/v3/archive-collections/{collectionId}/fields',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -134,7 +134,7 @@ export const createArchiveField = <ThrowOnError extends boolean = false>(options
  */
 export const deleteArchiveField = <ThrowOnError extends boolean = false>(options: Options<DeleteArchiveFieldData, ThrowOnError>): RequestResult<DeleteArchiveFieldResponses, DeleteArchiveFieldErrors, ThrowOnError> => (options.client ?? client).delete<DeleteArchiveFieldResponses, DeleteArchiveFieldErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archive-fields/{fieldId}',
+    url: '/api/v3/archive-fields/{fieldId}',
     ...options
 });
 
@@ -143,7 +143,7 @@ export const deleteArchiveField = <ThrowOnError extends boolean = false>(options
  */
 export const updateArchiveField = <ThrowOnError extends boolean = false>(options: Options<UpdateArchiveFieldData, ThrowOnError>): RequestResult<UpdateArchiveFieldResponses, UpdateArchiveFieldErrors, ThrowOnError> => (options.client ?? client).patch<UpdateArchiveFieldResponses, UpdateArchiveFieldErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archive-fields/{fieldId}',
+    url: '/api/v3/archive-fields/{fieldId}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -154,18 +154,18 @@ export const updateArchiveField = <ThrowOnError extends boolean = false>(options
 /**
  * List and filter archives
  */
-export const listArchives = <ThrowOnError extends boolean = false>(options?: Options<ListArchivesData, ThrowOnError>): RequestResult<ListArchivesResponses, ListArchivesErrors, ThrowOnError> => (options?.client ?? client).get<ListArchivesResponses, ListArchivesErrors, ThrowOnError>({
+export const listArchiveRecords = <ThrowOnError extends boolean = false>(options?: Options<ListArchiveRecordsData, ThrowOnError>): RequestResult<ListArchiveRecordsResponses, ListArchiveRecordsErrors, ThrowOnError> => (options?.client ?? client).get<ListArchiveRecordsResponses, ListArchiveRecordsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives',
+    url: '/api/v3/archive-records',
     ...options
 });
 
 /**
  * Create an archive
  */
-export const createArchive = <ThrowOnError extends boolean = false>(options: Options<CreateArchiveData, ThrowOnError>): RequestResult<CreateArchiveResponses, CreateArchiveErrors, ThrowOnError> => (options.client ?? client).post<CreateArchiveResponses, CreateArchiveErrors, ThrowOnError>({
+export const createArchiveRecord = <ThrowOnError extends boolean = false>(options: Options<CreateArchiveRecordData, ThrowOnError>): RequestResult<CreateArchiveRecordResponses, CreateArchiveRecordErrors, ThrowOnError> => (options.client ?? client).post<CreateArchiveRecordResponses, CreateArchiveRecordErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives',
+    url: '/api/v3/archive-records',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -176,27 +176,27 @@ export const createArchive = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Move an archive to trash
  */
-export const trashArchive = <ThrowOnError extends boolean = false>(options: Options<TrashArchiveData, ThrowOnError>): RequestResult<TrashArchiveResponses, TrashArchiveErrors, ThrowOnError> => (options.client ?? client).delete<TrashArchiveResponses, TrashArchiveErrors, ThrowOnError>({
+export const trashArchiveRecord = <ThrowOnError extends boolean = false>(options: Options<TrashArchiveRecordData, ThrowOnError>): RequestResult<TrashArchiveRecordResponses, TrashArchiveRecordErrors, ThrowOnError> => (options.client ?? client).delete<TrashArchiveRecordResponses, TrashArchiveRecordErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives/{archiveId}',
+    url: '/api/v3/archive-records/{recordId}',
     ...options
 });
 
 /**
  * Get an archive
  */
-export const getArchive = <ThrowOnError extends boolean = false>(options: Options<GetArchiveData, ThrowOnError>): RequestResult<GetArchiveResponses, GetArchiveErrors, ThrowOnError> => (options.client ?? client).get<GetArchiveResponses, GetArchiveErrors, ThrowOnError>({
+export const getArchiveRecord = <ThrowOnError extends boolean = false>(options: Options<GetArchiveRecordData, ThrowOnError>): RequestResult<GetArchiveRecordResponses, GetArchiveRecordErrors, ThrowOnError> => (options.client ?? client).get<GetArchiveRecordResponses, GetArchiveRecordErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives/{archiveId}',
+    url: '/api/v3/archive-records/{recordId}',
     ...options
 });
 
 /**
  * Update an archive
  */
-export const updateArchive = <ThrowOnError extends boolean = false>(options: Options<UpdateArchiveData, ThrowOnError>): RequestResult<UpdateArchiveResponses, UpdateArchiveErrors, ThrowOnError> => (options.client ?? client).patch<UpdateArchiveResponses, UpdateArchiveErrors, ThrowOnError>({
+export const updateArchiveRecord = <ThrowOnError extends boolean = false>(options: Options<UpdateArchiveRecordData, ThrowOnError>): RequestResult<UpdateArchiveRecordResponses, UpdateArchiveRecordErrors, ThrowOnError> => (options.client ?? client).patch<UpdateArchiveRecordResponses, UpdateArchiveRecordErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives/{archiveId}',
+    url: '/api/v3/archive-records/{recordId}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -209,7 +209,7 @@ export const updateArchive = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const listArchiveRelations = <ThrowOnError extends boolean = false>(options: Options<ListArchiveRelationsData, ThrowOnError>): RequestResult<ListArchiveRelationsResponses, ListArchiveRelationsErrors, ThrowOnError> => (options.client ?? client).get<ListArchiveRelationsResponses, ListArchiveRelationsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives/{archiveId}/relations',
+    url: '/api/v3/archive-records/{recordId}/relations',
     ...options
 });
 
@@ -218,7 +218,7 @@ export const listArchiveRelations = <ThrowOnError extends boolean = false>(optio
  */
 export const createArchiveRelation = <ThrowOnError extends boolean = false>(options: Options<CreateArchiveRelationData, ThrowOnError>): RequestResult<CreateArchiveRelationResponses, CreateArchiveRelationErrors, ThrowOnError> => (options.client ?? client).post<CreateArchiveRelationResponses, CreateArchiveRelationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives/{archiveId}/relations',
+    url: '/api/v3/archive-records/{recordId}/relations',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -231,7 +231,7 @@ export const createArchiveRelation = <ThrowOnError extends boolean = false>(opti
  */
 export const deleteRelation = <ThrowOnError extends boolean = false>(options: Options<DeleteRelationData, ThrowOnError>): RequestResult<DeleteRelationResponses, DeleteRelationErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRelationResponses, DeleteRelationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/relations/{relationId}',
+    url: '/api/v3/relations/{relationId}',
     ...options
 });
 
@@ -240,7 +240,7 @@ export const deleteRelation = <ThrowOnError extends boolean = false>(options: Op
  */
 export const listArchiveAttachments = <ThrowOnError extends boolean = false>(options: Options<ListArchiveAttachmentsData, ThrowOnError>): RequestResult<ListArchiveAttachmentsResponses, ListArchiveAttachmentsErrors, ThrowOnError> => (options.client ?? client).get<ListArchiveAttachmentsResponses, ListArchiveAttachmentsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives/{archiveId}/attachments',
+    url: '/api/v3/archive-records/{recordId}/attachments',
     ...options
 });
 
@@ -249,7 +249,7 @@ export const listArchiveAttachments = <ThrowOnError extends boolean = false>(opt
  */
 export const importArchiveAttachments = <ThrowOnError extends boolean = false>(options: Options<ImportArchiveAttachmentsData, ThrowOnError>): RequestResult<ImportArchiveAttachmentsResponses, ImportArchiveAttachmentsErrors, ThrowOnError> => (options.client ?? client).post<ImportArchiveAttachmentsResponses, ImportArchiveAttachmentsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives/{archiveId}/attachments',
+    url: '/api/v3/archive-records/{recordId}/attachments',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -262,7 +262,7 @@ export const importArchiveAttachments = <ThrowOnError extends boolean = false>(o
  */
 export const listArchiveActivity = <ThrowOnError extends boolean = false>(options: Options<ListArchiveActivityData, ThrowOnError>): RequestResult<ListArchiveActivityResponses, ListArchiveActivityErrors, ThrowOnError> => (options.client ?? client).get<ListArchiveActivityResponses, ListArchiveActivityErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/archives/{archiveId}/activity',
+    url: '/api/v3/archive-records/{recordId}/activity',
     ...options
 });
 
@@ -271,7 +271,7 @@ export const listArchiveActivity = <ThrowOnError extends boolean = false>(option
  */
 export const deleteAttachment = <ThrowOnError extends boolean = false>(options: Options<DeleteAttachmentData, ThrowOnError>): RequestResult<DeleteAttachmentResponses, DeleteAttachmentErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAttachmentResponses, DeleteAttachmentErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/attachments/{attachmentId}',
+    url: '/api/v3/attachments/{attachmentId}',
     ...options
 });
 
@@ -280,7 +280,7 @@ export const deleteAttachment = <ThrowOnError extends boolean = false>(options: 
  */
 export const getAttachmentOpenTarget = <ThrowOnError extends boolean = false>(options: Options<GetAttachmentOpenTargetData, ThrowOnError>): RequestResult<GetAttachmentOpenTargetResponses, GetAttachmentOpenTargetErrors, ThrowOnError> => (options.client ?? client).get<GetAttachmentOpenTargetResponses, GetAttachmentOpenTargetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/attachments/{attachmentId}/open-target',
+    url: '/api/v3/attachments/{attachmentId}/open-target',
     ...options
 });
 
@@ -289,7 +289,7 @@ export const getAttachmentOpenTarget = <ThrowOnError extends boolean = false>(op
  */
 export const listTasks = <ThrowOnError extends boolean = false>(options?: Options<ListTasksData, ThrowOnError>): RequestResult<ListTasksResponses, ListTasksErrors, ThrowOnError> => (options?.client ?? client).get<ListTasksResponses, ListTasksErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/tasks',
+    url: '/api/v3/tasks',
     ...options
 });
 
@@ -298,7 +298,7 @@ export const listTasks = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const createTask = <ThrowOnError extends boolean = false>(options: Options<CreateTaskData, ThrowOnError>): RequestResult<CreateTaskResponses, CreateTaskErrors, ThrowOnError> => (options.client ?? client).post<CreateTaskResponses, CreateTaskErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/tasks',
+    url: '/api/v3/tasks',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -311,7 +311,7 @@ export const createTask = <ThrowOnError extends boolean = false>(options: Option
  */
 export const trashTask = <ThrowOnError extends boolean = false>(options: Options<TrashTaskData, ThrowOnError>): RequestResult<TrashTaskResponses, TrashTaskErrors, ThrowOnError> => (options.client ?? client).delete<TrashTaskResponses, TrashTaskErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/tasks/{taskId}',
+    url: '/api/v3/tasks/{taskId}',
     ...options
 });
 
@@ -320,7 +320,7 @@ export const trashTask = <ThrowOnError extends boolean = false>(options: Options
  */
 export const getTask = <ThrowOnError extends boolean = false>(options: Options<GetTaskData, ThrowOnError>): RequestResult<GetTaskResponses, GetTaskErrors, ThrowOnError> => (options.client ?? client).get<GetTaskResponses, GetTaskErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/tasks/{taskId}',
+    url: '/api/v3/tasks/{taskId}',
     ...options
 });
 
@@ -329,7 +329,7 @@ export const getTask = <ThrowOnError extends boolean = false>(options: Options<G
  */
 export const updateTask = <ThrowOnError extends boolean = false>(options: Options<UpdateTaskData, ThrowOnError>): RequestResult<UpdateTaskResponses, UpdateTaskErrors, ThrowOnError> => (options.client ?? client).patch<UpdateTaskResponses, UpdateTaskErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/tasks/{taskId}',
+    url: '/api/v3/tasks/{taskId}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -342,7 +342,7 @@ export const updateTask = <ThrowOnError extends boolean = false>(options: Option
  */
 export const search = <ThrowOnError extends boolean = false>(options: Options<SearchData, ThrowOnError>): RequestResult<SearchResponses, SearchErrors, ThrowOnError> => (options.client ?? client).get<SearchResponses, SearchErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/search',
+    url: '/api/v3/search',
     ...options
 });
 
@@ -351,7 +351,7 @@ export const search = <ThrowOnError extends boolean = false>(options: Options<Se
  */
 export const getSearchStatus = <ThrowOnError extends boolean = false>(options?: Options<GetSearchStatusData, ThrowOnError>): RequestResult<GetSearchStatusResponses, GetSearchStatusErrors, ThrowOnError> => (options?.client ?? client).get<GetSearchStatusResponses, GetSearchStatusErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/search/status',
+    url: '/api/v3/search/status',
     ...options
 });
 
@@ -360,7 +360,7 @@ export const getSearchStatus = <ThrowOnError extends boolean = false>(options?: 
  */
 export const rebuildSearch = <ThrowOnError extends boolean = false>(options?: Options<RebuildSearchData, ThrowOnError>): RequestResult<RebuildSearchResponses, RebuildSearchErrors, ThrowOnError> => (options?.client ?? client).post<RebuildSearchResponses, RebuildSearchErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/search/rebuild',
+    url: '/api/v3/search/rebuild',
     ...options
 });
 
@@ -369,7 +369,7 @@ export const rebuildSearch = <ThrowOnError extends boolean = false>(options?: Op
  */
 export const listTrash = <ThrowOnError extends boolean = false>(options?: Options<ListTrashData, ThrowOnError>): RequestResult<ListTrashResponses, ListTrashErrors, ThrowOnError> => (options?.client ?? client).get<ListTrashResponses, ListTrashErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/trash',
+    url: '/api/v3/trash',
     ...options
 });
 
@@ -378,7 +378,7 @@ export const listTrash = <ThrowOnError extends boolean = false>(options?: Option
  */
 export const restoreTrash = <ThrowOnError extends boolean = false>(options: Options<RestoreTrashData, ThrowOnError>): RequestResult<RestoreTrashResponses, RestoreTrashErrors, ThrowOnError> => (options.client ?? client).post<RestoreTrashResponses, RestoreTrashErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/trash/{trashId}/restore',
+    url: '/api/v3/trash/{trashId}/restore',
     ...options
 });
 
@@ -387,7 +387,7 @@ export const restoreTrash = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const listBackups = <ThrowOnError extends boolean = false>(options?: Options<ListBackupsData, ThrowOnError>): RequestResult<ListBackupsResponses, ListBackupsErrors, ThrowOnError> => (options?.client ?? client).get<ListBackupsResponses, ListBackupsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/backups',
+    url: '/api/v3/backups',
     ...options
 });
 
@@ -396,7 +396,7 @@ export const listBackups = <ThrowOnError extends boolean = false>(options?: Opti
  */
 export const createBackup = <ThrowOnError extends boolean = false>(options?: Options<CreateBackupData, ThrowOnError>): RequestResult<CreateBackupResponses, CreateBackupErrors, ThrowOnError> => (options?.client ?? client).post<CreateBackupResponses, CreateBackupErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/backups',
+    url: '/api/v3/backups',
     ...options
 });
 
@@ -405,7 +405,7 @@ export const createBackup = <ThrowOnError extends boolean = false>(options?: Opt
  */
 export const getBackupSettings = <ThrowOnError extends boolean = false>(options?: Options<GetBackupSettingsData, ThrowOnError>): RequestResult<GetBackupSettingsResponses, GetBackupSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetBackupSettingsResponses, GetBackupSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/backup-settings',
+    url: '/api/v3/backup-settings',
     ...options
 });
 
@@ -414,7 +414,7 @@ export const getBackupSettings = <ThrowOnError extends boolean = false>(options?
  */
 export const updateBackupSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateBackupSettingsData, ThrowOnError>): RequestResult<UpdateBackupSettingsResponses, UpdateBackupSettingsErrors, ThrowOnError> => (options.client ?? client).put<UpdateBackupSettingsResponses, UpdateBackupSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/backup-settings',
+    url: '/api/v3/backup-settings',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -427,7 +427,7 @@ export const updateBackupSettings = <ThrowOnError extends boolean = false>(optio
  */
 export const cancelJob = <ThrowOnError extends boolean = false>(options: Options<CancelJobData, ThrowOnError>): RequestResult<CancelJobResponses, CancelJobErrors, ThrowOnError> => (options.client ?? client).delete<CancelJobResponses, CancelJobErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/jobs/{jobId}',
+    url: '/api/v3/jobs/{jobId}',
     ...options
 });
 
@@ -436,7 +436,7 @@ export const cancelJob = <ThrowOnError extends boolean = false>(options: Options
  */
 export const getJob = <ThrowOnError extends boolean = false>(options: Options<GetJobData, ThrowOnError>): RequestResult<GetJobResponses, GetJobErrors, ThrowOnError> => (options.client ?? client).get<GetJobResponses, GetJobErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/jobs/{jobId}',
+    url: '/api/v3/jobs/{jobId}',
     ...options
 });
 
@@ -445,7 +445,7 @@ export const getJob = <ThrowOnError extends boolean = false>(options: Options<Ge
  */
 export const getJobEvents = <ThrowOnError extends boolean = false>(options: Options<GetJobEventsData, ThrowOnError, GetJobEventsResponse>): Promise<ServerSentEventsResult<GetJobEventsResponses>> => (options.client ?? client).sse.get<GetJobEventsResponses, GetJobEventsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/jobs/{jobId}/events',
+    url: '/api/v3/jobs/{jobId}/events',
     ...options
 });
 
@@ -454,7 +454,7 @@ export const getJobEvents = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const preflightRestore = <ThrowOnError extends boolean = false>(options: Options<PreflightRestoreData, ThrowOnError>): RequestResult<PreflightRestoreResponses, PreflightRestoreErrors, ThrowOnError> => (options.client ?? client).post<PreflightRestoreResponses, PreflightRestoreErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/restores/preflight',
+    url: '/api/v3/restores/preflight',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -467,7 +467,7 @@ export const preflightRestore = <ThrowOnError extends boolean = false>(options: 
  */
 export const createRestore = <ThrowOnError extends boolean = false>(options: Options<CreateRestoreData, ThrowOnError>): RequestResult<CreateRestoreResponses, CreateRestoreErrors, ThrowOnError> => (options.client ?? client).post<CreateRestoreResponses, CreateRestoreErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/api/v2/restores',
+    url: '/api/v3/restores',
     ...options,
     headers: {
         'Content-Type': 'application/json',

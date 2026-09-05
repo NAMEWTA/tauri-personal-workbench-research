@@ -44,12 +44,12 @@ const archivesRoute = createRoute({
 })
 const archiveDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/archives/$archiveId',
+  path: '/archives/$recordId',
   component: ArchiveDetailPage,
 })
 const archiveTypesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/archive-types',
+  path: '/archive-collections',
   component: ArchiveTypesPage,
 })
 const backupRoute = createRoute({

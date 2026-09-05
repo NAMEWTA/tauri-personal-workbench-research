@@ -60,15 +60,15 @@ func TestWorkspaceDataIsIsolatedAcrossSQLiteFiles(t *testing.T) {
 	}
 	defer func() { _ = storeB.Close() }()
 
-	created, err := storeA.CreateArchive(ctx, archive.Input{TypeID: "person", Title: "只属于 A"})
+	created, err := storeA.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "只属于 A"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := storeA.CreateTask(ctx, task.Input{Title: "只属于 A 的任务", Status: "todo", Priority: "normal", ArchiveID: &created.ID}); err != nil {
+	if _, err := storeA.CreateTask(ctx, task.Input{Title: "只属于 A 的任务", Status: "todo", Priority: "normal", RecordID: &created.ID}); err != nil {
 		t.Fatal(err)
 	}
 
-	archivesB, err := storeB.ListArchives(ctx, "", "", "updated", 50, 0)
+	archivesB, err := storeB.ListArchiveRecords(ctx, "", "", "updated", 50, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,10 +98,10 @@ func TestWorkspacePersistenceIndexesAreLocalSQLiteTables(t *testing.T) {
 	store := openStore(t)
 	required := []string{
 		"workspace_meta",
-		"archive_types",
-		"field_definitions",
-		"archives",
-		"archive_field_values",
+		"archive_collections",
+		"archive_fields",
+		"archive_records",
+		"archive_record_values",
 		"tasks",
 		"entity_relations",
 		"tags",
@@ -132,11 +132,11 @@ func TestCustomArchiveTypesFieldsAndArchives(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	store := openStore(t)
-	types, err := store.ListArchiveTypes(ctx)
-	if err != nil || len(types) != 3 {
+	types, err := store.ListArchiveCollections(ctx)
+	if err != nil || len(types) != 1 || types[0].Name != "模板档案" {
 		t.Fatalf("seed types=%#v err=%v", types, err)
 	}
-	projectType, err := store.CreateArchiveType(ctx, archive.TypeInput{Name: "项目", Icon: "FolderKanban", Color: "#356F9E", SortOrder: 3})
+	projectType, err := store.CreateArchiveCollection(ctx, archive.CollectionInput{Name: "项目", Icon: "FolderKanban", Color: "#356F9E", SortOrder: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,15 +144,15 @@ func TestCustomArchiveTypesFieldsAndArchives(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, err := store.CreateArchive(ctx, archive.Input{TypeID: projectType.ID, Title: "离线工作台 V2", Summary: "统一领域模型", Fields: map[string]any{"stage": "执行"}})
+	created, err := store.CreateArchive(ctx, archive.Input{CollectionID: projectType.ID, Title: "离线工作台 V2", Summary: "统一领域模型", Fields: map[string]any{"stage": "执行"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := store.GetArchive(ctx, created.ID)
-	if err != nil || loaded.TypeName != "项目" || loaded.Fields["stage"] != "执行" {
+	if err != nil || loaded.CollectionName != "项目" || loaded.Fields["stage"] != "执行" {
 		t.Fatalf("archive=%#v err=%v", loaded, err)
 	}
-	if err := store.DeleteArchiveType(ctx, projectType.ID); err != app.ErrConflict {
+	if err := store.DeleteArchiveCollection(ctx, projectType.ID); err != app.ErrConflict {
 		t.Fatalf("used type delete err=%v", err)
 	}
 	if _, err := store.UpdateArchiveField(ctx, field.ID, archive.FieldInput{Key: "stage", Label: "阶段", ValueType: "number", Group: "项目信息", Required: true}); err != app.ErrConflict {
@@ -168,7 +168,7 @@ func TestUnifiedTaskViewsRangeArchiveAndTrash(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	store := openStore(t)
-	owner, err := store.CreateArchive(ctx, archive.Input{TypeID: "person", Title: "任务负责人"})
+	owner, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "任务负责人"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestUnifiedTaskViewsRangeArchiveAndTrash(t *testing.T) {
 	now := time.Now().In(location)
 	start := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 0, 0, location).UTC()
 	end := start.Add(time.Hour)
-	today, err := store.CreateTask(ctx, task.Input{Title: "今日统一任务", Status: "todo", Priority: "high", StartsAt: &start, EndsAt: &end, Timezone: "Asia/Shanghai", ArchiveID: &owner.ID})
+	today, err := store.CreateTask(ctx, task.Input{Title: "今日统一任务", Status: "todo", Priority: "high", StartsAt: &start, EndsAt: &end, Timezone: "Asia/Shanghai", RecordID: &owner.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestUnifiedTaskViewsRangeArchiveAndTrash(t *testing.T) {
 		t.Fatalf("completed=%#v err=%v", completed, err)
 	}
 	todayItems, err := store.ListTasks(ctx, task.Filter{View: "today", Timezone: "Asia/Shanghai"})
-	if err != nil || len(todayItems) != 1 || todayItems[0].ID != today.ID || todayItems[0].ArchiveTitle != "任务负责人" {
+	if err != nil || len(todayItems) != 1 || todayItems[0].ID != today.ID || todayItems[0].RecordTitle != "任务负责人" {
 		t.Fatalf("today=%#v err=%v", todayItems, err)
 	}
 	tomorrowItems, err := store.ListTasks(ctx, task.Filter{View: "tomorrow", Timezone: "Asia/Shanghai"})
@@ -211,7 +211,7 @@ func TestUnifiedTaskViewsRangeArchiveAndTrash(t *testing.T) {
 	if err != nil || len(calendarItems) != 1 || calendarItems[0].ID != today.ID {
 		t.Fatalf("calendar range=%#v err=%v", calendarItems, err)
 	}
-	archiveItems, err := store.ListTasks(ctx, task.Filter{View: "all", ArchiveID: owner.ID})
+	archiveItems, err := store.ListTasks(ctx, task.Filter{View: "all", RecordID: owner.ID})
 	if err != nil || len(archiveItems) != 1 {
 		t.Fatalf("archive tasks=%#v err=%v", archiveItems, err)
 	}
@@ -237,14 +237,14 @@ func TestArchiveRelationsIncludeNavigableTypeMetadata(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	store := openStore(t)
-	source, _ := store.CreateArchive(ctx, archive.Input{TypeID: "person", Title: "张三"})
-	target, _ := store.CreateArchive(ctx, archive.Input{TypeID: "organization", Title: "示例企业"})
+	source, _ := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "张三"})
+	target, _ := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "示例企业"})
 	created, err := store.CreateRelation(ctx, source.ID, relation.Input{TargetID: target.ID, RelationType: "任职于"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	items, err := store.ListRelations(ctx, source.ID)
-	if err != nil || len(items) != 1 || items[0].TargetID != target.ID || items[0].TargetTypeID != "organization" || items[0].TargetTypeName != "企业" {
+	if err != nil || len(items) != 1 || items[0].TargetID != target.ID || items[0].TargetCollectionID != "template" || items[0].TargetCollectionName != "模板档案" {
 		t.Fatalf("relations=%#v err=%v", items, err)
 	}
 	if err := store.DeleteRelation(ctx, created.ID); err != nil {
@@ -260,7 +260,7 @@ func TestSQLitePragmasFTSAndAttachmentSearchMapping(t *testing.T) {
 	if err := store.DB().QueryRow(`PRAGMA journal_mode`).Scan(&journal); err != nil || journal != "wal" {
 		t.Fatalf("journal=%q err=%v", journal, err)
 	}
-	owner, _ := store.CreateArchive(ctx, archive.Input{TypeID: "person", Title: "附件档案"})
+	owner, _ := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "附件档案"})
 	attachmentID := platform.NewID()
 	if _, err := store.DB().ExecContext(ctx, `INSERT INTO attachments(id,entity_type,entity_id,display_name,relative_path,media_type,byte_size,sha256,created_at) VALUES(?,'archive',?,'竣工验收报告.pdf',?,'application/pdf',12,?,?)`, attachmentID, owner.ID, filepath.Join(owner.ID, attachmentID+".pdf"), "checksum", platform.TimeText(platform.Now())); err != nil {
 		t.Fatal(err)
@@ -271,6 +271,32 @@ func TestSQLitePragmasFTSAndAttachmentSearchMapping(t *testing.T) {
 	}
 	if err := store.RebuildSearch(ctx, func(int, string) {}); err != nil || !store.SearchHealthy(ctx) {
 		t.Fatalf("rebuild err=%v healthy=%v", err, store.SearchHealthy(ctx))
+	}
+}
+
+func TestTaskDueDateAndRecurringCompletion(t *testing.T) {
+	ctx := context.Background()
+	store := openStore(t)
+	due := time.Now().Format("2006-01-02")
+	taskItem, err := store.CreateTask(ctx, task.Input{
+		Title:        "重复任务",
+		Status:       "todo",
+		Priority:     "normal",
+		DueOn:        &due,
+		Recurrence:   "FREQ=DAILY",
+		Reminders:    []string{time.Now().Add(time.Hour).UTC().Format(time.RFC3339)},
+		EstimateMins: func() *int { value := 30; return &value }(),
+	})
+	if err != nil || taskItem.DueOn == nil || taskItem.Recurrence != "FREQ=DAILY" || len(taskItem.Reminders) != 1 {
+		t.Fatalf("created task=%#v err=%v", taskItem, err)
+	}
+	completed := task.Input{Title: taskItem.Title, Status: "done", Priority: taskItem.Priority, DueOn: taskItem.DueOn, Recurrence: taskItem.Recurrence, Reminders: taskItem.Reminders, EstimateMins: taskItem.EstimateMins}
+	if _, err := store.UpdateTask(ctx, taskItem.ID, completed); err != nil {
+		t.Fatal(err)
+	}
+	items, err := store.ListTasks(ctx, task.Filter{View: "all"})
+	if err != nil || len(items) != 1 || items[0].Status != "todo" || items[0].DueOn == nil || *items[0].DueOn == due {
+		t.Fatalf("next occurrence=%#v err=%v", items, err)
 	}
 }
 

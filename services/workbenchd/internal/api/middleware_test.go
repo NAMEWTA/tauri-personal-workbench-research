@@ -12,7 +12,7 @@ func TestTimeoutProblemUsesRequestID(t *testing.T) {
 	handler := requestIDs(timeout(5 * time.Millisecond)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		time.Sleep(25 * time.Millisecond)
 	})))
-	request := httptest.NewRequest(http.MethodGet, "/api/v2/slow", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v3/slow", nil)
 	request.Header.Set("X-Request-ID", "request-trace-123")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)

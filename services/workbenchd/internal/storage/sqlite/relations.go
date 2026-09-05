@@ -18,8 +18,8 @@ func (s *Store) ListRelations(ctx context.Context, archiveID string) ([]relation
 	}
 	rows, err := s.db.QueryContext(ctx, `SELECT r.id,r.source_id,r.target_id,a.title,t.id,t.name,r.relation_type,r.notes,r.created_at
 		FROM entity_relations r
-		JOIN archives a ON a.id=r.target_id AND a.deleted_at IS NULL
-		JOIN archive_types t ON t.id=a.archive_type_id AND t.deleted_at IS NULL
+		JOIN archive_records a ON a.id=r.target_id AND a.deleted_at IS NULL
+		JOIN archive_collections t ON t.id=a.archive_type_id AND t.deleted_at IS NULL
 		WHERE r.source_type='archive' AND r.source_id=? AND r.target_type='archive' AND r.deleted_at IS NULL
 		ORDER BY r.created_at DESC,r.id`, archiveID)
 	if err != nil {
@@ -30,7 +30,7 @@ func (s *Store) ListRelations(ctx context.Context, archiveID string) ([]relation
 	for rows.Next() {
 		var item relation.Relation
 		var created string
-		if err := rows.Scan(&item.ID, &item.SourceID, &item.TargetID, &item.TargetTitle, &item.TargetTypeID, &item.TargetTypeName, &item.RelationType, &item.Notes, &created); err != nil {
+		if err := rows.Scan(&item.ID, &item.SourceID, &item.TargetID, &item.TargetTitle, &item.TargetCollectionID, &item.TargetCollectionName, &item.RelationType, &item.Notes, &created); err != nil {
 			return nil, err
 		}
 		item.CreatedAt, err = time.Parse(time.RFC3339Nano, created)

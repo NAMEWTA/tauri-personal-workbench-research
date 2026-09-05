@@ -53,7 +53,7 @@ const waitForExit = (child) =>
 
 const bootstrap = () =>
   `${JSON.stringify({
-    protocolVersion: 2,
+    protocolVersion: 3,
     parentPid: process.pid,
     token,
     workspacePath: workspace,
@@ -89,7 +89,7 @@ async function startSidecar() {
           const parsed = JSON.parse(line);
           if (
             parsed.type !== "ready" ||
-            parsed.protocolVersion !== 2 ||
+            parsed.protocolVersion !== 3 ||
             !Number.isInteger(parsed.port) ||
             !/^http:\/\/127\.0\.0\.1:\d+$/.test(parsed.origin)
           ) {
@@ -148,15 +148,15 @@ async function main() {
     Origin: origin,
   };
   const first = await startSidecar();
-  const meta = await fetch(`${first.backendUrl}/api/v2/meta`, { headers });
+  const meta = await fetch(`${first.backendUrl}/api/v3/meta`, { headers });
   if (!meta.ok) throw new Error(`meta request failed with ${meta.status}`);
-  const preferences = await fetch(`${first.backendUrl}/api/v2/preferences`, {
+  const preferences = await fetch(`${first.backendUrl}/api/v3/preferences`, {
     headers,
   });
   if (!preferences.ok) {
     throw new Error(`preferences request failed with ${preferences.status}`);
   }
-  const update = await fetch(`${first.backendUrl}/api/v2/preferences`, {
+  const update = await fetch(`${first.backendUrl}/api/v3/preferences`, {
     method: "PATCH",
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({ theme: "light" }),
@@ -166,11 +166,11 @@ async function main() {
   if (!existsSync(join(workspace, "workbench.sqlite3"))) {
     throw new Error("workspace SQLite database was not created");
   }
-  const archiveResponse = await fetch(`${first.backendUrl}/api/v2/archives`, {
+  const archiveResponse = await fetch(`${first.backendUrl}/api/v3/archive-records`, {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({
-      typeId: "person",
+      collectionId: "person",
       title: "sidecar restart archive",
     }),
   });
@@ -178,14 +178,14 @@ async function main() {
     throw new Error(`archive create failed with ${archiveResponse.status}`);
   }
   const archive = await archiveResponse.json();
-  const taskResponse = await fetch(`${first.backendUrl}/api/v2/tasks`, {
+  const taskResponse = await fetch(`${first.backendUrl}/api/v3/tasks`, {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
     body: JSON.stringify({
       title: "sidecar restart task",
       status: "todo",
       priority: "normal",
-      archiveId: archive.id,
+      recordId: archive.id,
     }),
   });
   if (!taskResponse.ok) {
@@ -194,7 +194,7 @@ async function main() {
   await stopSidecar(first);
 
   const restarted = await startSidecar();
-  const restored = await fetch(`${restarted.backendUrl}/api/v2/preferences`, {
+  const restored = await fetch(`${restarted.backendUrl}/api/v3/preferences`, {
     headers,
   });
   if (!restored.ok) {
@@ -207,7 +207,7 @@ async function main() {
     );
   }
   const restoredArchives = await fetch(
-    `${restarted.backendUrl}/api/v2/archives?q=${encodeURIComponent("sidecar restart archive")}`,
+    `${restarted.backendUrl}/api/v3/archive-records?q=${encodeURIComponent("sidecar restart archive")}`,
     { headers },
   );
   if (!restoredArchives.ok) {
@@ -215,17 +215,17 @@ async function main() {
       `archive restart read failed with ${restoredArchives.status}`,
     );
   }
-  const restoredArchivePage = await restoredArchives.json();
+  const restoredArchiveRecordPage = await restoredArchives.json();
   if (
-    restoredArchivePage.total !== 1 ||
-    restoredArchivePage.items?.[0]?.title !== "sidecar restart archive"
+    restoredArchiveRecordPage.total !== 1 ||
+    restoredArchiveRecordPage.items?.[0]?.title !== "sidecar restart archive"
   ) {
     throw new Error(
-      `archive did not persist across restart: ${JSON.stringify(restoredArchivePage)}`,
+      `archive did not persist across restart: ${JSON.stringify(restoredArchiveRecordPage)}`,
     );
   }
   const restoredTasks = await fetch(
-    `${restarted.backendUrl}/api/v2/tasks?view=all`,
+    `${restarted.backendUrl}/api/v3/tasks?view=all`,
     { headers },
   );
   if (!restoredTasks.ok) {

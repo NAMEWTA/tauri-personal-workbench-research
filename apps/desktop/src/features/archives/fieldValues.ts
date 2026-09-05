@@ -2,7 +2,9 @@ import type { ArchiveFieldDefinition } from '../../generated/api/types.gen'
 
 export function initialFieldValue(field: ArchiveFieldDefinition): unknown {
   if (field.defaultValue !== undefined && field.defaultValue !== null) return field.defaultValue
-  return field.valueType === 'boolean' ? false : ''
+  if (field.valueType === 'boolean') return false
+  if (field.valueType === 'multiSelect') return []
+  return ''
 }
 
 export function localDateTimeValue(value: unknown): string {

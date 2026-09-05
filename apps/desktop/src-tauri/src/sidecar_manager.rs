@@ -407,7 +407,7 @@ mod tests {
     #[test]
     fn parses_valid_ready_line() {
         let ready = parse_ready_line(
-            br#"{"type":"ready","protocolVersion":2,"port":49152,"pid":42,"origin":"http://127.0.0.1:49152","workspaceId":"workspace","serviceVersion":"0.2.0"}"#,
+            br#"{"type":"ready","protocolVersion":3,"port":49152,"pid":42,"origin":"http://127.0.0.1:49152","workspaceId":"workspace","serviceVersion":"0.2.0"}"#,
         )
         .expect("ready line should parse");
         assert_eq!(ready.port, 49152);
@@ -418,7 +418,7 @@ mod tests {
     fn rejects_wrong_protocol_and_invalid_json() {
         assert!(
             parse_ready_line(
-                br#"{"type":"ready","protocolVersion":3,"port":1,"pid":42,"origin":"http://127.0.0.1:1","workspaceId":"workspace","serviceVersion":"x"}"#
+                br#"{"type":"ready","protocolVersion":2,"port":1,"pid":42,"origin":"http://127.0.0.1:1","workspaceId":"workspace","serviceVersion":"x"}"#
             )
             .is_err()
         );
@@ -463,7 +463,7 @@ mod tests {
             super::ConnectionInfo {
                 base_url: "http://127.0.0.1:49152".into(),
                 token: "token".into(),
-                protocol_version: 2,
+                protocol_version: 3,
                 service_version: "0.2.0".into(),
             },
         )));

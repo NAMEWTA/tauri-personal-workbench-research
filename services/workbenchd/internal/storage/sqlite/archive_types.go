@@ -12,23 +12,23 @@ import (
 	"github.com/personal-workbench/workbenchd/internal/platform"
 )
 
-func (s *Store) ListArchiveTypes(ctx context.Context) ([]archive.TypeDefinition, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT t.id,t.name,t.icon,t.color,t.sort_order,f.id,f.field_key,f.label,f.value_type,f.group_name,f.is_required,f.is_sensitive,f.options_json,f.default_value_json,f.sort_order FROM archive_types t LEFT JOIN field_definitions f ON f.archive_type_id=t.id AND f.deleted_at IS NULL WHERE t.deleted_at IS NULL ORDER BY t.sort_order,t.name,t.id,f.sort_order,f.label,f.id`)
+func (s *Store) ListArchiveCollections(ctx context.Context) ([]archive.CollectionDefinition, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT t.id,t.name,t.icon,t.color,t.sort_order,f.id,f.field_key,f.label,f.value_type,f.group_name,f.is_required,f.is_sensitive,f.options_json,f.default_value_json,f.sort_order FROM archive_collections t LEFT JOIN archive_fields f ON f.archive_type_id=t.id AND f.deleted_at IS NULL WHERE t.deleted_at IS NULL ORDER BY t.sort_order,t.name,t.id,f.sort_order,f.label,f.id`)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	items := make([]archive.TypeDefinition, 0)
+	items := make([]archive.CollectionDefinition, 0)
 	for rows.Next() {
-		var typeID, name, icon, color string
+		var collectionID, name, icon, color string
 		var typeOrder int
 		var fieldID, key, label, valueType, group, optionsJSON, defaultJSON sql.NullString
 		var required, sensitive, fieldOrder sql.NullInt64
-		if err := rows.Scan(&typeID, &name, &icon, &color, &typeOrder, &fieldID, &key, &label, &valueType, &group, &required, &sensitive, &optionsJSON, &defaultJSON, &fieldOrder); err != nil {
+		if err := rows.Scan(&collectionID, &name, &icon, &color, &typeOrder, &fieldID, &key, &label, &valueType, &group, &required, &sensitive, &optionsJSON, &defaultJSON, &fieldOrder); err != nil {
 			return nil, err
 		}
-		if len(items) == 0 || items[len(items)-1].ID != typeID {
-			items = append(items, archive.TypeDefinition{ID: typeID, Name: name, Icon: icon, Color: color, SortOrder: typeOrder, Fields: []archive.FieldDefinition{}})
+		if len(items) == 0 || items[len(items)-1].ID != collectionID {
+			items = append(items, archive.CollectionDefinition{ID: collectionID, Name: name, Icon: icon, Color: color, SortOrder: typeOrder, Fields: []archive.FieldDefinition{}})
 		}
 		if fieldID.Valid {
 			field, err := decodeFieldDefinition(fieldID.String, key.String, label.String, valueType.String, group.String, required.Int64 != 0, sensitive.Int64 != 0, optionsJSON.String, defaultJSON, int(fieldOrder.Int64))
@@ -41,59 +41,59 @@ func (s *Store) ListArchiveTypes(ctx context.Context) ([]archive.TypeDefinition,
 	return items, rows.Err()
 }
 
-func (s *Store) GetArchiveType(ctx context.Context, id string) (archive.TypeDefinition, error) {
-	items, err := s.ListArchiveTypes(ctx)
+func (s *Store) GetArchiveCollection(ctx context.Context, id string) (archive.CollectionDefinition, error) {
+	items, err := s.ListArchiveCollections(ctx)
 	if err != nil {
-		return archive.TypeDefinition{}, err
+		return archive.CollectionDefinition{}, err
 	}
 	for _, item := range items {
 		if item.ID == id {
 			return item, nil
 		}
 	}
-	return archive.TypeDefinition{}, app.ErrNotFound
+	return archive.CollectionDefinition{}, app.ErrNotFound
 }
 
-func (s *Store) CreateArchiveType(ctx context.Context, input archive.TypeInput) (archive.TypeDefinition, error) {
+func (s *Store) CreateArchiveCollection(ctx context.Context, input archive.CollectionInput) (archive.CollectionDefinition, error) {
 	if !input.Valid() {
-		return archive.TypeDefinition{}, app.ErrValidation
+		return archive.CollectionDefinition{}, app.ErrValidation
 	}
 	now := platform.Now()
 	id := platform.NewID()
-	_, err := s.db.ExecContext(ctx, `INSERT INTO archive_types(id,name,icon,color,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, id, strings.TrimSpace(input.Name), input.Icon, input.Color, input.SortOrder, platform.TimeText(now), platform.TimeText(now))
+	_, err := s.db.ExecContext(ctx, `INSERT INTO archive_collections(id,name,icon,color,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, id, strings.TrimSpace(input.Name), input.Icon, input.Color, input.SortOrder, platform.TimeText(now), platform.TimeText(now))
 	if err != nil {
-		return archive.TypeDefinition{}, constraintError(err)
+		return archive.CollectionDefinition{}, constraintError(err)
 	}
-	return s.GetArchiveType(ctx, id)
+	return s.GetArchiveCollection(ctx, id)
 }
 
-func (s *Store) UpdateArchiveType(ctx context.Context, id string, input archive.TypeInput) (archive.TypeDefinition, error) {
+func (s *Store) UpdateArchiveCollection(ctx context.Context, id string, input archive.CollectionInput) (archive.CollectionDefinition, error) {
 	if !input.Valid() {
-		return archive.TypeDefinition{}, app.ErrValidation
+		return archive.CollectionDefinition{}, app.ErrValidation
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE archive_types SET name=?,icon=?,color=?,sort_order=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, strings.TrimSpace(input.Name), input.Icon, input.Color, input.SortOrder, platform.TimeText(platform.Now()), id)
+	result, err := s.db.ExecContext(ctx, `UPDATE archive_collections SET name=?,icon=?,color=?,sort_order=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, strings.TrimSpace(input.Name), input.Icon, input.Color, input.SortOrder, platform.TimeText(platform.Now()), id)
 	if err != nil {
-		return archive.TypeDefinition{}, constraintError(err)
+		return archive.CollectionDefinition{}, constraintError(err)
 	}
 	if count, _ := result.RowsAffected(); count == 0 {
-		return archive.TypeDefinition{}, app.ErrNotFound
+		return archive.CollectionDefinition{}, app.ErrNotFound
 	}
-	return s.GetArchiveType(ctx, id)
+	return s.GetArchiveCollection(ctx, id)
 }
 
-func (s *Store) DeleteArchiveType(ctx context.Context, id string) error {
+func (s *Store) DeleteArchiveCollection(ctx context.Context, id string) error {
 	return s.withTx(ctx, func(tx *sql.Tx) error {
 		var count int
-		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM archives WHERE archive_type_id=?`, id).Scan(&count); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM archive_records WHERE archive_type_id=?`, id).Scan(&count); err != nil {
 			return err
 		}
 		if count > 0 {
 			return app.ErrConflict
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM field_definitions WHERE archive_type_id=?`, id); err != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM archive_fields WHERE archive_type_id=?`, id); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `DELETE FROM archive_types WHERE id=?`, id)
+		result, err := tx.ExecContext(ctx, `DELETE FROM archive_collections WHERE id=?`, id)
 		if err != nil {
 			return err
 		}
@@ -104,11 +104,11 @@ func (s *Store) DeleteArchiveType(ctx context.Context, id string) error {
 	})
 }
 
-func (s *Store) CreateArchiveField(ctx context.Context, typeID string, input archive.FieldInput) (archive.FieldDefinition, error) {
+func (s *Store) CreateArchiveField(ctx context.Context, collectionID string, input archive.FieldInput) (archive.FieldDefinition, error) {
 	if !input.Valid() {
 		return archive.FieldDefinition{}, app.ErrValidation
 	}
-	if _, err := s.GetArchiveType(ctx, typeID); err != nil {
+	if _, err := s.GetArchiveCollection(ctx, collectionID); err != nil {
 		return archive.FieldDefinition{}, err
 	}
 	id := platform.NewID()
@@ -117,7 +117,7 @@ func (s *Store) CreateArchiveField(ctx context.Context, typeID string, input arc
 		return archive.FieldDefinition{}, app.ErrValidation
 	}
 	stamp := platform.TimeText(platform.Now())
-	_, err = s.db.ExecContext(ctx, `INSERT INTO field_definitions(id,archive_type_id,field_key,label,value_type,group_name,is_required,is_sensitive,options_json,default_value_json,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, typeID, strings.TrimSpace(input.Key), strings.TrimSpace(input.Label), input.ValueType, fieldGroup(input.Group), boolInt(input.Required), boolInt(input.Sensitive), options, defaultValue, input.SortOrder, stamp, stamp)
+	_, err = s.db.ExecContext(ctx, `INSERT INTO archive_fields(id,archive_type_id,field_key,label,value_type,group_name,is_required,is_sensitive,options_json,default_value_json,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, collectionID, strings.TrimSpace(input.Key), strings.TrimSpace(input.Label), input.ValueType, fieldGroup(input.Group), boolInt(input.Required), boolInt(input.Sensitive), options, defaultValue, input.SortOrder, stamp, stamp)
 	if err != nil {
 		return archive.FieldDefinition{}, constraintError(err)
 	}
@@ -130,7 +130,7 @@ func (s *Store) UpdateArchiveField(ctx context.Context, id string, input archive
 	}
 	var oldType string
 	var values int
-	if err := s.db.QueryRowContext(ctx, `SELECT value_type,(SELECT count(*) FROM archive_field_values WHERE field_definition_id=f.id) FROM field_definitions f WHERE id=? AND deleted_at IS NULL`, id).Scan(&oldType, &values); errors.Is(err, sql.ErrNoRows) {
+	if err := s.db.QueryRowContext(ctx, `SELECT value_type,(SELECT count(*) FROM archive_record_values WHERE field_definition_id=f.id) FROM archive_fields f WHERE id=? AND deleted_at IS NULL`, id).Scan(&oldType, &values); errors.Is(err, sql.ErrNoRows) {
 		return archive.FieldDefinition{}, app.ErrNotFound
 	} else if err != nil {
 		return archive.FieldDefinition{}, err
@@ -142,7 +142,7 @@ func (s *Store) UpdateArchiveField(ctx context.Context, id string, input archive
 	if err != nil {
 		return archive.FieldDefinition{}, app.ErrValidation
 	}
-	_, err = s.db.ExecContext(ctx, `UPDATE field_definitions SET field_key=?,label=?,value_type=?,group_name=?,is_required=?,is_sensitive=?,options_json=?,default_value_json=?,sort_order=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, strings.TrimSpace(input.Key), strings.TrimSpace(input.Label), input.ValueType, fieldGroup(input.Group), boolInt(input.Required), boolInt(input.Sensitive), options, defaultValue, input.SortOrder, platform.TimeText(platform.Now()), id)
+	_, err = s.db.ExecContext(ctx, `UPDATE archive_fields SET field_key=?,label=?,value_type=?,group_name=?,is_required=?,is_sensitive=?,options_json=?,default_value_json=?,sort_order=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, strings.TrimSpace(input.Key), strings.TrimSpace(input.Label), input.ValueType, fieldGroup(input.Group), boolInt(input.Required), boolInt(input.Sensitive), options, defaultValue, input.SortOrder, platform.TimeText(platform.Now()), id)
 	if err != nil {
 		return archive.FieldDefinition{}, constraintError(err)
 	}
@@ -151,10 +151,10 @@ func (s *Store) UpdateArchiveField(ctx context.Context, id string, input archive
 
 func (s *Store) DeleteArchiveField(ctx context.Context, id string) error {
 	return s.withTx(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM archive_field_values WHERE field_definition_id=?`, id); err != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM archive_record_values WHERE field_definition_id=?`, id); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `DELETE FROM field_definitions WHERE id=?`, id)
+		result, err := tx.ExecContext(ctx, `DELETE FROM archive_fields WHERE id=?`, id)
 		if err != nil {
 			return err
 		}
@@ -170,7 +170,7 @@ func (s *Store) getArchiveField(ctx context.Context, id string) (archive.FieldDe
 	var defaultJSON sql.NullString
 	var required, sensitive bool
 	var sortOrder int
-	err := s.db.QueryRowContext(ctx, `SELECT field_key,label,value_type,group_name,is_required,is_sensitive,options_json,default_value_json,sort_order FROM field_definitions WHERE id=? AND deleted_at IS NULL`, id).Scan(&key, &label, &valueType, &group, &required, &sensitive, &optionsJSON, &defaultJSON, &sortOrder)
+	err := s.db.QueryRowContext(ctx, `SELECT field_key,label,value_type,group_name,is_required,is_sensitive,options_json,default_value_json,sort_order FROM archive_fields WHERE id=? AND deleted_at IS NULL`, id).Scan(&key, &label, &valueType, &group, &required, &sensitive, &optionsJSON, &defaultJSON, &sortOrder)
 	if errors.Is(err, sql.ErrNoRows) {
 		return archive.FieldDefinition{}, app.ErrNotFound
 	}

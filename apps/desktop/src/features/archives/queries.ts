@@ -1,5 +1,9 @@
 import { queryOptions } from '@tanstack/react-query'
-import { getArchive, listArchives, listArchiveTypes } from '../../generated/api/sdk.gen'
+import {
+  getArchiveRecord,
+  listArchiveRecords,
+  listArchiveCollections,
+} from '../../generated/api/sdk.gen'
 import { requireData } from '../../lib/http/client'
 export const archiveKeys = {
   all: ['archives'] as const,
@@ -14,10 +18,10 @@ export const archivesQuery = (q: string, type = '', sort = 'updated', limit = 50
     queryFn: async () =>
       requireData(
         (
-          await listArchives({
+          await listArchiveRecords({
             query: {
               q,
-              typeId: type || undefined,
+              collectionId: type || undefined,
               sort: sort as 'updated' | 'title',
               limit,
               offset,
@@ -31,10 +35,10 @@ export const archiveQuery = (id: string) =>
   queryOptions({
     queryKey: archiveKeys.detail(id),
     queryFn: async () =>
-      requireData((await getArchive({ path: { archiveId: id }, throwOnError: true })).data),
+      requireData((await getArchiveRecord({ path: { recordId: id }, throwOnError: true })).data),
   })
 export const archiveTypesQuery = queryOptions({
   queryKey: archiveKeys.types,
-  queryFn: async () => requireData((await listArchiveTypes({ throwOnError: true })).data),
+  queryFn: async () => requireData((await listArchiveCollections({ throwOnError: true })).data),
   staleTime: 30_000,
 })

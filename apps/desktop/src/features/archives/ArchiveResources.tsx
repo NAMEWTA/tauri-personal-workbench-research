@@ -45,7 +45,7 @@ const activityLabel: Record<string, string> = {
 }
 const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-export function ArchiveResources({ archiveId }: { archiveId: string }) {
+export function ArchiveResources({ recordId }: { recordId: string }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const tauriAvailable = '__TAURI_INTERNALS__' in window
@@ -60,42 +60,42 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
   const types = useQuery(archiveTypesQuery)
   const archives = useQuery(archivesQuery(debouncedTargetQuery, targetTypeId, 'title', 30))
   const relations = useQuery({
-    queryKey: ['archive-relations', archiveId],
+    queryKey: ['archive-relations', recordId],
     queryFn: async () =>
-      requireData((await listArchiveRelations({ path: { archiveId }, throwOnError: true })).data),
+      requireData((await listArchiveRelations({ path: { recordId }, throwOnError: true })).data),
   })
   const attachments = useQuery({
-    queryKey: ['archive-attachments', archiveId],
+    queryKey: ['archive-attachments', recordId],
     queryFn: async () =>
-      requireData((await listArchiveAttachments({ path: { archiveId }, throwOnError: true })).data),
+      requireData((await listArchiveAttachments({ path: { recordId }, throwOnError: true })).data),
   })
   const tasks = useQuery({
-    queryKey: ['archive-tasks', archiveId],
+    queryKey: ['archive-tasks', recordId],
     queryFn: async () => {
       const [open, completed] = await Promise.all([
-        listTasks({ query: { view: 'all', timezone, archiveId }, throwOnError: true }),
-        listTasks({ query: { view: 'completed', timezone, archiveId }, throwOnError: true }),
+        listTasks({ query: { view: 'all', timezone, recordId }, throwOnError: true }),
+        listTasks({ query: { view: 'completed', timezone, recordId }, throwOnError: true }),
       ])
       return [...requireData(open.data), ...requireData(completed.data)]
     },
   })
   const activity = useQuery({
-    queryKey: ['archive-activity', archiveId],
+    queryKey: ['archive-activity', recordId],
     queryFn: async () =>
-      requireData((await listArchiveActivity({ path: { archiveId }, throwOnError: true })).data),
+      requireData((await listArchiveActivity({ path: { recordId }, throwOnError: true })).data),
   })
   useEffect(() => {
     if (attachmentJob.query.data?.state === 'succeeded') {
-      void queryClient.invalidateQueries({ queryKey: ['archive-attachments', archiveId] })
-      void queryClient.invalidateQueries({ queryKey: ['archive-activity', archiveId] })
+      void queryClient.invalidateQueries({ queryKey: ['archive-attachments', recordId] })
+      void queryClient.invalidateQueries({ queryKey: ['archive-activity', recordId] })
     }
-  }, [archiveId, attachmentJob.query.data?.state, queryClient])
+  }, [recordId, attachmentJob.query.data?.state, queryClient])
   const addRelation = useMutation({
     mutationFn: async () =>
       requireData(
         (
           await createArchiveRelation({
-            path: { archiveId },
+            path: { recordId },
             body: { targetId, relationType },
             throwOnError: true,
           })
@@ -103,8 +103,8 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
       ),
     onSuccess: async () => {
       setTargetId('')
-      await queryClient.invalidateQueries({ queryKey: ['archive-relations', archiveId] })
-      await queryClient.invalidateQueries({ queryKey: ['archive-activity', archiveId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-relations', recordId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-activity', recordId] })
     },
   })
   const removeRelation = useMutation({
@@ -112,8 +112,8 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
       await deleteRelation({ path: { relationId }, throwOnError: true })
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['archive-relations', archiveId] })
-      await queryClient.invalidateQueries({ queryKey: ['archive-activity', archiveId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-relations', recordId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-activity', recordId] })
     },
   })
   const importFiles = useMutation({
@@ -124,7 +124,7 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
       return requireData(
         (
           await importArchiveAttachments({
-            path: { archiveId },
+            path: { recordId },
             body: { paths },
             throwOnError: true,
           })
@@ -140,8 +140,8 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
       await deleteAttachment({ path: { attachmentId }, throwOnError: true })
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['archive-attachments', archiveId] })
-      await queryClient.invalidateQueries({ queryKey: ['archive-activity', archiveId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-attachments', recordId] })
+      await queryClient.invalidateQueries({ queryKey: ['archive-activity', recordId] })
     },
   })
   const openAttachment = useMutation({
@@ -153,7 +153,7 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
       await invoke('open_managed_file', { path: target.path })
     },
   })
-  const candidates = archives.data?.items.filter((item) => item.id !== archiveId) ?? []
+  const candidates = archives.data?.items.filter((item) => item.id !== recordId) ?? []
   const operationError =
     addRelation.error ||
     removeRelation.error ||
@@ -229,7 +229,7 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
                   onClick={() => setTargetId(item.id)}
                 >
                   <strong>{item.title}</strong>
-                  <small>{item.typeName}</small>
+                  <small>{item.collectionName}</small>
                 </button>
               ))
             )}
@@ -257,14 +257,14 @@ export function ArchiveResources({ archiveId }: { archiveId: string }) {
                   className="resource-link"
                   onClick={() =>
                     void navigate({
-                      to: '/archives/$archiveId',
-                      params: { archiveId: item.targetId },
+                      to: '/archives/$recordId',
+                      params: { recordId: item.targetId },
                     })
                   }
                 >
                   <strong>{item.targetTitle}</strong>
                   <small>
-                    {item.targetTypeName} · {item.relationType}
+                    {item.targetCollectionName} · {item.relationType}
                   </small>
                 </button>
                 <button

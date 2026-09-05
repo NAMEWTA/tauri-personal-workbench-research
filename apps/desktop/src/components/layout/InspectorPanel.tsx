@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { Archive, MousePointer2 } from 'lucide-react'
 import { ErrorState, LoadingState } from '../ui/StateView'
 import { archiveQuery } from '../../features/archives/queries'
+import { archiveTypesQuery } from '../../features/archives/queries'
 import { TaskEditor } from '../../features/tasks/TaskEditor'
 import { taskQuery } from '../../features/tasks/queries'
 import { useLayoutStore } from '../../stores/layout'
@@ -41,14 +42,26 @@ function TaskInspector({ id, onClose }: { id: string; onClose: () => void }) {
 
 function ArchiveInspector({ id }: { id: string }) {
   const query = useQuery(archiveQuery(id))
+  const definitions = useQuery(archiveTypesQuery)
   if (query.isPending) return <LoadingState label="正在读取档案…" />
   if (query.isError) return <ErrorState error={query.error} retry={() => void query.refetch()} />
+  const fields = definitions.data?.find((item) => item.id === query.data.collectionId)?.fields ?? []
   return (
     <div className="archive-inspector">
-      <span className="eyebrow">{query.data.typeName}</span>
+      <span className="eyebrow">{query.data.collectionName}</span>
       <h2>{query.data.title}</h2>
       <p>{query.data.summary || '暂无摘要'}</p>
-      <Link to="/archives/$archiveId" params={{ archiveId: id }} className="button primary">
+      {fields.length > 0 && (
+        <dl className="inspector-properties">
+          {fields.slice(0, 6).map((field) => (
+            <div key={field.id}>
+              <dt>{field.label}</dt>
+              <dd>{field.sensitive ? '••••' : String(query.data.fields?.[field.key] ?? '—')}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <Link to="/archives/$recordId" params={{ recordId: id }} className="button primary">
         <Archive size={15} />
         打开档案
       </Link>

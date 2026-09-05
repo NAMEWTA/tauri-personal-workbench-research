@@ -20,7 +20,7 @@ var ErrNotFound = errors.New("not found")
 var ErrValidation = errors.New("validation failed")
 var ErrConflict = errors.New("conflict")
 
-type ArchivePage struct {
+type ArchiveRecordPage struct {
 	Items  []archive.Archive `json:"items"`
 	Total  int               `json:"total"`
 	Limit  int               `json:"limit"`
@@ -59,15 +59,15 @@ type Repository interface {
 	WorkspaceMeta(context.Context) (string, int, error)
 	Preferences(context.Context) (preferences.Values, error)
 	UpdatePreferences(context.Context, preferences.Update) (preferences.Values, error)
-	ListArchiveTypes(context.Context) ([]archive.TypeDefinition, error)
-	GetArchiveType(context.Context, string) (archive.TypeDefinition, error)
-	CreateArchiveType(context.Context, archive.TypeInput) (archive.TypeDefinition, error)
-	UpdateArchiveType(context.Context, string, archive.TypeInput) (archive.TypeDefinition, error)
-	DeleteArchiveType(context.Context, string) error
+	ListArchiveCollections(context.Context) ([]archive.CollectionDefinition, error)
+	GetArchiveCollection(context.Context, string) (archive.CollectionDefinition, error)
+	CreateArchiveCollection(context.Context, archive.CollectionInput) (archive.CollectionDefinition, error)
+	UpdateArchiveCollection(context.Context, string, archive.CollectionInput) (archive.CollectionDefinition, error)
+	DeleteArchiveCollection(context.Context, string) error
 	CreateArchiveField(context.Context, string, archive.FieldInput) (archive.FieldDefinition, error)
 	UpdateArchiveField(context.Context, string, archive.FieldInput) (archive.FieldDefinition, error)
 	DeleteArchiveField(context.Context, string) error
-	ListArchives(context.Context, string, string, string, int, int) (ArchivePage, error)
+	ListArchiveRecords(context.Context, string, string, string, int, int) (ArchiveRecordPage, error)
 	GetArchive(context.Context, string) (archive.Archive, error)
 	CreateArchive(context.Context, archive.Input) (archive.Archive, error)
 	UpdateArchive(context.Context, string, archive.Input) (archive.Archive, error)
@@ -110,23 +110,23 @@ func (s *Service) Preferences(ctx context.Context) (preferences.Values, error) {
 func (s *Service) UpdatePreferences(ctx context.Context, update preferences.Update) (preferences.Values, error) {
 	return s.repo.UpdatePreferences(ctx, update)
 }
-func (s *Service) ListArchiveTypes(ctx context.Context) ([]archive.TypeDefinition, error) {
-	return s.repo.ListArchiveTypes(ctx)
+func (s *Service) ListArchiveCollections(ctx context.Context) ([]archive.CollectionDefinition, error) {
+	return s.repo.ListArchiveCollections(ctx)
 }
-func (s *Service) GetArchiveType(ctx context.Context, id string) (archive.TypeDefinition, error) {
-	return s.repo.GetArchiveType(ctx, id)
+func (s *Service) GetArchiveCollection(ctx context.Context, id string) (archive.CollectionDefinition, error) {
+	return s.repo.GetArchiveCollection(ctx, id)
 }
-func (s *Service) CreateArchiveType(ctx context.Context, input archive.TypeInput) (archive.TypeDefinition, error) {
-	return s.repo.CreateArchiveType(ctx, input)
+func (s *Service) CreateArchiveCollection(ctx context.Context, input archive.CollectionInput) (archive.CollectionDefinition, error) {
+	return s.repo.CreateArchiveCollection(ctx, input)
 }
-func (s *Service) UpdateArchiveType(ctx context.Context, id string, input archive.TypeInput) (archive.TypeDefinition, error) {
-	return s.repo.UpdateArchiveType(ctx, id, input)
+func (s *Service) UpdateArchiveCollection(ctx context.Context, id string, input archive.CollectionInput) (archive.CollectionDefinition, error) {
+	return s.repo.UpdateArchiveCollection(ctx, id, input)
 }
-func (s *Service) DeleteArchiveType(ctx context.Context, id string) error {
-	return s.repo.DeleteArchiveType(ctx, id)
+func (s *Service) DeleteArchiveCollection(ctx context.Context, id string) error {
+	return s.repo.DeleteArchiveCollection(ctx, id)
 }
-func (s *Service) CreateArchiveField(ctx context.Context, typeID string, input archive.FieldInput) (archive.FieldDefinition, error) {
-	return s.repo.CreateArchiveField(ctx, typeID, input)
+func (s *Service) CreateArchiveField(ctx context.Context, collectionID string, input archive.FieldInput) (archive.FieldDefinition, error) {
+	return s.repo.CreateArchiveField(ctx, collectionID, input)
 }
 func (s *Service) UpdateArchiveField(ctx context.Context, id string, input archive.FieldInput) (archive.FieldDefinition, error) {
 	return s.repo.UpdateArchiveField(ctx, id, input)
@@ -134,8 +134,8 @@ func (s *Service) UpdateArchiveField(ctx context.Context, id string, input archi
 func (s *Service) DeleteArchiveField(ctx context.Context, id string) error {
 	return s.repo.DeleteArchiveField(ctx, id)
 }
-func (s *Service) ListArchives(ctx context.Context, query, typeID, sortBy string, limit, offset int) (ArchivePage, error) {
-	return s.repo.ListArchives(ctx, query, typeID, sortBy, limit, offset)
+func (s *Service) ListArchiveRecords(ctx context.Context, query, collectionID, sortBy string, limit, offset int) (ArchiveRecordPage, error) {
+	return s.repo.ListArchiveRecords(ctx, query, collectionID, sortBy, limit, offset)
 }
 func (s *Service) GetArchive(ctx context.Context, id string) (archive.Archive, error) {
 	return s.repo.GetArchive(ctx, id)
@@ -308,7 +308,7 @@ func (s *Service) Dashboard(ctx context.Context, timezone string) (Dashboard, er
 			return Dashboard{}, ErrValidation
 		}
 	}
-	today, err := s.repo.ListTasks(ctx, task.Filter{View: "today", Timezone: timezone})
+	all, err := s.repo.ListTasks(ctx, task.Filter{View: "all", Timezone: timezone})
 	if err != nil {
 		return Dashboard{}, err
 	}
@@ -316,19 +316,30 @@ func (s *Service) Dashboard(ctx context.Context, timezone string) (Dashboard, er
 	if err != nil {
 		return Dashboard{}, err
 	}
-	archives, err := s.repo.ListArchives(ctx, "", "", "updated", 6, 0)
+	archives, err := s.repo.ListArchiveRecords(ctx, "", "", "updated", 6, 0)
 	if err != nil {
 		return Dashboard{}, err
 	}
 	now := time.Now().In(location)
 	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location).UTC()
+	todayKey := now.Format("2006-01-02")
 	result := Dashboard{OverdueTasks: []task.Task{}, TodayTasks: []task.Task{}, TomorrowTasks: tomorrow, RecentArchives: archives.Items}
-	for _, item := range today {
+	for _, item := range all {
+		overdue := item.DueOn != nil && *item.DueOn < todayKey
 		if item.EndsAt != nil && item.EndsAt.Before(start) {
+			overdue = true
+		}
+		if overdue {
 			result.OverdueTasks = append(result.OverdueTasks, item)
 			continue
 		}
-		result.TodayTasks = append(result.TodayTasks, item)
+		today := item.DueOn != nil && *item.DueOn == todayKey
+		if item.StartsAt != nil && item.EndsAt != nil && item.StartsAt.Before(start.AddDate(0, 0, 1)) && item.EndsAt.After(start) {
+			today = true
+		}
+		if today {
+			result.TodayTasks = append(result.TodayTasks, item)
+		}
 	}
 	return result, nil
 }

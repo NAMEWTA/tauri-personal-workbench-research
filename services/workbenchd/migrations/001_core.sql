@@ -8,7 +8,17 @@ CREATE TABLE workspace_meta (
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE archive_types (
+CREATE TABLE workspace_settings (
+  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+  backup_directory TEXT NOT NULL DEFAULT '',
+  theme TEXT NOT NULL DEFAULT 'system' CHECK(theme IN ('light','dark','system')),
+  sidebar_collapsed INTEGER NOT NULL DEFAULT 0 CHECK(sidebar_collapsed IN (0,1)),
+  inspector_width INTEGER NOT NULL DEFAULT 344 CHECK(inspector_width BETWEEN 300 AND 480),
+  recent_searches_json TEXT NOT NULL DEFAULT '[]'
+);
+INSERT INTO workspace_settings(singleton, backup_directory) VALUES(1, '');
+
+CREATE TABLE archive_collections (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL COLLATE NOCASE UNIQUE,
   icon TEXT NOT NULL,
@@ -19,12 +29,12 @@ CREATE TABLE archive_types (
   deleted_at TEXT
 );
 
-CREATE TABLE field_definitions (
+CREATE TABLE archive_fields (
   id TEXT PRIMARY KEY,
-  archive_type_id TEXT NOT NULL REFERENCES archive_types(id),
+  archive_type_id TEXT NOT NULL REFERENCES archive_collections(id),
   field_key TEXT NOT NULL,
   label TEXT NOT NULL,
-  value_type TEXT NOT NULL CHECK(value_type IN ('text','multiline','number','date','datetime','boolean','select')),
+  value_type TEXT NOT NULL CHECK(value_type IN ('text','multiline','number','date','datetime','boolean','select','multiSelect','url','email','phone','relation','attachment')),
   group_name TEXT NOT NULL DEFAULT '扩展属性',
   is_required INTEGER NOT NULL DEFAULT 0,
   is_sensitive INTEGER NOT NULL DEFAULT 0,
@@ -37,9 +47,9 @@ CREATE TABLE field_definitions (
   UNIQUE(archive_type_id, field_key)
 );
 
-CREATE TABLE archives (
+CREATE TABLE archive_records (
   id TEXT PRIMARY KEY,
-  archive_type_id TEXT NOT NULL REFERENCES archive_types(id),
+  archive_type_id TEXT NOT NULL REFERENCES archive_collections(id),
   title TEXT NOT NULL,
   summary TEXT NOT NULL DEFAULT '',
   body TEXT NOT NULL DEFAULT '',
@@ -47,11 +57,11 @@ CREATE TABLE archives (
   updated_at TEXT NOT NULL,
   deleted_at TEXT
 );
-CREATE INDEX idx_archives_type_updated ON archives(archive_type_id, updated_at DESC, id DESC);
+CREATE INDEX idx_archives_type_updated ON archive_records(archive_type_id, updated_at DESC, id DESC);
 
-CREATE TABLE archive_field_values (
-  archive_id TEXT NOT NULL REFERENCES archives(id) ON DELETE CASCADE,
-  field_definition_id TEXT NOT NULL REFERENCES field_definitions(id),
+CREATE TABLE archive_record_values (
+  archive_id TEXT NOT NULL REFERENCES archive_records(id) ON DELETE CASCADE,
+  field_definition_id TEXT NOT NULL REFERENCES archive_fields(id),
   value_json TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   PRIMARY KEY(archive_id, field_definition_id)
@@ -66,7 +76,12 @@ CREATE TABLE tasks (
   ends_at TEXT,
   all_day INTEGER NOT NULL DEFAULT 0,
   timezone TEXT NOT NULL DEFAULT 'UTC',
-  archive_id TEXT REFERENCES archives(id),
+  due_on TEXT,
+  recurrence_json TEXT NOT NULL DEFAULT '',
+  reminders_json TEXT NOT NULL DEFAULT '[]',
+  parent_id TEXT REFERENCES tasks(id),
+  estimate_minutes INTEGER,
+  archive_id TEXT REFERENCES archive_records(id),
   notes TEXT NOT NULL DEFAULT '',
   completed_at TEXT,
   created_at TEXT NOT NULL,
@@ -76,6 +91,17 @@ CREATE TABLE tasks (
 );
 CREATE INDEX idx_tasks_status_start ON tasks(status, starts_at, id);
 CREATE INDEX idx_tasks_archive ON tasks(archive_id, updated_at DESC);
+CREATE INDEX idx_tasks_due_on ON tasks(due_on, status, id);
+CREATE INDEX idx_tasks_parent ON tasks(parent_id, updated_at DESC);
+
+CREATE TABLE task_reminders (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  remind_at TEXT NOT NULL,
+  dismissed_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_task_reminders_pending ON task_reminders(remind_at, dismissed_at);
 
 CREATE TABLE entity_relations (
   id TEXT PRIMARY KEY,
@@ -157,41 +183,41 @@ CREATE INDEX idx_background_jobs_started ON background_jobs(started_at DESC);
 CREATE VIRTUAL TABLE search_index USING fts5(entity_type UNINDEXED, entity_id UNINDEXED, title, content, tokenize='trigram');
 
 -- +goose StatementBegin
-CREATE TRIGGER archives_search_insert AFTER INSERT ON archives WHEN NEW.deleted_at IS NULL BEGIN
+CREATE TRIGGER archives_search_insert AFTER INSERT ON archive_records WHEN NEW.deleted_at IS NULL BEGIN
   INSERT INTO search_index(entity_type,entity_id,title,content) VALUES('archive',NEW.id,NEW.title,NEW.summary || ' ' || NEW.body);
 END;
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER archives_search_update AFTER UPDATE ON archives BEGIN
+CREATE TRIGGER archives_search_update AFTER UPDATE ON archive_records BEGIN
   DELETE FROM search_index WHERE entity_type='archive' AND entity_id=OLD.id;
   INSERT INTO search_index(entity_type,entity_id,title,content)
-  SELECT 'archive',NEW.id,NEW.title,NEW.summary || ' ' || NEW.body || ' ' || COALESCE((SELECT group_concat(value_json,' ') FROM archive_field_values WHERE archive_id=NEW.id),'') WHERE NEW.deleted_at IS NULL;
+  SELECT 'archive',NEW.id,NEW.title,NEW.summary || ' ' || NEW.body || ' ' || COALESCE((SELECT group_concat(value_json,' ') FROM archive_record_values WHERE archive_id=NEW.id),'') WHERE NEW.deleted_at IS NULL;
 END;
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER archives_search_delete AFTER DELETE ON archives BEGIN
+CREATE TRIGGER archives_search_delete AFTER DELETE ON archive_records BEGIN
   DELETE FROM search_index WHERE entity_type='archive' AND entity_id=OLD.id;
 END;
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER archive_values_search_insert AFTER INSERT ON archive_field_values BEGIN
+CREATE TRIGGER archive_values_search_insert AFTER INSERT ON archive_record_values BEGIN
   DELETE FROM search_index WHERE entity_type='archive' AND entity_id=NEW.archive_id;
   INSERT INTO search_index(entity_type,entity_id,title,content)
-  SELECT 'archive',a.id,a.title,a.summary || ' ' || a.body || ' ' || COALESCE((SELECT group_concat(value_json,' ') FROM archive_field_values WHERE archive_id=a.id),'') FROM archives a WHERE a.id=NEW.archive_id AND a.deleted_at IS NULL;
+  SELECT 'archive',a.id,a.title,a.summary || ' ' || a.body || ' ' || COALESCE((SELECT group_concat(value_json,' ') FROM archive_record_values WHERE archive_id=a.id),'') FROM archive_records a WHERE a.id=NEW.archive_id AND a.deleted_at IS NULL;
 END;
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER archive_values_search_update AFTER UPDATE ON archive_field_values BEGIN
+CREATE TRIGGER archive_values_search_update AFTER UPDATE ON archive_record_values BEGIN
   DELETE FROM search_index WHERE entity_type='archive' AND entity_id=OLD.archive_id;
   INSERT INTO search_index(entity_type,entity_id,title,content)
-  SELECT 'archive',a.id,a.title,a.summary || ' ' || a.body || ' ' || COALESCE((SELECT group_concat(value_json,' ') FROM archive_field_values WHERE archive_id=a.id),'') FROM archives a WHERE a.id=NEW.archive_id AND a.deleted_at IS NULL;
+  SELECT 'archive',a.id,a.title,a.summary || ' ' || a.body || ' ' || COALESCE((SELECT group_concat(value_json,' ') FROM archive_record_values WHERE archive_id=a.id),'') FROM archive_records a WHERE a.id=NEW.archive_id AND a.deleted_at IS NULL;
 END;
 -- +goose StatementEnd
 -- +goose StatementBegin
-CREATE TRIGGER archive_values_search_delete AFTER DELETE ON archive_field_values BEGIN
+CREATE TRIGGER archive_values_search_delete AFTER DELETE ON archive_record_values BEGIN
   DELETE FROM search_index WHERE entity_type='archive' AND entity_id=OLD.archive_id;
   INSERT INTO search_index(entity_type,entity_id,title,content)
-  SELECT 'archive',a.id,a.title,a.summary || ' ' || a.body || ' ' || COALESCE((SELECT group_concat(value_json,' ') FROM archive_field_values WHERE archive_id=a.id),'') FROM archives a WHERE a.id=OLD.archive_id AND a.deleted_at IS NULL;
+  SELECT 'archive',a.id,a.title,a.summary || ' ' || a.body || ' ' || COALESCE((SELECT group_concat(value_json,' ') FROM archive_record_values WHERE archive_id=a.id),'') FROM archive_records a WHERE a.id=OLD.archive_id AND a.deleted_at IS NULL;
 END;
 -- +goose StatementEnd
 -- +goose StatementBegin
@@ -238,8 +264,9 @@ DROP TABLE tags;
 DROP TABLE attachments;
 DROP TABLE entity_relations;
 DROP TABLE tasks;
-DROP TABLE archive_field_values;
-DROP TABLE archives;
-DROP TABLE field_definitions;
-DROP TABLE archive_types;
+DROP TABLE archive_record_values;
+DROP TABLE archive_records;
+DROP TABLE archive_fields;
+DROP TABLE archive_collections;
+DROP TABLE workspace_settings;
 DROP TABLE workspace_meta;

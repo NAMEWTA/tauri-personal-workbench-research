@@ -16,7 +16,7 @@ import (
 
 const archiveColumns = `a.id,a.archive_type_id,t.name,t.icon,t.color,a.title,a.summary,a.body,a.created_at,a.updated_at`
 
-func (s *Store) ListArchives(ctx context.Context, query, typeID, sortBy string, limit, offset int) (app.ArchivePage, error) {
+func (s *Store) ListArchiveRecords(ctx context.Context, query, collectionID, sortBy string, limit, offset int) (app.ArchiveRecordPage, error) {
 	if limit < 1 || limit > 200 {
 		limit = 50
 	}
@@ -26,9 +26,9 @@ func (s *Store) ListArchives(ctx context.Context, query, typeID, sortBy string, 
 	pattern := "%" + strings.TrimSpace(query) + "%"
 	condition := `a.deleted_at IS NULL AND t.deleted_at IS NULL AND (a.title LIKE ? OR a.summary LIKE ?)`
 	args := []any{pattern, pattern}
-	if typeID != "" {
+	if collectionID != "" {
 		condition += ` AND a.archive_type_id=?`
-		args = append(args, typeID)
+		args = append(args, collectionID)
 	}
 	order := `a.updated_at DESC,a.id DESC`
 	switch sortBy {
@@ -36,35 +36,35 @@ func (s *Store) ListArchives(ctx context.Context, query, typeID, sortBy string, 
 	case "title":
 		order = `a.title COLLATE NOCASE,a.id`
 	default:
-		return app.ArchivePage{}, app.ErrValidation
+		return app.ArchiveRecordPage{}, app.ErrValidation
 	}
 	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM archives a JOIN archive_types t ON t.id=a.archive_type_id WHERE `+condition, args...).Scan(&total); err != nil {
-		return app.ArchivePage{}, err
+	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM archive_records a JOIN archive_collections t ON t.id=a.archive_type_id WHERE `+condition, args...).Scan(&total); err != nil {
+		return app.ArchiveRecordPage{}, err
 	}
 	args = append(args, limit, offset)
-	rows, err := s.db.QueryContext(ctx, `SELECT `+archiveColumns+` FROM archives a JOIN archive_types t ON t.id=a.archive_type_id WHERE `+condition+` ORDER BY `+order+` LIMIT ? OFFSET ?`, args...)
+	rows, err := s.db.QueryContext(ctx, `SELECT `+archiveColumns+` FROM archive_records a JOIN archive_collections t ON t.id=a.archive_type_id WHERE `+condition+` ORDER BY `+order+` LIMIT ? OFFSET ?`, args...)
 	if err != nil {
-		return app.ArchivePage{}, err
+		return app.ArchiveRecordPage{}, err
 	}
 	defer func() { _ = rows.Close() }()
 	items := make([]archive.Archive, 0)
 	for rows.Next() {
 		item, err := scanArchive(rows)
 		if err != nil {
-			return app.ArchivePage{}, err
+			return app.ArchiveRecordPage{}, err
 		}
 		item.Fields, err = s.archiveFields(ctx, item.ID)
 		if err != nil {
-			return app.ArchivePage{}, err
+			return app.ArchiveRecordPage{}, err
 		}
 		items = append(items, item)
 	}
-	return app.ArchivePage{Items: items, Total: total, Limit: limit, Offset: offset}, rows.Err()
+	return app.ArchiveRecordPage{Items: items, Total: total, Limit: limit, Offset: offset}, rows.Err()
 }
 
 func (s *Store) GetArchive(ctx context.Context, id string) (archive.Archive, error) {
-	item, err := scanArchive(s.db.QueryRowContext(ctx, `SELECT `+archiveColumns+` FROM archives a JOIN archive_types t ON t.id=a.archive_type_id WHERE a.id=? AND a.deleted_at IS NULL AND t.deleted_at IS NULL`, id))
+	item, err := scanArchive(s.db.QueryRowContext(ctx, `SELECT `+archiveColumns+` FROM archive_records a JOIN archive_collections t ON t.id=a.archive_type_id WHERE a.id=? AND a.deleted_at IS NULL AND t.deleted_at IS NULL`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return archive.Archive{}, app.ErrNotFound
 	}
@@ -79,14 +79,14 @@ func (s *Store) CreateArchive(ctx context.Context, input archive.Input) (archive
 	if !input.Valid() {
 		return archive.Archive{}, app.ErrValidation
 	}
-	fields, definitions, err := s.normalizeArchiveFields(ctx, input.TypeID, input.Fields, true)
+	fields, definitions, err := s.normalizeArchiveFields(ctx, input.CollectionID, input.Fields, true)
 	if err != nil {
 		return archive.Archive{}, err
 	}
 	now := platform.Now()
 	id := platform.NewID()
 	err = s.withTx(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO archives(id,archive_type_id,title,summary,body,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, id, input.TypeID, strings.TrimSpace(input.Title), input.Summary, input.Body, platform.TimeText(now), platform.TimeText(now)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO archive_records(id,archive_type_id,title,summary,body,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, id, input.CollectionID, strings.TrimSpace(input.Title), input.Summary, input.Body, platform.TimeText(now), platform.TimeText(now)); err != nil {
 			return err
 		}
 		if err := writeArchiveFields(ctx, tx, id, fields, definitions, now); err != nil {
@@ -107,20 +107,20 @@ func (s *Store) UpdateArchive(ctx context.Context, id string, input archive.Inpu
 	if _, err := s.GetArchive(ctx, id); err != nil {
 		return archive.Archive{}, err
 	}
-	fields, definitions, err := s.normalizeArchiveFields(ctx, input.TypeID, input.Fields, false)
+	fields, definitions, err := s.normalizeArchiveFields(ctx, input.CollectionID, input.Fields, false)
 	if err != nil {
 		return archive.Archive{}, err
 	}
 	now := platform.Now()
 	err = s.withTx(ctx, func(tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, `UPDATE archives SET archive_type_id=?,title=?,summary=?,body=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, input.TypeID, strings.TrimSpace(input.Title), input.Summary, input.Body, platform.TimeText(now), id)
+		result, err := tx.ExecContext(ctx, `UPDATE archive_records SET archive_type_id=?,title=?,summary=?,body=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, input.CollectionID, strings.TrimSpace(input.Title), input.Summary, input.Body, platform.TimeText(now), id)
 		if err != nil {
 			return err
 		}
 		if count, _ := result.RowsAffected(); count == 0 {
 			return app.ErrNotFound
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM archive_field_values WHERE archive_id=?`, id); err != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM archive_record_values WHERE archive_id=?`, id); err != nil {
 			return err
 		}
 		if err := writeArchiveFields(ctx, tx, id, fields, definitions, now); err != nil {
@@ -135,11 +135,11 @@ func (s *Store) UpdateArchive(ctx context.Context, id string, input archive.Inpu
 }
 
 func (s *Store) TrashArchive(ctx context.Context, id string) error {
-	return s.trash(ctx, "archive", "archives", id)
+	return s.trash(ctx, "archive", "archive_records", id)
 }
 
 func (s *Store) archiveFields(ctx context.Context, archiveID string) (map[string]any, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT f.field_key,v.value_json FROM archive_field_values v JOIN field_definitions f ON f.id=v.field_definition_id WHERE v.archive_id=? AND f.deleted_at IS NULL ORDER BY f.sort_order,f.id`, archiveID)
+	rows, err := s.db.QueryContext(ctx, `SELECT f.field_key,v.value_json FROM archive_record_values v JOIN archive_fields f ON f.id=v.field_definition_id WHERE v.archive_id=? AND f.deleted_at IS NULL ORDER BY f.sort_order,f.id`, archiveID)
 	if err != nil {
 		return nil, err
 	}
@@ -159,8 +159,8 @@ func (s *Store) archiveFields(ctx context.Context, archiveID string) (map[string
 	return values, rows.Err()
 }
 
-func (s *Store) normalizeArchiveFields(ctx context.Context, typeID string, values map[string]any, applyDefaults bool) (map[string]any, map[string]archive.FieldDefinition, error) {
-	definition, err := s.GetArchiveType(ctx, typeID)
+func (s *Store) normalizeArchiveFields(ctx context.Context, collectionID string, values map[string]any, applyDefaults bool) (map[string]any, map[string]archive.FieldDefinition, error) {
+	definition, err := s.GetArchiveCollection(ctx, collectionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -194,7 +194,7 @@ func validFieldValue(field archive.FieldDefinition, value any) bool {
 		return !field.Required
 	}
 	switch field.ValueType {
-	case "text", "multiline":
+	case "text", "multiline", "url", "email", "phone", "relation", "attachment":
 		_, ok := value.(string)
 		return ok
 	case "date":
@@ -231,6 +231,29 @@ func validFieldValue(field archive.FieldDefinition, value any) bool {
 				return true
 			}
 		}
+		return false
+	case "multiSelect":
+		items, ok := value.([]any)
+		if !ok {
+			return false
+		}
+		for _, item := range items {
+			text, valid := item.(string)
+			if !valid {
+				return false
+			}
+			found := false
+			for _, option := range field.Options {
+				if option == text {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+		return true
 	}
 	return false
 }
@@ -253,7 +276,7 @@ func writeArchiveFields(ctx context.Context, tx *sql.Tx, archiveID string, value
 		if err != nil {
 			return fmt.Errorf("encode field %s: %w", key, err)
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO archive_field_values(archive_id,field_definition_id,value_json,updated_at) VALUES(?,?,?,?)`, archiveID, definition.ID, string(raw), platform.TimeText(now)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO archive_record_values(archive_id,field_definition_id,value_json,updated_at) VALUES(?,?,?,?)`, archiveID, definition.ID, string(raw), platform.TimeText(now)); err != nil {
 			return err
 		}
 	}
@@ -263,7 +286,7 @@ func writeArchiveFields(ctx context.Context, tx *sql.Tx, archiveID string, value
 func scanArchive(row scanner) (archive.Archive, error) {
 	var item archive.Archive
 	var created, updated string
-	if err := row.Scan(&item.ID, &item.TypeID, &item.TypeName, &item.TypeIcon, &item.TypeColor, &item.Title, &item.Summary, &item.Body, &created, &updated); err != nil {
+	if err := row.Scan(&item.ID, &item.CollectionID, &item.CollectionName, &item.CollectionIcon, &item.CollectionColor, &item.Title, &item.Summary, &item.Body, &created, &updated); err != nil {
 		return archive.Archive{}, err
 	}
 	var err error

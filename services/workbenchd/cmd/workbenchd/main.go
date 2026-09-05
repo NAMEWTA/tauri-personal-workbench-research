@@ -28,7 +28,7 @@ import (
 	"github.com/personal-workbench/workbenchd/internal/storage/sqlite"
 )
 
-const protocolVersion = 2
+const protocolVersion = 3
 
 var version = "0.2.0-dev"
 

@@ -45,7 +45,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     saveRecent.mutate(next)
     onClose()
     if (item.type === 'archive' || item.type === 'attachment')
-      void navigate({ to: '/archives/$archiveId', params: { archiveId: item.id } })
+      void navigate({ to: '/archives/$recordId', params: { recordId: item.id } })
     else {
       void navigate({ to: '/tasks' })
       selectTask(item.id)

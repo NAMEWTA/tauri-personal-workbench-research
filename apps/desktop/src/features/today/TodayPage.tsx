@@ -121,10 +121,13 @@ export function TodayPage() {
             ) : (
               <div className="recent-archives">
                 {query.data.recentArchives.map((item) => (
-                  <Link key={item.id} to="/archives/$archiveId" params={{ archiveId: item.id }}>
+                  <Link key={item.id} to="/archives/$recordId" params={{ recordId: item.id }}>
                     <span
                       className="archive-icon"
-                      style={{ backgroundColor: `${item.typeColor}20`, color: item.typeColor }}
+                      style={{
+                        backgroundColor: `${item.collectionColor}20`,
+                        color: item.collectionColor,
+                      }}
                     >
                       <Archive size={17} />
                     </span>

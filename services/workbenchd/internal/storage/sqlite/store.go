@@ -83,7 +83,7 @@ func (s *Store) initialize(ctx context.Context, workspaceName, appVersion string
 			return fmt.Errorf("read migration version: %w", err)
 		}
 		if currentVersion > migrations.CurrentVersion {
-			return fmt.Errorf("workspace schema %d is incompatible with V2 development schema %d", currentVersion, migrations.CurrentVersion)
+			return fmt.Errorf("workspace schema %d is incompatible with the current workspace schema %d", currentVersion, migrations.CurrentVersion)
 		}
 		if err := goose.UpContext(ctx, s.db, "."); err != nil {
 			return fmt.Errorf("migrate workspace: %w", err)
@@ -111,25 +111,16 @@ func (s *Store) seed(ctx context.Context, workspaceName, appVersion string) erro
 			return err
 		}
 		types := [][5]any{
-			{"person", "个人", "UserRound", "#3A7B6A", 0},
-			{"organization", "企业", "Building2", "#527A9E", 1},
-			{"event", "事件", "CalendarDays", "#A96F2D", 2},
+			{"template", "模板档案", "Table2", "#527A9E", 0},
 		}
 		for _, item := range types {
-			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO archive_types(id,name,icon,color,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, item[0], item[1], item[2], item[3], item[4], stamp, stamp); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO archive_collections(id,name,icon,color,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, item[0], item[1], item[2], item[3], item[4], stamp, stamp); err != nil {
 				return err
 			}
 		}
-		fields := [][10]any{
-			{"person-id-number", "person", "idNumber", "证件号码", "text", "身份信息", 0, 1, 0, `[]`},
-			{"person-phone", "person", "phone", "联系电话", "text", "联系方式", 0, 0, 1, `[]`},
-			{"organization-code", "organization", "creditCode", "统一社会信用代码", "text", "注册信息", 0, 1, 0, `[]`},
-			{"organization-contact", "organization", "contact", "联系人", "text", "联系方式", 0, 0, 1, `[]`},
-			{"event-location", "event", "location", "地点", "text", "事件信息", 0, 0, 0, `[]`},
-			{"event-date", "event", "eventDate", "事件日期", "date", "事件信息", 0, 0, 1, `[]`},
-		}
+		fields := [][10]any{}
 		for _, item := range fields {
-			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO field_definitions(id,archive_type_id,field_key,label,value_type,group_name,is_required,is_sensitive,sort_order,options_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, item[0], item[1], item[2], item[3], item[4], item[5], item[6], item[7], item[8], item[9], stamp, stamp); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO archive_fields(id,archive_type_id,field_key,label,value_type,group_name,is_required,is_sensitive,sort_order,options_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, item[0], item[1], item[2], item[3], item[4], item[5], item[6], item[7], item[8], item[9], stamp, stamp); err != nil {
 				return err
 			}
 		}

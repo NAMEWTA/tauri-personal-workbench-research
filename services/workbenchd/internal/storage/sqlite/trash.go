@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Store) trash(ctx context.Context, entityType, table, id string) error {
-	if (entityType != "archive" || table != "archives") && (entityType != "task" || table != "tasks") {
+	if (entityType != "archive" || table != "archive_records") && (entityType != "task" || table != "tasks") {
 		return app.ErrValidation
 	}
 	now := platform.Now()
@@ -66,7 +66,7 @@ func (s *Store) RestoreTrash(ctx context.Context, trashID string) error {
 		var statement string
 		switch entityType {
 		case "archive":
-			statement = `UPDATE archives SET deleted_at=NULL,updated_at=? WHERE id=? AND deleted_at IS NOT NULL`
+			statement = `UPDATE archive_records SET deleted_at=NULL,updated_at=? WHERE id=? AND deleted_at IS NOT NULL`
 		case "task":
 			statement = `UPDATE tasks SET deleted_at=NULL,updated_at=? WHERE id=? AND deleted_at IS NOT NULL`
 		case "attachment":

@@ -18,17 +18,22 @@ const localTime = (value?: string | null) =>
 
 export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
   const setEditorDirty = useLayoutStore((state) => state.setEditorDirty)
-  const [archiveTitle, setArchiveTitle] = useState(task.archiveTitle)
+  const [recordTitle, setArchiveTitle] = useState(task.recordTitle)
   const [draft, setDraft] = useState<TaskInput>({
     title: task.title,
     status: task.status,
     priority: task.priority,
     startsAt: task.startsAt,
     endsAt: task.endsAt,
+    dueOn: task.dueOn,
     allDay: task.allDay,
     timezone: task.timezone,
-    archiveId: task.archiveId,
+    recordId: task.recordId,
     notes: task.notes,
+    recurrence: task.recurrence ?? '',
+    reminders: task.reminders ?? [],
+    parentId: task.parentId,
+    estimateMinutes: task.estimateMinutes,
   })
   const update = useUpdateTask()
   const queryClient = useQueryClient()
@@ -154,16 +159,52 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
           </label>
         </>
       )}
+      <label>
+        截止日期
+        <input
+          type="date"
+          value={draft.dueOn ?? ''}
+          onChange={(event) => setDraft({ ...draft, dueOn: event.target.value || null })}
+        />
+      </label>
+      <div className="field-pair">
+        <label>
+          重复规则
+          <select
+            value={draft.recurrence ?? ''}
+            onChange={(event) => setDraft({ ...draft, recurrence: event.target.value })}
+          >
+            <option value="">不重复</option>
+            <option value="FREQ=DAILY">每天</option>
+            <option value="FREQ=WEEKLY">每周</option>
+            <option value="FREQ=MONTHLY">每月</option>
+          </select>
+        </label>
+        <label>
+          预计分钟
+          <input
+            type="number"
+            min={1}
+            value={draft.estimateMinutes ?? ''}
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                estimateMinutes: event.target.value ? Number(event.target.value) : null,
+              })
+            }
+          />
+        </label>
+      </div>
       <div className="picker-field">
         <span>关联档案</span>
         <ArchivePicker
-          value={draft.archiveId}
-          valueTitle={archiveTitle}
+          value={draft.recordId}
+          valueTitle={recordTitle}
           onChange={(id, title) => {
             setArchiveTitle(title ?? '')
-            setDraft({ ...draft, archiveId: id })
+            setDraft({ ...draft, recordId: id })
           }}
-          onOpen={(id) => void navigate({ to: '/archives/$archiveId', params: { archiveId: id } })}
+          onOpen={(id) => void navigate({ to: '/archives/$recordId', params: { recordId: id } })}
         />
       </div>
       <label>
@@ -211,9 +252,14 @@ function sameTaskDraft(draft: TaskInput, task: Task) {
     draft.priority === task.priority &&
     draft.startsAt === task.startsAt &&
     draft.endsAt === task.endsAt &&
+    (draft.dueOn ?? null) === (task.dueOn ?? null) &&
     draft.allDay === task.allDay &&
     draft.timezone === task.timezone &&
-    (draft.archiveId ?? null) === (task.archiveId ?? null) &&
-    (draft.notes ?? '') === (task.notes ?? '')
+    (draft.recordId ?? null) === (task.recordId ?? null) &&
+    (draft.notes ?? '') === (task.notes ?? '') &&
+    (draft.recurrence ?? '') === (task.recurrence ?? '') &&
+    JSON.stringify(draft.reminders ?? []) === JSON.stringify(task.reminders ?? []) &&
+    (draft.parentId ?? null) === (task.parentId ?? null) &&
+    (draft.estimateMinutes ?? null) === (task.estimateMinutes ?? null)
   )
 }

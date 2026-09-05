@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useBlocker, useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeft, Eye, EyeOff, Save, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { trashArchive, updateArchive } from '../../generated/api/sdk.gen'
-import type { Archive, ArchiveInput } from '../../generated/api/types.gen'
+import { trashArchiveRecord, updateArchiveRecord } from '../../generated/api/sdk.gen'
+import type { ArchiveRecord, ArchiveRecordInput } from '../../generated/api/types.gen'
 import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { requireData } from '../../lib/http/client'
 import { archiveKeys, archiveQuery, archiveTypesQuery } from './queries'
@@ -12,8 +12,8 @@ import { ArchiveFieldControl } from './ArchiveFieldControl'
 import { useLayoutStore } from '../../stores/layout'
 
 export function ArchiveDetailPage() {
-  const { archiveId } = useParams({ from: '/archives/$archiveId' })
-  const query = useQuery(archiveQuery(archiveId))
+  const { recordId } = useParams({ from: '/archives/$recordId' })
+  const query = useQuery(archiveQuery(recordId))
   if (query.isPending)
     return (
       <div className="page">
@@ -29,15 +29,15 @@ export function ArchiveDetailPage() {
   return <ArchiveEditor key={query.data.updatedAt} archive={query.data} />
 }
 
-function ArchiveEditor({ archive }: { archive: Archive }) {
-  const archiveId = archive.id
+function ArchiveEditor({ archive }: { archive: ArchiveRecord }) {
+  const recordId = archive.id
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const setEditorDirty = useLayoutStore((state) => state.setEditorDirty)
   const [revealed, setRevealed] = useState(false)
   const definitions = useQuery(archiveTypesQuery)
-  const [draft, setDraft] = useState<ArchiveInput>({
-    typeId: archive.typeId,
+  const [draft, setDraft] = useState<ArchiveRecordInput>({
+    collectionId: archive.collectionId,
     title: archive.title,
     summary: archive.summary,
     body: archive.body,
@@ -45,25 +45,26 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
   })
   useEffect(() => () => setRevealed(false), [])
   const save = useMutation({
-    mutationFn: async (input: ArchiveInput) =>
+    mutationFn: async (input: ArchiveRecordInput) =>
       requireData(
-        (await updateArchive({ path: { archiveId }, body: input, throwOnError: true })).data,
+        (await updateArchiveRecord({ path: { recordId }, body: input, throwOnError: true })).data,
       ),
     onSuccess: async (data) => {
-      queryClient.setQueryData(archiveKeys.detail(archiveId), data)
+      queryClient.setQueryData(archiveKeys.detail(recordId), data)
       await queryClient.invalidateQueries({ queryKey: archiveKeys.all })
     },
   })
   const remove = useMutation({
     mutationFn: async () => {
-      await trashArchive({ path: { archiveId }, throwOnError: true })
+      await trashArchiveRecord({ path: { recordId }, throwOnError: true })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: archiveKeys.all })
       void navigate({ to: '/archives' })
     },
   })
-  const fieldDefinitions = definitions.data?.find((item) => item.id === draft.typeId)?.fields ?? []
+  const fieldDefinitions =
+    definitions.data?.find((item) => item.id === draft.collectionId)?.fields ?? []
   const fieldByKey = new Map(fieldDefinitions.map((field) => [field.key, field]))
   const fieldKeys = Array.from(
     new Set([...fieldDefinitions.map((field) => field.key), ...Object.keys(draft.fields ?? {})]),
@@ -142,7 +143,7 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
         <aside className="properties-panel">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">{archive.typeName}</span>
+              <span className="eyebrow">{archive.collectionName}</span>
               <h2>属性</h2>
             </div>
             {sensitive.length > 0 && (
@@ -162,43 +163,56 @@ function ArchiveEditor({ archive }: { archive: Archive }) {
           ) : fieldKeys.length === 0 ? (
             <p className="quiet-empty">暂无自定义属性。</p>
           ) : (
-            <details className="field-group" open>
-              <summary>扩展属性</summary>
-              <div>
-                {fieldKeys.map((key) => {
+            Array.from(
+              fieldKeys
+                .reduce((groups, key) => {
                   const definition = fieldByKey.get(key)
-                  const value = draft.fields?.[key]
-                  return (
-                    <label key={key}>
-                      {definition?.label ?? key}
-                      {definition ? (
-                        <ArchiveFieldControl
-                          field={definition}
-                          value={value}
-                          revealed={revealed}
-                          onChange={(next) =>
-                            setDraft({ ...draft, fields: { ...draft.fields, [key]: next } })
-                          }
-                        />
-                      ) : (
-                        <input value={String(value ?? '')} readOnly />
-                      )}
-                    </label>
-                  )
-                })}
-              </div>
-            </details>
+                  const group = definition?.group || '扩展属性'
+                  const current = groups.get(group) ?? []
+                  current.push(key)
+                  groups.set(group, current)
+                  return groups
+                }, new Map<string, string[]>())
+                .entries(),
+            ).map(([group, keys]) => (
+              <details className="field-group" open key={group}>
+                <summary>{group}</summary>
+                <div>
+                  {keys.map((key) => {
+                    const definition = fieldByKey.get(key)
+                    const value = draft.fields?.[key]
+                    return (
+                      <label key={key}>
+                        {definition?.label ?? key}
+                        {definition ? (
+                          <ArchiveFieldControl
+                            field={definition}
+                            value={value}
+                            revealed={revealed}
+                            onChange={(next) =>
+                              setDraft({ ...draft, fields: { ...draft.fields, [key]: next } })
+                            }
+                          />
+                        ) : (
+                          <input value={String(value ?? '')} readOnly />
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              </details>
+            ))
           )}
         </aside>
       </div>
-      <ArchiveResources archiveId={archiveId} />
+      <ArchiveResources recordId={recordId} />
     </div>
   )
 }
 
-function sameArchiveDraft(draft: ArchiveInput, archive: Archive) {
+function sameArchiveDraft(draft: ArchiveRecordInput, archive: ArchiveRecord) {
   return (
-    draft.typeId === archive.typeId &&
+    draft.collectionId === archive.collectionId &&
     draft.title === archive.title &&
     (draft.summary ?? '') === archive.summary &&
     (draft.body ?? '') === archive.body &&

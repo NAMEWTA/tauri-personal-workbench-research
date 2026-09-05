@@ -64,6 +64,14 @@ export function TaskRow({
           {task.title}
         </button>
         <div>
+          {task.dueOn && (
+            <span className="task-deadline">
+              截止{' '}
+              {new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(
+                new Date(`${task.dueOn}T00:00:00`),
+              )}
+            </span>
+          )}
           {task.priority !== 'normal' && (
             <span className={`priority ${task.priority}`}>
               <Flag size={12} />

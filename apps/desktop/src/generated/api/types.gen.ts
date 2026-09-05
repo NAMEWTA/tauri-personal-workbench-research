@@ -15,12 +15,12 @@ export type Meta = {
     schemaVersion: number;
 };
 
-export type Archive = {
+export type ArchiveRecord = {
     id: string;
-    typeId: string;
-    typeName: string;
-    typeIcon: string;
-    typeColor: string;
+    collectionId: string;
+    collectionName: string;
+    collectionIcon: string;
+    collectionColor: string;
     title: string;
     summary: string;
     body: string;
@@ -35,7 +35,7 @@ export type ArchiveFieldDefinition = {
     id: string;
     key: string;
     label: string;
-    valueType: 'text' | 'multiline' | 'number' | 'date' | 'datetime' | 'boolean' | 'select';
+    valueType: 'text' | 'multiline' | 'number' | 'date' | 'datetime' | 'boolean' | 'select' | 'multiSelect' | 'url' | 'email' | 'phone' | 'relation' | 'attachment';
     group: string;
     required: boolean;
     sensitive: boolean;
@@ -47,7 +47,7 @@ export type ArchiveFieldDefinition = {
 export type ArchiveFieldInput = {
     key: string;
     label: string;
-    valueType: 'text' | 'multiline' | 'number' | 'date' | 'datetime' | 'boolean' | 'select';
+    valueType: 'text' | 'multiline' | 'number' | 'date' | 'datetime' | 'boolean' | 'select' | 'multiSelect' | 'url' | 'email' | 'phone' | 'relation' | 'attachment';
     group: string;
     required: boolean;
     sensitive: boolean;
@@ -56,7 +56,7 @@ export type ArchiveFieldInput = {
     sortOrder: number;
 };
 
-export type ArchiveTypeDefinition = {
+export type ArchiveCollectionDefinition = {
     id: string;
     name: string;
     icon: string;
@@ -65,15 +65,15 @@ export type ArchiveTypeDefinition = {
     fields: Array<ArchiveFieldDefinition>;
 };
 
-export type ArchiveTypeInput = {
+export type ArchiveCollectionInput = {
     name: string;
     icon: string;
     color: string;
     sortOrder: number;
 };
 
-export type ArchiveInput = {
-    typeId: string;
+export type ArchiveRecordInput = {
+    collectionId: string;
     title: string;
     summary?: string;
     body?: string;
@@ -82,8 +82,8 @@ export type ArchiveInput = {
     };
 };
 
-export type ArchivePage = {
-    items: Array<Archive>;
+export type ArchiveRecordPage = {
+    items: Array<ArchiveRecord>;
     total: number;
     limit: number;
     offset: number;
@@ -94,8 +94,8 @@ export type Relation = {
     sourceId: string;
     targetId: string;
     targetTitle: string;
-    targetTypeId: string;
-    targetTypeName: string;
+    targetCollectionId: string;
+    targetCollectionName: string;
     relationType: string;
     notes: string;
     createdAt: string;
@@ -127,11 +127,16 @@ export type Task = {
     priority: 'low' | 'normal' | 'high' | 'urgent';
     startsAt?: string | null;
     endsAt?: string | null;
+    dueOn?: string | null;
     allDay: boolean;
     timezone: string;
-    archiveId?: string | null;
-    archiveTitle: string;
+    recordId?: string | null;
+    recordTitle: string;
     notes: string;
+    recurrence?: string;
+    reminders?: Array<string>;
+    parentId?: string | null;
+    estimateMinutes?: number | null;
     completedAt?: string | null;
     createdAt: string;
     updatedAt: string;
@@ -143,17 +148,22 @@ export type TaskInput = {
     priority: 'low' | 'normal' | 'high' | 'urgent';
     startsAt?: string | null;
     endsAt?: string | null;
+    dueOn?: string | null;
     allDay: boolean;
     timezone: string;
-    archiveId?: string | null;
+    recordId?: string | null;
     notes?: string;
+    recurrence?: string;
+    reminders?: Array<string>;
+    parentId?: string | null;
+    estimateMinutes?: number | null;
 };
 
 export type Dashboard = {
     overdueTasks: Array<Task>;
     todayTasks: Array<Task>;
     tomorrowTasks: Array<Task>;
-    recentArchives: Array<Archive>;
+    recentArchives: Array<ArchiveRecord>;
 };
 
 export type Activity = {
@@ -256,9 +266,9 @@ export type Offset = number;
 
 export type Timezone = string;
 
-export type ArchiveId = string;
+export type ArchiveRecordId = string;
 
-export type ArchiveTypeId = string;
+export type ArchiveCollectionId = string;
 
 export type GetHealthData = {
     body?: never;
@@ -280,7 +290,7 @@ export type GetMetaData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/meta';
+    url: '/api/v3/meta';
 };
 
 export type GetMetaErrors = {
@@ -305,7 +315,7 @@ export type GetPreferencesData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/preferences';
+    url: '/api/v3/preferences';
 };
 
 export type GetPreferencesErrors = {
@@ -330,7 +340,7 @@ export type UpdatePreferencesData = {
     body: PreferencesUpdate;
     path?: never;
     query?: never;
-    url: '/api/v2/preferences';
+    url: '/api/v3/preferences';
 };
 
 export type UpdatePreferencesErrors = {
@@ -357,7 +367,7 @@ export type GetDashboardData = {
     query?: {
         timezone?: string;
     };
-    url: '/api/v2/dashboard';
+    url: '/api/v3/dashboard';
 };
 
 export type GetDashboardErrors = {
@@ -378,144 +388,144 @@ export type GetDashboardResponses = {
 
 export type GetDashboardResponse = GetDashboardResponses[keyof GetDashboardResponses];
 
-export type ListArchiveTypesData = {
+export type ListArchiveCollectionsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/archive-types';
+    url: '/api/v3/archive-collections';
 };
 
-export type ListArchiveTypesErrors = {
+export type ListArchiveCollectionsErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type ListArchiveTypesError = ListArchiveTypesErrors[keyof ListArchiveTypesErrors];
+export type ListArchiveCollectionsError = ListArchiveCollectionsErrors[keyof ListArchiveCollectionsErrors];
 
-export type ListArchiveTypesResponses = {
+export type ListArchiveCollectionsResponses = {
     /**
      * Archive type definitions
      */
-    200: Array<ArchiveTypeDefinition>;
+    200: Array<ArchiveCollectionDefinition>;
 };
 
-export type ListArchiveTypesResponse = ListArchiveTypesResponses[keyof ListArchiveTypesResponses];
+export type ListArchiveCollectionsResponse = ListArchiveCollectionsResponses[keyof ListArchiveCollectionsResponses];
 
-export type CreateArchiveTypeData = {
-    body: ArchiveTypeInput;
+export type CreateArchiveCollectionData = {
+    body: ArchiveCollectionInput;
     path?: never;
     query?: never;
-    url: '/api/v2/archive-types';
+    url: '/api/v3/archive-collections';
 };
 
-export type CreateArchiveTypeErrors = {
+export type CreateArchiveCollectionErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type CreateArchiveTypeError = CreateArchiveTypeErrors[keyof CreateArchiveTypeErrors];
+export type CreateArchiveCollectionError = CreateArchiveCollectionErrors[keyof CreateArchiveCollectionErrors];
 
-export type CreateArchiveTypeResponses = {
+export type CreateArchiveCollectionResponses = {
     /**
      * Created archive type
      */
-    201: ArchiveTypeDefinition;
+    201: ArchiveCollectionDefinition;
 };
 
-export type CreateArchiveTypeResponse = CreateArchiveTypeResponses[keyof CreateArchiveTypeResponses];
+export type CreateArchiveCollectionResponse = CreateArchiveCollectionResponses[keyof CreateArchiveCollectionResponses];
 
-export type DeleteArchiveTypeData = {
+export type DeleteArchiveCollectionData = {
     body?: never;
     path: {
-        typeId: string;
+        collectionId: string;
     };
     query?: never;
-    url: '/api/v2/archive-types/{typeId}';
+    url: '/api/v3/archive-collections/{collectionId}';
 };
 
-export type DeleteArchiveTypeErrors = {
+export type DeleteArchiveCollectionErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type DeleteArchiveTypeError = DeleteArchiveTypeErrors[keyof DeleteArchiveTypeErrors];
+export type DeleteArchiveCollectionError = DeleteArchiveCollectionErrors[keyof DeleteArchiveCollectionErrors];
 
-export type DeleteArchiveTypeResponses = {
+export type DeleteArchiveCollectionResponses = {
     /**
      * Archive type deleted
      */
     204: void;
 };
 
-export type DeleteArchiveTypeResponse = DeleteArchiveTypeResponses[keyof DeleteArchiveTypeResponses];
+export type DeleteArchiveCollectionResponse = DeleteArchiveCollectionResponses[keyof DeleteArchiveCollectionResponses];
 
-export type GetArchiveTypeData = {
+export type GetArchiveCollectionData = {
     body?: never;
     path: {
-        typeId: string;
+        collectionId: string;
     };
     query?: never;
-    url: '/api/v2/archive-types/{typeId}';
+    url: '/api/v3/archive-collections/{collectionId}';
 };
 
-export type GetArchiveTypeErrors = {
+export type GetArchiveCollectionErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type GetArchiveTypeError = GetArchiveTypeErrors[keyof GetArchiveTypeErrors];
+export type GetArchiveCollectionError = GetArchiveCollectionErrors[keyof GetArchiveCollectionErrors];
 
-export type GetArchiveTypeResponses = {
+export type GetArchiveCollectionResponses = {
     /**
      * Archive type
      */
-    200: ArchiveTypeDefinition;
+    200: ArchiveCollectionDefinition;
 };
 
-export type GetArchiveTypeResponse = GetArchiveTypeResponses[keyof GetArchiveTypeResponses];
+export type GetArchiveCollectionResponse = GetArchiveCollectionResponses[keyof GetArchiveCollectionResponses];
 
-export type UpdateArchiveTypeData = {
-    body: ArchiveTypeInput;
+export type UpdateArchiveCollectionData = {
+    body: ArchiveCollectionInput;
     path: {
-        typeId: string;
+        collectionId: string;
     };
     query?: never;
-    url: '/api/v2/archive-types/{typeId}';
+    url: '/api/v3/archive-collections/{collectionId}';
 };
 
-export type UpdateArchiveTypeErrors = {
+export type UpdateArchiveCollectionErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type UpdateArchiveTypeError = UpdateArchiveTypeErrors[keyof UpdateArchiveTypeErrors];
+export type UpdateArchiveCollectionError = UpdateArchiveCollectionErrors[keyof UpdateArchiveCollectionErrors];
 
-export type UpdateArchiveTypeResponses = {
+export type UpdateArchiveCollectionResponses = {
     /**
      * Updated archive type
      */
-    200: ArchiveTypeDefinition;
+    200: ArchiveCollectionDefinition;
 };
 
-export type UpdateArchiveTypeResponse = UpdateArchiveTypeResponses[keyof UpdateArchiveTypeResponses];
+export type UpdateArchiveCollectionResponse = UpdateArchiveCollectionResponses[keyof UpdateArchiveCollectionResponses];
 
 export type CreateArchiveFieldData = {
     body: ArchiveFieldInput;
     path: {
-        typeId: string;
+        collectionId: string;
     };
     query?: never;
-    url: '/api/v2/archive-types/{typeId}/fields';
+    url: '/api/v3/archive-collections/{collectionId}/fields';
 };
 
 export type CreateArchiveFieldErrors = {
@@ -542,7 +552,7 @@ export type DeleteArchiveFieldData = {
         fieldId: string;
     };
     query?: never;
-    url: '/api/v2/archive-fields/{fieldId}';
+    url: '/api/v3/archive-fields/{fieldId}';
 };
 
 export type DeleteArchiveFieldErrors = {
@@ -569,7 +579,7 @@ export type UpdateArchiveFieldData = {
         fieldId: string;
     };
     query?: never;
-    url: '/api/v2/archive-fields/{fieldId}';
+    url: '/api/v3/archive-fields/{fieldId}';
 };
 
 export type UpdateArchiveFieldErrors = {
@@ -590,150 +600,150 @@ export type UpdateArchiveFieldResponses = {
 
 export type UpdateArchiveFieldResponse = UpdateArchiveFieldResponses[keyof UpdateArchiveFieldResponses];
 
-export type ListArchivesData = {
+export type ListArchiveRecordsData = {
     body?: never;
     path?: never;
     query?: {
         q?: string;
-        typeId?: string;
+        collectionId?: string;
         sort?: 'updated' | 'title';
         limit?: number;
         offset?: number;
     };
-    url: '/api/v2/archives';
+    url: '/api/v3/archive-records';
 };
 
-export type ListArchivesErrors = {
+export type ListArchiveRecordsErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type ListArchivesError = ListArchivesErrors[keyof ListArchivesErrors];
+export type ListArchiveRecordsError = ListArchiveRecordsErrors[keyof ListArchiveRecordsErrors];
 
-export type ListArchivesResponses = {
+export type ListArchiveRecordsResponses = {
     /**
      * Archive page
      */
-    200: ArchivePage;
+    200: ArchiveRecordPage;
 };
 
-export type ListArchivesResponse = ListArchivesResponses[keyof ListArchivesResponses];
+export type ListArchiveRecordsResponse = ListArchiveRecordsResponses[keyof ListArchiveRecordsResponses];
 
-export type CreateArchiveData = {
-    body: ArchiveInput;
+export type CreateArchiveRecordData = {
+    body: ArchiveRecordInput;
     path?: never;
     query?: never;
-    url: '/api/v2/archives';
+    url: '/api/v3/archive-records';
 };
 
-export type CreateArchiveErrors = {
+export type CreateArchiveRecordErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type CreateArchiveError = CreateArchiveErrors[keyof CreateArchiveErrors];
+export type CreateArchiveRecordError = CreateArchiveRecordErrors[keyof CreateArchiveRecordErrors];
 
-export type CreateArchiveResponses = {
+export type CreateArchiveRecordResponses = {
     /**
      * Created archive
      */
-    201: Archive;
+    201: ArchiveRecord;
 };
 
-export type CreateArchiveResponse = CreateArchiveResponses[keyof CreateArchiveResponses];
+export type CreateArchiveRecordResponse = CreateArchiveRecordResponses[keyof CreateArchiveRecordResponses];
 
-export type TrashArchiveData = {
+export type TrashArchiveRecordData = {
     body?: never;
     path: {
-        archiveId: string;
+        recordId: string;
     };
     query?: never;
-    url: '/api/v2/archives/{archiveId}';
+    url: '/api/v3/archive-records/{recordId}';
 };
 
-export type TrashArchiveErrors = {
+export type TrashArchiveRecordErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type TrashArchiveError = TrashArchiveErrors[keyof TrashArchiveErrors];
+export type TrashArchiveRecordError = TrashArchiveRecordErrors[keyof TrashArchiveRecordErrors];
 
-export type TrashArchiveResponses = {
+export type TrashArchiveRecordResponses = {
     /**
      * Moved to trash
      */
     204: void;
 };
 
-export type TrashArchiveResponse = TrashArchiveResponses[keyof TrashArchiveResponses];
+export type TrashArchiveRecordResponse = TrashArchiveRecordResponses[keyof TrashArchiveRecordResponses];
 
-export type GetArchiveData = {
+export type GetArchiveRecordData = {
     body?: never;
     path: {
-        archiveId: string;
+        recordId: string;
     };
     query?: never;
-    url: '/api/v2/archives/{archiveId}';
+    url: '/api/v3/archive-records/{recordId}';
 };
 
-export type GetArchiveErrors = {
+export type GetArchiveRecordErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type GetArchiveError = GetArchiveErrors[keyof GetArchiveErrors];
+export type GetArchiveRecordError = GetArchiveRecordErrors[keyof GetArchiveRecordErrors];
 
-export type GetArchiveResponses = {
+export type GetArchiveRecordResponses = {
     /**
      * Archive details
      */
-    200: Archive;
+    200: ArchiveRecord;
 };
 
-export type GetArchiveResponse = GetArchiveResponses[keyof GetArchiveResponses];
+export type GetArchiveRecordResponse = GetArchiveRecordResponses[keyof GetArchiveRecordResponses];
 
-export type UpdateArchiveData = {
-    body: ArchiveInput;
+export type UpdateArchiveRecordData = {
+    body: ArchiveRecordInput;
     path: {
-        archiveId: string;
+        recordId: string;
     };
     query?: never;
-    url: '/api/v2/archives/{archiveId}';
+    url: '/api/v3/archive-records/{recordId}';
 };
 
-export type UpdateArchiveErrors = {
+export type UpdateArchiveRecordErrors = {
     /**
      * RFC 9457 compatible problem detail
      */
     default: Problem;
 };
 
-export type UpdateArchiveError = UpdateArchiveErrors[keyof UpdateArchiveErrors];
+export type UpdateArchiveRecordError = UpdateArchiveRecordErrors[keyof UpdateArchiveRecordErrors];
 
-export type UpdateArchiveResponses = {
+export type UpdateArchiveRecordResponses = {
     /**
      * Updated archive
      */
-    200: Archive;
+    200: ArchiveRecord;
 };
 
-export type UpdateArchiveResponse = UpdateArchiveResponses[keyof UpdateArchiveResponses];
+export type UpdateArchiveRecordResponse = UpdateArchiveRecordResponses[keyof UpdateArchiveRecordResponses];
 
 export type ListArchiveRelationsData = {
     body?: never;
     path: {
-        archiveId: string;
+        recordId: string;
     };
     query?: never;
-    url: '/api/v2/archives/{archiveId}/relations';
+    url: '/api/v3/archive-records/{recordId}/relations';
 };
 
 export type ListArchiveRelationsErrors = {
@@ -757,10 +767,10 @@ export type ListArchiveRelationsResponse = ListArchiveRelationsResponses[keyof L
 export type CreateArchiveRelationData = {
     body: RelationInput;
     path: {
-        archiveId: string;
+        recordId: string;
     };
     query?: never;
-    url: '/api/v2/archives/{archiveId}/relations';
+    url: '/api/v3/archive-records/{recordId}/relations';
 };
 
 export type CreateArchiveRelationErrors = {
@@ -787,7 +797,7 @@ export type DeleteRelationData = {
         relationId: string;
     };
     query?: never;
-    url: '/api/v2/relations/{relationId}';
+    url: '/api/v3/relations/{relationId}';
 };
 
 export type DeleteRelationErrors = {
@@ -811,10 +821,10 @@ export type DeleteRelationResponse = DeleteRelationResponses[keyof DeleteRelatio
 export type ListArchiveAttachmentsData = {
     body?: never;
     path: {
-        archiveId: string;
+        recordId: string;
     };
     query?: never;
-    url: '/api/v2/archives/{archiveId}/attachments';
+    url: '/api/v3/archive-records/{recordId}/attachments';
 };
 
 export type ListArchiveAttachmentsErrors = {
@@ -838,10 +848,10 @@ export type ListArchiveAttachmentsResponse = ListArchiveAttachmentsResponses[key
 export type ImportArchiveAttachmentsData = {
     body: AttachmentImportInput;
     path: {
-        archiveId: string;
+        recordId: string;
     };
     query?: never;
-    url: '/api/v2/archives/{archiveId}/attachments';
+    url: '/api/v3/archive-records/{recordId}/attachments';
 };
 
 export type ImportArchiveAttachmentsErrors = {
@@ -865,10 +875,10 @@ export type ImportArchiveAttachmentsResponse = ImportArchiveAttachmentsResponses
 export type ListArchiveActivityData = {
     body?: never;
     path: {
-        archiveId: string;
+        recordId: string;
     };
     query?: never;
-    url: '/api/v2/archives/{archiveId}/activity';
+    url: '/api/v3/archive-records/{recordId}/activity';
 };
 
 export type ListArchiveActivityErrors = {
@@ -895,7 +905,7 @@ export type DeleteAttachmentData = {
         attachmentId: string;
     };
     query?: never;
-    url: '/api/v2/attachments/{attachmentId}';
+    url: '/api/v3/attachments/{attachmentId}';
 };
 
 export type DeleteAttachmentErrors = {
@@ -922,7 +932,7 @@ export type GetAttachmentOpenTargetData = {
         attachmentId: string;
     };
     query?: never;
-    url: '/api/v2/attachments/{attachmentId}/open-target';
+    url: '/api/v3/attachments/{attachmentId}/open-target';
 };
 
 export type GetAttachmentOpenTargetErrors = {
@@ -949,14 +959,17 @@ export type ListTasksData = {
     body?: never;
     path?: never;
     query?: {
-        view?: 'today' | 'tomorrow' | 'all' | 'completed';
+        view?: 'inbox' | 'today' | 'tomorrow' | 'upcoming' | 'all' | 'completed' | 'calendar';
         timezone?: string;
         q?: string;
-        archiveId?: string;
+        recordId?: string;
+        includeUnscheduled?: boolean;
+        dueFrom?: string;
+        dueTo?: string;
         from?: string;
         to?: string;
     };
-    url: '/api/v2/tasks';
+    url: '/api/v3/tasks';
 };
 
 export type ListTasksErrors = {
@@ -981,7 +994,7 @@ export type CreateTaskData = {
     body: TaskInput;
     path?: never;
     query?: never;
-    url: '/api/v2/tasks';
+    url: '/api/v3/tasks';
 };
 
 export type CreateTaskErrors = {
@@ -1008,7 +1021,7 @@ export type TrashTaskData = {
         taskId: string;
     };
     query?: never;
-    url: '/api/v2/tasks/{taskId}';
+    url: '/api/v3/tasks/{taskId}';
 };
 
 export type TrashTaskErrors = {
@@ -1035,7 +1048,7 @@ export type GetTaskData = {
         taskId: string;
     };
     query?: never;
-    url: '/api/v2/tasks/{taskId}';
+    url: '/api/v3/tasks/{taskId}';
 };
 
 export type GetTaskErrors = {
@@ -1062,7 +1075,7 @@ export type UpdateTaskData = {
         taskId: string;
     };
     query?: never;
-    url: '/api/v2/tasks/{taskId}';
+    url: '/api/v3/tasks/{taskId}';
 };
 
 export type UpdateTaskErrors = {
@@ -1089,7 +1102,7 @@ export type SearchData = {
     query: {
         q: string;
     };
-    url: '/api/v2/search';
+    url: '/api/v3/search';
 };
 
 export type SearchErrors = {
@@ -1114,7 +1127,7 @@ export type GetSearchStatusData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/search/status';
+    url: '/api/v3/search/status';
 };
 
 export type GetSearchStatusErrors = {
@@ -1139,7 +1152,7 @@ export type RebuildSearchData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/search/rebuild';
+    url: '/api/v3/search/rebuild';
 };
 
 export type RebuildSearchErrors = {
@@ -1164,7 +1177,7 @@ export type ListTrashData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/trash';
+    url: '/api/v3/trash';
 };
 
 export type ListTrashErrors = {
@@ -1191,7 +1204,7 @@ export type RestoreTrashData = {
         trashId: string;
     };
     query?: never;
-    url: '/api/v2/trash/{trashId}/restore';
+    url: '/api/v3/trash/{trashId}/restore';
 };
 
 export type RestoreTrashErrors = {
@@ -1216,7 +1229,7 @@ export type ListBackupsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/backups';
+    url: '/api/v3/backups';
 };
 
 export type ListBackupsErrors = {
@@ -1241,7 +1254,7 @@ export type CreateBackupData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/backups';
+    url: '/api/v3/backups';
 };
 
 export type CreateBackupErrors = {
@@ -1266,7 +1279,7 @@ export type GetBackupSettingsData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/v2/backup-settings';
+    url: '/api/v3/backup-settings';
 };
 
 export type GetBackupSettingsErrors = {
@@ -1291,7 +1304,7 @@ export type UpdateBackupSettingsData = {
     body: BackupSettings;
     path?: never;
     query?: never;
-    url: '/api/v2/backup-settings';
+    url: '/api/v3/backup-settings';
 };
 
 export type UpdateBackupSettingsErrors = {
@@ -1318,7 +1331,7 @@ export type CancelJobData = {
         jobId: string;
     };
     query?: never;
-    url: '/api/v2/jobs/{jobId}';
+    url: '/api/v3/jobs/{jobId}';
 };
 
 export type CancelJobErrors = {
@@ -1345,7 +1358,7 @@ export type GetJobData = {
         jobId: string;
     };
     query?: never;
-    url: '/api/v2/jobs/{jobId}';
+    url: '/api/v3/jobs/{jobId}';
 };
 
 export type GetJobErrors = {
@@ -1372,7 +1385,7 @@ export type GetJobEventsData = {
         jobId: string;
     };
     query?: never;
-    url: '/api/v2/jobs/{jobId}/events';
+    url: '/api/v3/jobs/{jobId}/events';
 };
 
 export type GetJobEventsErrors = {
@@ -1399,7 +1412,7 @@ export type PreflightRestoreData = {
     };
     path?: never;
     query?: never;
-    url: '/api/v2/restores/preflight';
+    url: '/api/v3/restores/preflight';
 };
 
 export type PreflightRestoreErrors = {
@@ -1427,7 +1440,7 @@ export type CreateRestoreData = {
     };
     path?: never;
     query?: never;
-    url: '/api/v2/restores';
+    url: '/api/v3/restores';
 };
 
 export type CreateRestoreErrors = {

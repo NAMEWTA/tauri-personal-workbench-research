@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save, X } from 'lucide-react'
 import { useState } from 'react'
-import { createArchive } from '../../generated/api/sdk.gen'
-import type { ArchiveInput } from '../../generated/api/types.gen'
+import { createArchiveRecord } from '../../generated/api/sdk.gen'
+import type { ArchiveRecordInput } from '../../generated/api/types.gen'
 import { requireData } from '../../lib/http/client'
 import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { ArchiveFieldControl } from './ArchiveFieldControl'
@@ -11,11 +11,11 @@ import { archiveKeys, archiveTypesQuery } from './queries'
 
 export function ArchiveForm({ onClose }: { onClose: () => void }) {
   const definitions = useQuery(archiveTypesQuery)
-  const [typeId, setTypeId] = useState('')
+  const [collectionId, setTypeId] = useState('')
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [fields, setFields] = useState<Record<string, unknown>>({})
-  const activeTypeId = typeId || definitions.data?.[0]?.id || ''
+  const activeTypeId = collectionId || definitions.data?.[0]?.id || ''
   const selectedDefinition = definitions.data?.find((item) => item.id === activeTypeId)
   const queryClient = useQueryClient()
   const effectiveFields = selectedDefinition
@@ -36,8 +36,8 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
     )
   }
   const mutation = useMutation({
-    mutationFn: async (body: ArchiveInput) =>
-      requireData((await createArchive({ body, throwOnError: true })).data),
+    mutationFn: async (body: ArchiveRecordInput) =>
+      requireData((await createArchiveRecord({ body, throwOnError: true })).data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: archiveKeys.all })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -51,7 +51,7 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
         onSubmit={(event) => {
           event.preventDefault()
           mutation.mutate({
-            typeId: activeTypeId,
+            collectionId: activeTypeId,
             title: title.trim(),
             summary,
             body: '',
@@ -63,7 +63,7 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
         <div className="dialog-heading">
           <div>
             <span className="eyebrow">新建</span>
-            <h2>添加档案</h2>
+            <h2>添加记录</h2>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="关闭">
             <X size={17} />
@@ -76,7 +76,7 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             <label>
-              档案类型
+              所属集合
               <select value={activeTypeId} onChange={(event) => selectType(event.target.value)}>
                 {definitions.data.map((item) => (
                   <option key={item.id} value={item.id}>

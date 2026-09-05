@@ -3,7 +3,7 @@ use rand::RngCore;
 use serde::Serialize;
 use std::path::PathBuf;
 
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -10,8 +10,9 @@ import { useLayoutStore } from '../../stores/layout'
 
 type View = NonNullable<ListTasksData['query']>['view']
 const views: Array<{ value: View; label: string }> = [
+  { value: 'inbox', label: '收件箱' },
   { value: 'today', label: '今天' },
-  { value: 'tomorrow', label: '明天' },
+  { value: 'upcoming', label: '即将到来' },
   { value: 'all', label: '全部' },
   { value: 'completed', label: '已完成' },
 ]

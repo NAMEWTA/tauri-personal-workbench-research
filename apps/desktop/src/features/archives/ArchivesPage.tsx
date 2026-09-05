@@ -8,15 +8,17 @@ import { archiveTypesQuery, archivesQuery } from './queries'
 
 export function ArchivesPage() {
   const [q, setQ] = useState('')
-  const [typeId, setTypeId] = useState('')
+  const [collectionId, setTypeId] = useState('')
   const [sort, setSort] = useState<'updated' | 'title'>('updated')
   const [offset, setOffset] = useState(0)
   const [mode, setMode] = useState<'table' | 'grid'>('table')
   const [form, setForm] = useState(false)
   const limit = 50
   const types = useQuery(archiveTypesQuery)
-  const query = useQuery(archivesQuery(q, typeId, sort, limit, offset))
+  const query = useQuery(archivesQuery(q, collectionId, sort, limit, offset))
   const items = query.data?.items ?? []
+  const activeType = types.data?.find((item) => item.id === collectionId)
+  const visibleFields = activeType?.fields.slice(0, 4) ?? []
   return (
     <div className="page">
       <div className="page-header">
@@ -25,13 +27,13 @@ export function ArchivesPage() {
           <h1>档案</h1>
         </div>
         <div className="header-actions">
-          <Link className="button" to="/archive-types">
+          <Link className="button" to="/archive-collections">
             <Settings2 size={16} />
-            档案类型
+            管理集合
           </Link>
           <button className="button primary" onClick={() => setForm(true)}>
             <Plus size={16} />
-            新建档案
+            新建记录
           </button>
         </div>
       </div>
@@ -82,10 +84,10 @@ export function ArchivesPage() {
           <ErrorState error={types.error} retry={() => void types.refetch()} />
         </div>
       ) : (
-        <div className="segmented archive-type-tabs" aria-label="档案类型">
+        <div className="segmented archive-type-tabs" aria-label="档案集合">
           <button
             type="button"
-            className={!typeId ? 'active' : ''}
+            className={!collectionId ? 'active' : ''}
             onClick={() => {
               setTypeId('')
               setOffset(0)
@@ -97,7 +99,7 @@ export function ArchivesPage() {
             <button
               type="button"
               key={item.id}
-              className={typeId === item.id ? 'active' : ''}
+              className={collectionId === item.id ? 'active' : ''}
               onClick={() => {
                 setTypeId(item.id)
                 setOffset(0)
@@ -118,10 +120,13 @@ export function ArchivesPage() {
         ) : (
           <div className={`archive-list ${mode}`}>
             {items.map((item) => (
-              <Link key={item.id} to="/archives/$archiveId" params={{ archiveId: item.id }}>
+              <Link key={item.id} to="/archives/$recordId" params={{ recordId: item.id }}>
                 <span
                   className="archive-icon"
-                  style={{ backgroundColor: `${item.typeColor}20`, color: item.typeColor }}
+                  style={{
+                    backgroundColor: `${item.collectionColor}20`,
+                    color: item.collectionColor,
+                  }}
                 >
                   <Archive size={18} />
                 </span>
@@ -129,7 +134,21 @@ export function ArchivesPage() {
                   <strong>{item.title}</strong>
                   <small>{item.summary || '暂无摘要'}</small>
                 </span>
-                <span className="archive-type">{item.typeName}</span>
+                {visibleFields.map((field) => {
+                  const value = item.fields?.[field.key]
+                  const text =
+                    field.sensitive && value
+                      ? '••••'
+                      : Array.isArray(value)
+                        ? value.join('、')
+                        : String(value ?? '')
+                  return (
+                    <span key={field.id} className="archive-field-value" title={text}>
+                      {text || '—'}
+                    </span>
+                  )
+                })}
+                <span className="archive-type">{item.collectionName}</span>
                 <time>
                   {new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(
                     new Date(item.updatedAt),

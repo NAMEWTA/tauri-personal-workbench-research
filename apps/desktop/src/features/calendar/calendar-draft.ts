@@ -19,10 +19,14 @@ export function initialTaskDraft(now = new Date()): TaskInput {
 }
 
 export function taskDraftFromCalendarSelection(start: Date, end: Date, allDay: boolean): TaskInput {
+  const dueOn = allDay
+    ? new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(start)
+    : undefined
   return {
     ...initialTaskDraft(start),
     startsAt: start.toISOString(),
     endsAt: end.toISOString(),
     allDay,
+    dueOn,
   }
 }

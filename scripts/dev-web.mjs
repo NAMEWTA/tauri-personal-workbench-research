@@ -75,7 +75,7 @@ const backend = spawn(join(binariesDirectory, binaryName), [], {
 });
 backend.stdin.end(
   `${JSON.stringify({
-    protocolVersion: 2,
+    protocolVersion: 3,
     parentPid: process.pid,
     token,
     workspacePath: workspace,
@@ -150,7 +150,7 @@ lines.once("line", (line) => {
   }
   if (
     ready.type !== "ready" ||
-    ready.protocolVersion !== 2 ||
+    ready.protocolVersion !== 3 ||
     !Number.isInteger(ready.port)
   ) {
     console.error(`Unexpected workbenchd ready message: ${line}`);

@@ -20,7 +20,7 @@ func TestManagedAttachmentImportAndRemoval(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	owner, err := store.CreateArchive(ctx, archive.Input{TypeID: "person", Title: "附件所有者"})
+	owner, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "附件所有者"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestAttachmentBatchFailureRemovesEarlierFilesAndRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	owner, err := store.CreateArchive(ctx, archive.Input{TypeID: "person", Title: "批量附件所有者"})
+	owner, err := store.CreateArchive(ctx, archive.Input{CollectionID: "template", Title: "批量附件所有者"})
 	if err != nil {
 		t.Fatal(err)
 	}

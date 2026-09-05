@@ -3,7 +3,8 @@
 ## Unified task and calendar model
 
 - A task is the only schedulable entity.
-- A task may be unscheduled or have one start/end interval.
+- A task may be unscheduled or have one start/end work interval.
+- A task may also have an independent due date, recurrence rule, reminders, estimate, and parent task.
 - Calendar views are projections of scheduled tasks; creating an item in the calendar creates a task.
 - Task views are ordered: Today, Tomorrow, All, Completed.
 - All contains every non-completed task, including unscheduled tasks.
@@ -11,18 +12,17 @@
 
 ## Archive associations
 
-- A task may reference one primary archive.
+- A task may reference one primary archive record.
 - Archive selection supports archive-type filtering and fuzzy title search.
 - Archive references and archive-to-archive relations are navigable.
 - An archive exposes one combined associated-items section backed by tasks.
 
 ## Custom archive schema
 
-- Archive types are user-managed records, not code enums.
-- Person, Organization, and Event are editable seed templates.
-- Users can create additional types such as Project.
-- Each type owns ordered field definitions with groups, validation, options, defaults, and sensitivity metadata.
-- Archive forms render entirely from field definitions.
+- An archive type is a user-created archive collection, not a fixed code enum.
+- The first workspace contains only one empty “模板档案” collection.
+- Each collection owns ordered field definitions with groups, validation, options, defaults, and sensitivity metadata.
+- Each collection contains multiple archive records, and every record form renders from the collection fields.
 
 ## Inspector behavior
 

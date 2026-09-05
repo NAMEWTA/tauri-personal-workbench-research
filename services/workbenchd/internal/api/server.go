@@ -41,15 +41,15 @@ func NewHandler(service *app.Service, config Config, logger *slog.Logger) http.H
 	})
 	root.Group(func(protected chi.Router) {
 		protected.Use(authenticate(config.Token), bodyLimit(2<<20), timeout(30*time.Second), accessLog(logger))
-		protected.Route("/api/v2", func(r chi.Router) {
+		protected.Route("/api/v3", func(r chi.Router) {
 			r.Get("/meta", s.meta)
 			r.Get("/preferences", s.preferences)
 			r.Patch("/preferences", s.updatePreferences)
 			r.Get("/dashboard", s.dashboard)
-			r.Get("/archives", s.listArchives)
-			r.Get("/archive-types", s.listArchiveTypes)
-			r.Post("/archive-types", s.createArchiveType)
-			r.Route("/archive-types/{typeId}", func(r chi.Router) {
+			r.Get("/archive-records", s.listArchives)
+			r.Get("/archive-collections", s.listArchiveTypes)
+			r.Post("/archive-collections", s.createArchiveType)
+			r.Route("/archive-collections/{collectionId}", func(r chi.Router) {
 				r.Get("/", s.getArchiveType)
 				r.Patch("/", s.updateArchiveType)
 				r.Delete("/", s.deleteArchiveType)
@@ -57,18 +57,18 @@ func NewHandler(service *app.Service, config Config, logger *slog.Logger) http.H
 			})
 			r.Patch("/archive-fields/{fieldId}", s.updateArchiveField)
 			r.Delete("/archive-fields/{fieldId}", s.deleteArchiveField)
-			r.Post("/archives", s.createArchive)
-			r.Route("/archives/{archiveId}", func(r chi.Router) {
+			r.Post("/archive-records", s.createArchive)
+			r.Route("/archive-records/{recordId}", func(r chi.Router) {
 				r.Get("/", s.getArchive)
 				r.Patch("/", s.updateArchive)
 				r.Delete("/", s.trashArchive)
 			})
-			r.Get("/archives/{archiveId}/relations", s.listRelations)
-			r.Post("/archives/{archiveId}/relations", s.createRelation)
+			r.Get("/archive-records/{recordId}/relations", s.listRelations)
+			r.Post("/archive-records/{recordId}/relations", s.createRelation)
 			r.Delete("/relations/{relationId}", s.deleteRelation)
-			r.Get("/archives/{archiveId}/attachments", s.listAttachments)
-			r.Post("/archives/{archiveId}/attachments", s.importAttachments)
-			r.Get("/archives/{archiveId}/activity", s.listArchiveActivity)
+			r.Get("/archive-records/{recordId}/attachments", s.listAttachments)
+			r.Post("/archive-records/{recordId}/attachments", s.importAttachments)
+			r.Get("/archive-records/{recordId}/activity", s.listArchiveActivity)
 			r.Delete("/attachments/{attachmentId}", s.deleteAttachment)
 			r.Get("/attachments/{attachmentId}/open-target", s.attachmentOpenTarget)
 			r.Get("/tasks", s.listTasks)
@@ -104,7 +104,7 @@ func (s *Server) meta(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"apiVersion": 2, "serviceVersion": s.config.ServiceVersion, "workspaceName": name, "schemaVersion": schemaVersion})
+	writeJSON(w, http.StatusOK, map[string]any{"apiVersion": 3, "serviceVersion": s.config.ServiceVersion, "workspaceName": name, "schemaVersion": schemaVersion})
 }
 
 func (s *Server) preferences(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +145,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listArchives(w http.ResponseWriter, r *http.Request) {
 	limit := queryInt(r, "limit", 50)
 	offset := queryInt(r, "offset", 0)
-	result, err := s.service.ListArchives(r.Context(), r.URL.Query().Get("q"), r.URL.Query().Get("typeId"), r.URL.Query().Get("sort"), limit, offset)
+	result, err := s.service.ListArchiveRecords(r.Context(), r.URL.Query().Get("q"), r.URL.Query().Get("collectionId"), r.URL.Query().Get("sort"), limit, offset)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -153,7 +153,7 @@ func (s *Server) listArchives(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 func (s *Server) listArchiveTypes(w http.ResponseWriter, r *http.Request) {
-	result, err := s.service.ListArchiveTypes(r.Context())
+	result, err := s.service.ListArchiveCollections(r.Context())
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -162,7 +162,7 @@ func (s *Server) listArchiveTypes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getArchiveType(w http.ResponseWriter, r *http.Request) {
-	result, err := s.service.GetArchiveType(r.Context(), chi.URLParam(r, "typeId"))
+	result, err := s.service.GetArchiveCollection(r.Context(), chi.URLParam(r, "collectionId"))
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -171,7 +171,7 @@ func (s *Server) getArchiveType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createArchiveType(w http.ResponseWriter, r *http.Request) {
-	var input archive.TypeInput
+	var input archive.CollectionInput
 	if !decode(w, r, &input) {
 		return
 	}
@@ -179,7 +179,7 @@ func (s *Server) createArchiveType(w http.ResponseWriter, r *http.Request) {
 		invalid(w, r)
 		return
 	}
-	result, err := s.service.CreateArchiveType(r.Context(), input)
+	result, err := s.service.CreateArchiveCollection(r.Context(), input)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -188,7 +188,7 @@ func (s *Server) createArchiveType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateArchiveType(w http.ResponseWriter, r *http.Request) {
-	var input archive.TypeInput
+	var input archive.CollectionInput
 	if !decode(w, r, &input) {
 		return
 	}
@@ -196,7 +196,7 @@ func (s *Server) updateArchiveType(w http.ResponseWriter, r *http.Request) {
 		invalid(w, r)
 		return
 	}
-	result, err := s.service.UpdateArchiveType(r.Context(), chi.URLParam(r, "typeId"), input)
+	result, err := s.service.UpdateArchiveCollection(r.Context(), chi.URLParam(r, "collectionId"), input)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -205,7 +205,7 @@ func (s *Server) updateArchiveType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteArchiveType(w http.ResponseWriter, r *http.Request) {
-	if err := s.service.DeleteArchiveType(r.Context(), chi.URLParam(r, "typeId")); err != nil {
+	if err := s.service.DeleteArchiveCollection(r.Context(), chi.URLParam(r, "collectionId")); err != nil {
 		writeServiceError(w, r, err)
 		return
 	}
@@ -221,7 +221,7 @@ func (s *Server) createArchiveField(w http.ResponseWriter, r *http.Request) {
 		invalid(w, r)
 		return
 	}
-	result, err := s.service.CreateArchiveField(r.Context(), chi.URLParam(r, "typeId"), input)
+	result, err := s.service.CreateArchiveField(r.Context(), chi.URLParam(r, "collectionId"), input)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -255,7 +255,7 @@ func (s *Server) deleteArchiveField(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getArchive(w http.ResponseWriter, r *http.Request) {
-	result, err := s.service.GetArchive(r.Context(), chi.URLParam(r, "archiveId"))
+	result, err := s.service.GetArchive(r.Context(), chi.URLParam(r, "recordId"))
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -288,7 +288,7 @@ func (s *Server) updateArchive(w http.ResponseWriter, r *http.Request) {
 		invalid(w, r)
 		return
 	}
-	result, err := s.service.UpdateArchive(r.Context(), chi.URLParam(r, "archiveId"), input)
+	result, err := s.service.UpdateArchive(r.Context(), chi.URLParam(r, "recordId"), input)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -296,14 +296,14 @@ func (s *Server) updateArchive(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 func (s *Server) trashArchive(w http.ResponseWriter, r *http.Request) {
-	if err := s.service.TrashArchive(r.Context(), chi.URLParam(r, "archiveId")); err != nil {
+	if err := s.service.TrashArchive(r.Context(), chi.URLParam(r, "recordId")); err != nil {
 		writeServiceError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 func (s *Server) listRelations(w http.ResponseWriter, r *http.Request) {
-	result, err := s.service.ListRelations(r.Context(), chi.URLParam(r, "archiveId"))
+	result, err := s.service.ListRelations(r.Context(), chi.URLParam(r, "recordId"))
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -319,7 +319,7 @@ func (s *Server) createRelation(w http.ResponseWriter, r *http.Request) {
 		invalid(w, r)
 		return
 	}
-	result, err := s.service.CreateRelation(r.Context(), chi.URLParam(r, "archiveId"), input)
+	result, err := s.service.CreateRelation(r.Context(), chi.URLParam(r, "recordId"), input)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -334,7 +334,7 @@ func (s *Server) deleteRelation(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 func (s *Server) listAttachments(w http.ResponseWriter, r *http.Request) {
-	result, err := s.service.ListAttachments(r.Context(), chi.URLParam(r, "archiveId"))
+	result, err := s.service.ListAttachments(r.Context(), chi.URLParam(r, "recordId"))
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -352,7 +352,7 @@ func (s *Server) importAttachments(w http.ResponseWriter, r *http.Request) {
 		invalid(w, r)
 		return
 	}
-	result, err := s.service.StartAttachmentImport(chi.URLParam(r, "archiveId"), input.Paths)
+	result, err := s.service.StartAttachmentImport(chi.URLParam(r, "recordId"), input.Paths)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -360,7 +360,7 @@ func (s *Server) importAttachments(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, result)
 }
 func (s *Server) listArchiveActivity(w http.ResponseWriter, r *http.Request) {
-	result, err := s.service.ListActivity(r.Context(), "archive", chi.URLParam(r, "archiveId"))
+	result, err := s.service.ListActivity(r.Context(), "archive", chi.URLParam(r, "recordId"))
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -393,12 +393,15 @@ func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.service.ListTasks(r.Context(), task.Filter{
-		View:      r.URL.Query().Get("view"),
-		Timezone:  r.URL.Query().Get("timezone"),
-		Query:     r.URL.Query().Get("q"),
-		ArchiveID: r.URL.Query().Get("archiveId"),
-		From:      from,
-		To:        to,
+		View:               r.URL.Query().Get("view"),
+		Timezone:           r.URL.Query().Get("timezone"),
+		Query:              r.URL.Query().Get("q"),
+		RecordID:           r.URL.Query().Get("recordId"),
+		DueFrom:            r.URL.Query().Get("dueFrom"),
+		DueTo:              r.URL.Query().Get("dueTo"),
+		IncludeUnscheduled: r.URL.Query().Get("includeUnscheduled") == "true",
+		From:               from,
+		To:                 to,
 	})
 	if err != nil {
 		writeServiceError(w, r, err)

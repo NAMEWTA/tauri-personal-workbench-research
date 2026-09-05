@@ -23,7 +23,7 @@ async function connectionInfo(): Promise<BackendConnection> {
     return {
       baseUrl: rawUrl,
       token,
-      protocolVersion: 2,
+      protocolVersion: 3,
       serviceVersion: 'development',
     }
   }

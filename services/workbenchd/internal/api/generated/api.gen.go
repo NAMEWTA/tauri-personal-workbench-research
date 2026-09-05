@@ -36,24 +36,36 @@ const (
 
 // Defines values for ArchiveFieldDefinitionValueType.
 const (
-	ArchiveFieldDefinitionValueTypeBoolean   ArchiveFieldDefinitionValueType = "boolean"
-	ArchiveFieldDefinitionValueTypeDate      ArchiveFieldDefinitionValueType = "date"
-	ArchiveFieldDefinitionValueTypeDatetime  ArchiveFieldDefinitionValueType = "datetime"
-	ArchiveFieldDefinitionValueTypeMultiline ArchiveFieldDefinitionValueType = "multiline"
-	ArchiveFieldDefinitionValueTypeNumber    ArchiveFieldDefinitionValueType = "number"
-	ArchiveFieldDefinitionValueTypeSelect    ArchiveFieldDefinitionValueType = "select"
-	ArchiveFieldDefinitionValueTypeText      ArchiveFieldDefinitionValueType = "text"
+	ArchiveFieldDefinitionValueTypeAttachment  ArchiveFieldDefinitionValueType = "attachment"
+	ArchiveFieldDefinitionValueTypeBoolean     ArchiveFieldDefinitionValueType = "boolean"
+	ArchiveFieldDefinitionValueTypeDate        ArchiveFieldDefinitionValueType = "date"
+	ArchiveFieldDefinitionValueTypeDatetime    ArchiveFieldDefinitionValueType = "datetime"
+	ArchiveFieldDefinitionValueTypeEmail       ArchiveFieldDefinitionValueType = "email"
+	ArchiveFieldDefinitionValueTypeMultiSelect ArchiveFieldDefinitionValueType = "multiSelect"
+	ArchiveFieldDefinitionValueTypeMultiline   ArchiveFieldDefinitionValueType = "multiline"
+	ArchiveFieldDefinitionValueTypeNumber      ArchiveFieldDefinitionValueType = "number"
+	ArchiveFieldDefinitionValueTypePhone       ArchiveFieldDefinitionValueType = "phone"
+	ArchiveFieldDefinitionValueTypeRelation    ArchiveFieldDefinitionValueType = "relation"
+	ArchiveFieldDefinitionValueTypeSelect      ArchiveFieldDefinitionValueType = "select"
+	ArchiveFieldDefinitionValueTypeText        ArchiveFieldDefinitionValueType = "text"
+	ArchiveFieldDefinitionValueTypeUrl         ArchiveFieldDefinitionValueType = "url"
 )
 
 // Defines values for ArchiveFieldInputValueType.
 const (
-	ArchiveFieldInputValueTypeBoolean   ArchiveFieldInputValueType = "boolean"
-	ArchiveFieldInputValueTypeDate      ArchiveFieldInputValueType = "date"
-	ArchiveFieldInputValueTypeDatetime  ArchiveFieldInputValueType = "datetime"
-	ArchiveFieldInputValueTypeMultiline ArchiveFieldInputValueType = "multiline"
-	ArchiveFieldInputValueTypeNumber    ArchiveFieldInputValueType = "number"
-	ArchiveFieldInputValueTypeSelect    ArchiveFieldInputValueType = "select"
-	ArchiveFieldInputValueTypeText      ArchiveFieldInputValueType = "text"
+	ArchiveFieldInputValueTypeAttachment  ArchiveFieldInputValueType = "attachment"
+	ArchiveFieldInputValueTypeBoolean     ArchiveFieldInputValueType = "boolean"
+	ArchiveFieldInputValueTypeDate        ArchiveFieldInputValueType = "date"
+	ArchiveFieldInputValueTypeDatetime    ArchiveFieldInputValueType = "datetime"
+	ArchiveFieldInputValueTypeEmail       ArchiveFieldInputValueType = "email"
+	ArchiveFieldInputValueTypeMultiSelect ArchiveFieldInputValueType = "multiSelect"
+	ArchiveFieldInputValueTypeMultiline   ArchiveFieldInputValueType = "multiline"
+	ArchiveFieldInputValueTypeNumber      ArchiveFieldInputValueType = "number"
+	ArchiveFieldInputValueTypePhone       ArchiveFieldInputValueType = "phone"
+	ArchiveFieldInputValueTypeRelation    ArchiveFieldInputValueType = "relation"
+	ArchiveFieldInputValueTypeSelect      ArchiveFieldInputValueType = "select"
+	ArchiveFieldInputValueTypeText        ArchiveFieldInputValueType = "text"
+	ArchiveFieldInputValueTypeUrl         ArchiveFieldInputValueType = "url"
 )
 
 // Defines values for BackupRunState.
@@ -150,18 +162,21 @@ const (
 	TrashEntryEntityTypeTask       TrashEntryEntityType = "task"
 )
 
-// Defines values for ListArchivesParamsSort.
+// Defines values for ListArchiveRecordsParamsSort.
 const (
-	Title   ListArchivesParamsSort = "title"
-	Updated ListArchivesParamsSort = "updated"
+	Title   ListArchiveRecordsParamsSort = "title"
+	Updated ListArchiveRecordsParamsSort = "updated"
 )
 
 // Defines values for ListTasksParamsView.
 const (
 	All       ListTasksParamsView = "all"
+	Calendar  ListTasksParamsView = "calendar"
 	Completed ListTasksParamsView = "completed"
+	Inbox     ListTasksParamsView = "inbox"
 	Today     ListTasksParamsView = "today"
 	Tomorrow  ListTasksParamsView = "tomorrow"
+	Upcoming  ListTasksParamsView = "upcoming"
 )
 
 // Activity defines model for Activity.
@@ -174,19 +189,22 @@ type Activity struct {
 // ActivityAction defines model for Activity.Action.
 type ActivityAction string
 
-// Archive defines model for Archive.
-type Archive struct {
-	Body      string                 `json:"body"`
-	CreatedAt time.Time              `json:"createdAt"`
-	Fields    map[string]interface{} `json:"fields"`
-	Id        openapi_types.UUID     `json:"id"`
-	Summary   string                 `json:"summary"`
-	Title     string                 `json:"title"`
-	TypeColor string                 `json:"typeColor"`
-	TypeIcon  string                 `json:"typeIcon"`
-	TypeId    string                 `json:"typeId"`
-	TypeName  string                 `json:"typeName"`
-	UpdatedAt time.Time              `json:"updatedAt"`
+// ArchiveCollectionDefinition defines model for ArchiveCollectionDefinition.
+type ArchiveCollectionDefinition struct {
+	Color     string                   `json:"color"`
+	Fields    []ArchiveFieldDefinition `json:"fields"`
+	Icon      string                   `json:"icon"`
+	Id        string                   `json:"id"`
+	Name      string                   `json:"name"`
+	SortOrder int                      `json:"sortOrder"`
+}
+
+// ArchiveCollectionInput defines model for ArchiveCollectionInput.
+type ArchiveCollectionInput struct {
+	Color     string `json:"color"`
+	Icon      string `json:"icon"`
+	Name      string `json:"name"`
+	SortOrder int    `json:"sortOrder"`
 }
 
 // ArchiveFieldDefinition defines model for ArchiveFieldDefinition.
@@ -222,39 +240,36 @@ type ArchiveFieldInput struct {
 // ArchiveFieldInputValueType defines model for ArchiveFieldInput.ValueType.
 type ArchiveFieldInputValueType string
 
-// ArchiveInput defines model for ArchiveInput.
-type ArchiveInput struct {
-	Body    *string                 `json:"body,omitempty"`
-	Fields  *map[string]interface{} `json:"fields,omitempty"`
-	Summary *string                 `json:"summary,omitempty"`
-	Title   string                  `json:"title"`
-	TypeId  string                  `json:"typeId"`
+// ArchiveRecord defines model for ArchiveRecord.
+type ArchiveRecord struct {
+	Body            string                 `json:"body"`
+	CollectionColor string                 `json:"collectionColor"`
+	CollectionIcon  string                 `json:"collectionIcon"`
+	CollectionId    string                 `json:"collectionId"`
+	CollectionName  string                 `json:"collectionName"`
+	CreatedAt       time.Time              `json:"createdAt"`
+	Fields          map[string]interface{} `json:"fields"`
+	Id              openapi_types.UUID     `json:"id"`
+	Summary         string                 `json:"summary"`
+	Title           string                 `json:"title"`
+	UpdatedAt       time.Time              `json:"updatedAt"`
 }
 
-// ArchivePage defines model for ArchivePage.
-type ArchivePage struct {
-	Items  []Archive `json:"items"`
-	Limit  int       `json:"limit"`
-	Offset int       `json:"offset"`
-	Total  int       `json:"total"`
+// ArchiveRecordInput defines model for ArchiveRecordInput.
+type ArchiveRecordInput struct {
+	Body         *string                 `json:"body,omitempty"`
+	CollectionId string                  `json:"collectionId"`
+	Fields       *map[string]interface{} `json:"fields,omitempty"`
+	Summary      *string                 `json:"summary,omitempty"`
+	Title        string                  `json:"title"`
 }
 
-// ArchiveTypeDefinition defines model for ArchiveTypeDefinition.
-type ArchiveTypeDefinition struct {
-	Color     string                   `json:"color"`
-	Fields    []ArchiveFieldDefinition `json:"fields"`
-	Icon      string                   `json:"icon"`
-	Id        string                   `json:"id"`
-	Name      string                   `json:"name"`
-	SortOrder int                      `json:"sortOrder"`
-}
-
-// ArchiveTypeInput defines model for ArchiveTypeInput.
-type ArchiveTypeInput struct {
-	Color     string `json:"color"`
-	Icon      string `json:"icon"`
-	Name      string `json:"name"`
-	SortOrder int    `json:"sortOrder"`
+// ArchiveRecordPage defines model for ArchiveRecordPage.
+type ArchiveRecordPage struct {
+	Items  []ArchiveRecord `json:"items"`
+	Limit  int             `json:"limit"`
+	Offset int             `json:"offset"`
+	Total  int             `json:"total"`
 }
 
 // Attachment defines model for Attachment.
@@ -293,10 +308,10 @@ type BackupSettings struct {
 
 // Dashboard defines model for Dashboard.
 type Dashboard struct {
-	OverdueTasks   []Task    `json:"overdueTasks"`
-	RecentArchives []Archive `json:"recentArchives"`
-	TodayTasks     []Task    `json:"todayTasks"`
-	TomorrowTasks  []Task    `json:"tomorrowTasks"`
+	OverdueTasks   []Task          `json:"overdueTasks"`
+	RecentArchives []ArchiveRecord `json:"recentArchives"`
+	TodayTasks     []Task          `json:"todayTasks"`
+	TomorrowTasks  []Task          `json:"tomorrowTasks"`
 }
 
 // Health defines model for Health.
@@ -378,15 +393,15 @@ type RecentSearchType string
 
 // Relation defines model for Relation.
 type Relation struct {
-	CreatedAt      time.Time          `json:"createdAt"`
-	Id             openapi_types.UUID `json:"id"`
-	Notes          string             `json:"notes"`
-	RelationType   string             `json:"relationType"`
-	SourceId       openapi_types.UUID `json:"sourceId"`
-	TargetId       openapi_types.UUID `json:"targetId"`
-	TargetTitle    string             `json:"targetTitle"`
-	TargetTypeId   string             `json:"targetTypeId"`
-	TargetTypeName string             `json:"targetTypeName"`
+	CreatedAt            time.Time          `json:"createdAt"`
+	Id                   openapi_types.UUID `json:"id"`
+	Notes                string             `json:"notes"`
+	RelationType         string             `json:"relationType"`
+	SourceId             openapi_types.UUID `json:"sourceId"`
+	TargetCollectionId   string             `json:"targetCollectionId"`
+	TargetCollectionName string             `json:"targetCollectionName"`
+	TargetId             openapi_types.UUID `json:"targetId"`
+	TargetTitle          string             `json:"targetTitle"`
 }
 
 // RelationInput defines model for RelationInput.
@@ -423,20 +438,25 @@ type SearchStatus struct {
 
 // Task defines model for Task.
 type Task struct {
-	AllDay       bool                `json:"allDay"`
-	ArchiveId    *openapi_types.UUID `json:"archiveId"`
-	ArchiveTitle string              `json:"archiveTitle"`
-	CompletedAt  *time.Time          `json:"completedAt"`
-	CreatedAt    time.Time           `json:"createdAt"`
-	EndsAt       *time.Time          `json:"endsAt"`
-	Id           openapi_types.UUID  `json:"id"`
-	Notes        string              `json:"notes"`
-	Priority     TaskPriority        `json:"priority"`
-	StartsAt     *time.Time          `json:"startsAt"`
-	Status       TaskStatus          `json:"status"`
-	Timezone     string              `json:"timezone"`
-	Title        string              `json:"title"`
-	UpdatedAt    time.Time           `json:"updatedAt"`
+	AllDay          bool                `json:"allDay"`
+	CompletedAt     *time.Time          `json:"completedAt"`
+	CreatedAt       time.Time           `json:"createdAt"`
+	DueOn           *openapi_types.Date `json:"dueOn"`
+	EndsAt          *time.Time          `json:"endsAt"`
+	EstimateMinutes *int                `json:"estimateMinutes"`
+	Id              openapi_types.UUID  `json:"id"`
+	Notes           string              `json:"notes"`
+	ParentId        *openapi_types.UUID `json:"parentId"`
+	Priority        TaskPriority        `json:"priority"`
+	RecordId        *openapi_types.UUID `json:"recordId"`
+	RecordTitle     string              `json:"recordTitle"`
+	Recurrence      *string             `json:"recurrence,omitempty"`
+	Reminders       *[]time.Time        `json:"reminders,omitempty"`
+	StartsAt        *time.Time          `json:"startsAt"`
+	Status          TaskStatus          `json:"status"`
+	Timezone        string              `json:"timezone"`
+	Title           string              `json:"title"`
+	UpdatedAt       time.Time           `json:"updatedAt"`
 }
 
 // TaskPriority defines model for Task.Priority.
@@ -447,15 +467,20 @@ type TaskStatus string
 
 // TaskInput defines model for TaskInput.
 type TaskInput struct {
-	AllDay    bool                `json:"allDay"`
-	ArchiveId *openapi_types.UUID `json:"archiveId"`
-	EndsAt    *time.Time          `json:"endsAt"`
-	Notes     *string             `json:"notes,omitempty"`
-	Priority  TaskInputPriority   `json:"priority"`
-	StartsAt  *time.Time          `json:"startsAt"`
-	Status    TaskInputStatus     `json:"status"`
-	Timezone  string              `json:"timezone"`
-	Title     string              `json:"title"`
+	AllDay          bool                `json:"allDay"`
+	DueOn           *openapi_types.Date `json:"dueOn"`
+	EndsAt          *time.Time          `json:"endsAt"`
+	EstimateMinutes *int                `json:"estimateMinutes"`
+	Notes           *string             `json:"notes,omitempty"`
+	ParentId        *openapi_types.UUID `json:"parentId"`
+	Priority        TaskInputPriority   `json:"priority"`
+	RecordId        *openapi_types.UUID `json:"recordId"`
+	Recurrence      *string             `json:"recurrence,omitempty"`
+	Reminders       *[]time.Time        `json:"reminders,omitempty"`
+	StartsAt        *time.Time          `json:"startsAt"`
+	Status          TaskInputStatus     `json:"status"`
+	Timezone        string              `json:"timezone"`
+	Title           string              `json:"title"`
 }
 
 // TaskInputPriority defines model for TaskInput.Priority.
@@ -476,11 +501,11 @@ type TrashEntry struct {
 // TrashEntryEntityType defines model for TrashEntry.EntityType.
 type TrashEntryEntityType string
 
-// ArchiveId defines model for ArchiveId.
-type ArchiveId = openapi_types.UUID
+// ArchiveCollectionId defines model for ArchiveCollectionId.
+type ArchiveCollectionId = string
 
-// ArchiveTypeId defines model for ArchiveTypeId.
-type ArchiveTypeId = string
+// ArchiveRecordId defines model for ArchiveRecordId.
+type ArchiveRecordId = openapi_types.UUID
 
 // Limit defines model for Limit.
 type Limit = int
@@ -497,17 +522,17 @@ type QueryRequired = string
 // Timezone defines model for Timezone.
 type Timezone = string
 
-// ListArchivesParams defines parameters for ListArchives.
-type ListArchivesParams struct {
-	Q      *Query                  `form:"q,omitempty" json:"q,omitempty"`
-	TypeId *string                 `form:"typeId,omitempty" json:"typeId,omitempty"`
-	Sort   *ListArchivesParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
-	Limit  *Limit                  `form:"limit,omitempty" json:"limit,omitempty"`
-	Offset *Offset                 `form:"offset,omitempty" json:"offset,omitempty"`
+// ListArchiveRecordsParams defines parameters for ListArchiveRecords.
+type ListArchiveRecordsParams struct {
+	Q            *Query                        `form:"q,omitempty" json:"q,omitempty"`
+	CollectionId *string                       `form:"collectionId,omitempty" json:"collectionId,omitempty"`
+	Sort         *ListArchiveRecordsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+	Limit        *Limit                        `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset       *Offset                       `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
-// ListArchivesParamsSort defines parameters for ListArchives.
-type ListArchivesParamsSort string
+// ListArchiveRecordsParamsSort defines parameters for ListArchiveRecords.
+type ListArchiveRecordsParamsSort string
 
 // GetDashboardParams defines parameters for GetDashboard.
 type GetDashboardParams struct {
@@ -532,34 +557,37 @@ type SearchParams struct {
 
 // ListTasksParams defines parameters for ListTasks.
 type ListTasksParams struct {
-	View      *ListTasksParamsView `form:"view,omitempty" json:"view,omitempty"`
-	Timezone  *Timezone            `form:"timezone,omitempty" json:"timezone,omitempty"`
-	Q         *Query               `form:"q,omitempty" json:"q,omitempty"`
-	ArchiveId *openapi_types.UUID  `form:"archiveId,omitempty" json:"archiveId,omitempty"`
-	From      *time.Time           `form:"from,omitempty" json:"from,omitempty"`
-	To        *time.Time           `form:"to,omitempty" json:"to,omitempty"`
+	View               *ListTasksParamsView `form:"view,omitempty" json:"view,omitempty"`
+	Timezone           *Timezone            `form:"timezone,omitempty" json:"timezone,omitempty"`
+	Q                  *Query               `form:"q,omitempty" json:"q,omitempty"`
+	RecordId           *openapi_types.UUID  `form:"recordId,omitempty" json:"recordId,omitempty"`
+	IncludeUnscheduled *bool                `form:"includeUnscheduled,omitempty" json:"includeUnscheduled,omitempty"`
+	DueFrom            *openapi_types.Date  `form:"dueFrom,omitempty" json:"dueFrom,omitempty"`
+	DueTo              *openapi_types.Date  `form:"dueTo,omitempty" json:"dueTo,omitempty"`
+	From               *time.Time           `form:"from,omitempty" json:"from,omitempty"`
+	To                 *time.Time           `form:"to,omitempty" json:"to,omitempty"`
 }
 
 // ListTasksParamsView defines parameters for ListTasks.
 type ListTasksParamsView string
 
-// UpdateArchiveFieldJSONRequestBody defines body for UpdateArchiveField for application/json ContentType.
-type UpdateArchiveFieldJSONRequestBody = ArchiveFieldInput
+// CreateArchiveCollectionJSONRequestBody defines body for CreateArchiveCollection for application/json ContentType.
+type CreateArchiveCollectionJSONRequestBody = ArchiveCollectionInput
 
-// CreateArchiveTypeJSONRequestBody defines body for CreateArchiveType for application/json ContentType.
-type CreateArchiveTypeJSONRequestBody = ArchiveTypeInput
-
-// UpdateArchiveTypeJSONRequestBody defines body for UpdateArchiveType for application/json ContentType.
-type UpdateArchiveTypeJSONRequestBody = ArchiveTypeInput
+// UpdateArchiveCollectionJSONRequestBody defines body for UpdateArchiveCollection for application/json ContentType.
+type UpdateArchiveCollectionJSONRequestBody = ArchiveCollectionInput
 
 // CreateArchiveFieldJSONRequestBody defines body for CreateArchiveField for application/json ContentType.
 type CreateArchiveFieldJSONRequestBody = ArchiveFieldInput
 
-// CreateArchiveJSONRequestBody defines body for CreateArchive for application/json ContentType.
-type CreateArchiveJSONRequestBody = ArchiveInput
+// UpdateArchiveFieldJSONRequestBody defines body for UpdateArchiveField for application/json ContentType.
+type UpdateArchiveFieldJSONRequestBody = ArchiveFieldInput
 
-// UpdateArchiveJSONRequestBody defines body for UpdateArchive for application/json ContentType.
-type UpdateArchiveJSONRequestBody = ArchiveInput
+// CreateArchiveRecordJSONRequestBody defines body for CreateArchiveRecord for application/json ContentType.
+type CreateArchiveRecordJSONRequestBody = ArchiveRecordInput
+
+// UpdateArchiveRecordJSONRequestBody defines body for UpdateArchiveRecord for application/json ContentType.
+type UpdateArchiveRecordJSONRequestBody = ArchiveRecordInput
 
 // ImportArchiveAttachmentsJSONRequestBody defines body for ImportArchiveAttachments for application/json ContentType.
 type ImportArchiveAttachmentsJSONRequestBody = AttachmentImportInput
@@ -587,137 +615,137 @@ type UpdateTaskJSONRequestBody = TaskInput
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List custom archive types and field definitions
+	// (GET /api/v3/archive-collections)
+	ListArchiveCollections(w http.ResponseWriter, r *http.Request)
+	// Create a custom archive type
+	// (POST /api/v3/archive-collections)
+	CreateArchiveCollection(w http.ResponseWriter, r *http.Request)
+	// Delete an unused archive type
+	// (DELETE /api/v3/archive-collections/{collectionId})
+	DeleteArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId)
+	// Get a custom archive type
+	// (GET /api/v3/archive-collections/{collectionId})
+	GetArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId)
+	// Update a custom archive type
+	// (PATCH /api/v3/archive-collections/{collectionId})
+	UpdateArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId)
+	// Add a custom field
+	// (POST /api/v3/archive-collections/{collectionId}/fields)
+	CreateArchiveField(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId)
 	// Delete a custom field and its values
-	// (DELETE /api/v2/archive-fields/{fieldId})
+	// (DELETE /api/v3/archive-fields/{fieldId})
 	DeleteArchiveField(w http.ResponseWriter, r *http.Request, fieldId string)
 	// Update a custom field
-	// (PATCH /api/v2/archive-fields/{fieldId})
+	// (PATCH /api/v3/archive-fields/{fieldId})
 	UpdateArchiveField(w http.ResponseWriter, r *http.Request, fieldId string)
-	// List custom archive types and field definitions
-	// (GET /api/v2/archive-types)
-	ListArchiveTypes(w http.ResponseWriter, r *http.Request)
-	// Create a custom archive type
-	// (POST /api/v2/archive-types)
-	CreateArchiveType(w http.ResponseWriter, r *http.Request)
-	// Delete an unused archive type
-	// (DELETE /api/v2/archive-types/{typeId})
-	DeleteArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId)
-	// Get a custom archive type
-	// (GET /api/v2/archive-types/{typeId})
-	GetArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId)
-	// Update a custom archive type
-	// (PATCH /api/v2/archive-types/{typeId})
-	UpdateArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId)
-	// Add a custom field
-	// (POST /api/v2/archive-types/{typeId}/fields)
-	CreateArchiveField(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId)
 	// List and filter archives
-	// (GET /api/v2/archives)
-	ListArchives(w http.ResponseWriter, r *http.Request, params ListArchivesParams)
+	// (GET /api/v3/archive-records)
+	ListArchiveRecords(w http.ResponseWriter, r *http.Request, params ListArchiveRecordsParams)
 	// Create an archive
-	// (POST /api/v2/archives)
-	CreateArchive(w http.ResponseWriter, r *http.Request)
+	// (POST /api/v3/archive-records)
+	CreateArchiveRecord(w http.ResponseWriter, r *http.Request)
 	// Move an archive to trash
-	// (DELETE /api/v2/archives/{archiveId})
-	TrashArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId)
+	// (DELETE /api/v3/archive-records/{recordId})
+	TrashArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId)
 	// Get an archive
-	// (GET /api/v2/archives/{archiveId})
-	GetArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId)
+	// (GET /api/v3/archive-records/{recordId})
+	GetArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId)
 	// Update an archive
-	// (PATCH /api/v2/archives/{archiveId})
-	UpdateArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId)
+	// (PATCH /api/v3/archive-records/{recordId})
+	UpdateArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId)
 	// List archive activity
-	// (GET /api/v2/archives/{archiveId}/activity)
-	ListArchiveActivity(w http.ResponseWriter, r *http.Request, archiveId ArchiveId)
+	// (GET /api/v3/archive-records/{recordId}/activity)
+	ListArchiveActivity(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId)
 	// List archive attachments
-	// (GET /api/v2/archives/{archiveId}/attachments)
-	ListArchiveAttachments(w http.ResponseWriter, r *http.Request, archiveId ArchiveId)
+	// (GET /api/v3/archive-records/{recordId}/attachments)
+	ListArchiveAttachments(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId)
 	// Import managed attachments
-	// (POST /api/v2/archives/{archiveId}/attachments)
-	ImportArchiveAttachments(w http.ResponseWriter, r *http.Request, archiveId ArchiveId)
+	// (POST /api/v3/archive-records/{recordId}/attachments)
+	ImportArchiveAttachments(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId)
 	// List archive relations
-	// (GET /api/v2/archives/{archiveId}/relations)
-	ListArchiveRelations(w http.ResponseWriter, r *http.Request, archiveId ArchiveId)
+	// (GET /api/v3/archive-records/{recordId}/relations)
+	ListArchiveRelations(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId)
 	// Create an archive relation
-	// (POST /api/v2/archives/{archiveId}/relations)
-	CreateArchiveRelation(w http.ResponseWriter, r *http.Request, archiveId ArchiveId)
+	// (POST /api/v3/archive-records/{recordId}/relations)
+	CreateArchiveRelation(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId)
 	// Remove a managed attachment
-	// (DELETE /api/v2/attachments/{attachmentId})
+	// (DELETE /api/v3/attachments/{attachmentId})
 	DeleteAttachment(w http.ResponseWriter, r *http.Request, attachmentId openapi_types.UUID)
 	// Resolve a managed attachment for native opening
-	// (GET /api/v2/attachments/{attachmentId}/open-target)
+	// (GET /api/v3/attachments/{attachmentId}/open-target)
 	GetAttachmentOpenTarget(w http.ResponseWriter, r *http.Request, attachmentId openapi_types.UUID)
 	// Read backup settings
-	// (GET /api/v2/backup-settings)
+	// (GET /api/v3/backup-settings)
 	GetBackupSettings(w http.ResponseWriter, r *http.Request)
 	// Configure or disable backups
-	// (PUT /api/v2/backup-settings)
+	// (PUT /api/v3/backup-settings)
 	UpdateBackupSettings(w http.ResponseWriter, r *http.Request)
 	// List backup history
-	// (GET /api/v2/backups)
+	// (GET /api/v3/backups)
 	ListBackups(w http.ResponseWriter, r *http.Request)
 	// Start a backup job
-	// (POST /api/v2/backups)
+	// (POST /api/v3/backups)
 	CreateBackup(w http.ResponseWriter, r *http.Request)
 	// Get the today dashboard
-	// (GET /api/v2/dashboard)
+	// (GET /api/v3/dashboard)
 	GetDashboard(w http.ResponseWriter, r *http.Request, params GetDashboardParams)
 	// Cancel a running background job
-	// (DELETE /api/v2/jobs/{jobId})
+	// (DELETE /api/v3/jobs/{jobId})
 	CancelJob(w http.ResponseWriter, r *http.Request, jobId openapi_types.UUID)
 	// Get background job state
-	// (GET /api/v2/jobs/{jobId})
+	// (GET /api/v3/jobs/{jobId})
 	GetJob(w http.ResponseWriter, r *http.Request, jobId openapi_types.UUID)
 	// Subscribe to background job progress
-	// (GET /api/v2/jobs/{jobId}/events)
+	// (GET /api/v3/jobs/{jobId}/events)
 	GetJobEvents(w http.ResponseWriter, r *http.Request, jobId openapi_types.UUID)
 	// Get service and workspace metadata
-	// (GET /api/v2/meta)
+	// (GET /api/v3/meta)
 	GetMeta(w http.ResponseWriter, r *http.Request)
 	// Read workspace-scoped UI preferences
-	// (GET /api/v2/preferences)
+	// (GET /api/v3/preferences)
 	GetPreferences(w http.ResponseWriter, r *http.Request)
 	// Update workspace-scoped UI preferences
-	// (PATCH /api/v2/preferences)
+	// (PATCH /api/v3/preferences)
 	UpdatePreferences(w http.ResponseWriter, r *http.Request)
 	// Remove an entity relation
-	// (DELETE /api/v2/relations/{relationId})
+	// (DELETE /api/v3/relations/{relationId})
 	DeleteRelation(w http.ResponseWriter, r *http.Request, relationId openapi_types.UUID)
 	// Restore a backup to a new workspace
-	// (POST /api/v2/restores)
+	// (POST /api/v3/restores)
 	CreateRestore(w http.ResponseWriter, r *http.Request)
 	// Validate a backup before restore
-	// (POST /api/v2/restores/preflight)
+	// (POST /api/v3/restores/preflight)
 	PreflightRestore(w http.ResponseWriter, r *http.Request)
 	// Search workspace entities
-	// (GET /api/v2/search)
+	// (GET /api/v3/search)
 	Search(w http.ResponseWriter, r *http.Request, params SearchParams)
 	// Rebuild the full-text search index
-	// (POST /api/v2/search/rebuild)
+	// (POST /api/v3/search/rebuild)
 	RebuildSearch(w http.ResponseWriter, r *http.Request)
 	// Check full-text search index health
-	// (GET /api/v2/search/status)
+	// (GET /api/v3/search/status)
 	GetSearchStatus(w http.ResponseWriter, r *http.Request)
 	// List unified tasks for a view, calendar range, or archive
-	// (GET /api/v2/tasks)
+	// (GET /api/v3/tasks)
 	ListTasks(w http.ResponseWriter, r *http.Request, params ListTasksParams)
 	// Create a task
-	// (POST /api/v2/tasks)
+	// (POST /api/v3/tasks)
 	CreateTask(w http.ResponseWriter, r *http.Request)
 	// Move a task to trash
-	// (DELETE /api/v2/tasks/{taskId})
+	// (DELETE /api/v3/tasks/{taskId})
 	TrashTask(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
 	// Get task details for the inspector
-	// (GET /api/v2/tasks/{taskId})
+	// (GET /api/v3/tasks/{taskId})
 	GetTask(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
 	// Update a task
-	// (PATCH /api/v2/tasks/{taskId})
+	// (PATCH /api/v3/tasks/{taskId})
 	UpdateTask(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID)
 	// List trashed entities
-	// (GET /api/v2/trash)
+	// (GET /api/v3/trash)
 	ListTrash(w http.ResponseWriter, r *http.Request)
 	// Restore a trashed entity
-	// (POST /api/v2/trash/{trashId}/restore)
+	// (POST /api/v3/trash/{trashId}/restore)
 	RestoreTrash(w http.ResponseWriter, r *http.Request, trashId openapi_types.UUID)
 	// Check whether the sidecar process is alive
 	// (GET /healthz)
@@ -731,266 +759,266 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// List custom archive types and field definitions
+// (GET /api/v3/archive-collections)
+func (_ Unimplemented) ListArchiveCollections(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a custom archive type
+// (POST /api/v3/archive-collections)
+func (_ Unimplemented) CreateArchiveCollection(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete an unused archive type
+// (DELETE /api/v3/archive-collections/{collectionId})
+func (_ Unimplemented) DeleteArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get a custom archive type
+// (GET /api/v3/archive-collections/{collectionId})
+func (_ Unimplemented) GetArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a custom archive type
+// (PATCH /api/v3/archive-collections/{collectionId})
+func (_ Unimplemented) UpdateArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add a custom field
+// (POST /api/v3/archive-collections/{collectionId}/fields)
+func (_ Unimplemented) CreateArchiveField(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Delete a custom field and its values
-// (DELETE /api/v2/archive-fields/{fieldId})
+// (DELETE /api/v3/archive-fields/{fieldId})
 func (_ Unimplemented) DeleteArchiveField(w http.ResponseWriter, r *http.Request, fieldId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update a custom field
-// (PATCH /api/v2/archive-fields/{fieldId})
+// (PATCH /api/v3/archive-fields/{fieldId})
 func (_ Unimplemented) UpdateArchiveField(w http.ResponseWriter, r *http.Request, fieldId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List custom archive types and field definitions
-// (GET /api/v2/archive-types)
-func (_ Unimplemented) ListArchiveTypes(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Create a custom archive type
-// (POST /api/v2/archive-types)
-func (_ Unimplemented) CreateArchiveType(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Delete an unused archive type
-// (DELETE /api/v2/archive-types/{typeId})
-func (_ Unimplemented) DeleteArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get a custom archive type
-// (GET /api/v2/archive-types/{typeId})
-func (_ Unimplemented) GetArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Update a custom archive type
-// (PATCH /api/v2/archive-types/{typeId})
-func (_ Unimplemented) UpdateArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Add a custom field
-// (POST /api/v2/archive-types/{typeId}/fields)
-func (_ Unimplemented) CreateArchiveField(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // List and filter archives
-// (GET /api/v2/archives)
-func (_ Unimplemented) ListArchives(w http.ResponseWriter, r *http.Request, params ListArchivesParams) {
+// (GET /api/v3/archive-records)
+func (_ Unimplemented) ListArchiveRecords(w http.ResponseWriter, r *http.Request, params ListArchiveRecordsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create an archive
-// (POST /api/v2/archives)
-func (_ Unimplemented) CreateArchive(w http.ResponseWriter, r *http.Request) {
+// (POST /api/v3/archive-records)
+func (_ Unimplemented) CreateArchiveRecord(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Move an archive to trash
-// (DELETE /api/v2/archives/{archiveId})
-func (_ Unimplemented) TrashArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+// (DELETE /api/v3/archive-records/{recordId})
+func (_ Unimplemented) TrashArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get an archive
-// (GET /api/v2/archives/{archiveId})
-func (_ Unimplemented) GetArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+// (GET /api/v3/archive-records/{recordId})
+func (_ Unimplemented) GetArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update an archive
-// (PATCH /api/v2/archives/{archiveId})
-func (_ Unimplemented) UpdateArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+// (PATCH /api/v3/archive-records/{recordId})
+func (_ Unimplemented) UpdateArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // List archive activity
-// (GET /api/v2/archives/{archiveId}/activity)
-func (_ Unimplemented) ListArchiveActivity(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+// (GET /api/v3/archive-records/{recordId}/activity)
+func (_ Unimplemented) ListArchiveActivity(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // List archive attachments
-// (GET /api/v2/archives/{archiveId}/attachments)
-func (_ Unimplemented) ListArchiveAttachments(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+// (GET /api/v3/archive-records/{recordId}/attachments)
+func (_ Unimplemented) ListArchiveAttachments(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Import managed attachments
-// (POST /api/v2/archives/{archiveId}/attachments)
-func (_ Unimplemented) ImportArchiveAttachments(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+// (POST /api/v3/archive-records/{recordId}/attachments)
+func (_ Unimplemented) ImportArchiveAttachments(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // List archive relations
-// (GET /api/v2/archives/{archiveId}/relations)
-func (_ Unimplemented) ListArchiveRelations(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+// (GET /api/v3/archive-records/{recordId}/relations)
+func (_ Unimplemented) ListArchiveRelations(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create an archive relation
-// (POST /api/v2/archives/{archiveId}/relations)
-func (_ Unimplemented) CreateArchiveRelation(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+// (POST /api/v3/archive-records/{recordId}/relations)
+func (_ Unimplemented) CreateArchiveRelation(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Remove a managed attachment
-// (DELETE /api/v2/attachments/{attachmentId})
+// (DELETE /api/v3/attachments/{attachmentId})
 func (_ Unimplemented) DeleteAttachment(w http.ResponseWriter, r *http.Request, attachmentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Resolve a managed attachment for native opening
-// (GET /api/v2/attachments/{attachmentId}/open-target)
+// (GET /api/v3/attachments/{attachmentId}/open-target)
 func (_ Unimplemented) GetAttachmentOpenTarget(w http.ResponseWriter, r *http.Request, attachmentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Read backup settings
-// (GET /api/v2/backup-settings)
+// (GET /api/v3/backup-settings)
 func (_ Unimplemented) GetBackupSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Configure or disable backups
-// (PUT /api/v2/backup-settings)
+// (PUT /api/v3/backup-settings)
 func (_ Unimplemented) UpdateBackupSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // List backup history
-// (GET /api/v2/backups)
+// (GET /api/v3/backups)
 func (_ Unimplemented) ListBackups(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Start a backup job
-// (POST /api/v2/backups)
+// (POST /api/v3/backups)
 func (_ Unimplemented) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get the today dashboard
-// (GET /api/v2/dashboard)
+// (GET /api/v3/dashboard)
 func (_ Unimplemented) GetDashboard(w http.ResponseWriter, r *http.Request, params GetDashboardParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Cancel a running background job
-// (DELETE /api/v2/jobs/{jobId})
+// (DELETE /api/v3/jobs/{jobId})
 func (_ Unimplemented) CancelJob(w http.ResponseWriter, r *http.Request, jobId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get background job state
-// (GET /api/v2/jobs/{jobId})
+// (GET /api/v3/jobs/{jobId})
 func (_ Unimplemented) GetJob(w http.ResponseWriter, r *http.Request, jobId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Subscribe to background job progress
-// (GET /api/v2/jobs/{jobId}/events)
+// (GET /api/v3/jobs/{jobId}/events)
 func (_ Unimplemented) GetJobEvents(w http.ResponseWriter, r *http.Request, jobId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get service and workspace metadata
-// (GET /api/v2/meta)
+// (GET /api/v3/meta)
 func (_ Unimplemented) GetMeta(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Read workspace-scoped UI preferences
-// (GET /api/v2/preferences)
+// (GET /api/v3/preferences)
 func (_ Unimplemented) GetPreferences(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update workspace-scoped UI preferences
-// (PATCH /api/v2/preferences)
+// (PATCH /api/v3/preferences)
 func (_ Unimplemented) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Remove an entity relation
-// (DELETE /api/v2/relations/{relationId})
+// (DELETE /api/v3/relations/{relationId})
 func (_ Unimplemented) DeleteRelation(w http.ResponseWriter, r *http.Request, relationId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Restore a backup to a new workspace
-// (POST /api/v2/restores)
+// (POST /api/v3/restores)
 func (_ Unimplemented) CreateRestore(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Validate a backup before restore
-// (POST /api/v2/restores/preflight)
+// (POST /api/v3/restores/preflight)
 func (_ Unimplemented) PreflightRestore(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Search workspace entities
-// (GET /api/v2/search)
+// (GET /api/v3/search)
 func (_ Unimplemented) Search(w http.ResponseWriter, r *http.Request, params SearchParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Rebuild the full-text search index
-// (POST /api/v2/search/rebuild)
+// (POST /api/v3/search/rebuild)
 func (_ Unimplemented) RebuildSearch(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Check full-text search index health
-// (GET /api/v2/search/status)
+// (GET /api/v3/search/status)
 func (_ Unimplemented) GetSearchStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // List unified tasks for a view, calendar range, or archive
-// (GET /api/v2/tasks)
+// (GET /api/v3/tasks)
 func (_ Unimplemented) ListTasks(w http.ResponseWriter, r *http.Request, params ListTasksParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create a task
-// (POST /api/v2/tasks)
+// (POST /api/v3/tasks)
 func (_ Unimplemented) CreateTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Move a task to trash
-// (DELETE /api/v2/tasks/{taskId})
+// (DELETE /api/v3/tasks/{taskId})
 func (_ Unimplemented) TrashTask(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Get task details for the inspector
-// (GET /api/v2/tasks/{taskId})
+// (GET /api/v3/tasks/{taskId})
 func (_ Unimplemented) GetTask(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Update a task
-// (PATCH /api/v2/tasks/{taskId})
+// (PATCH /api/v3/tasks/{taskId})
 func (_ Unimplemented) UpdateTask(w http.ResponseWriter, r *http.Request, taskId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // List trashed entities
-// (GET /api/v2/trash)
+// (GET /api/v3/trash)
 func (_ Unimplemented) ListTrash(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Restore a trashed entity
-// (POST /api/v2/trash/{trashId}/restore)
+// (POST /api/v3/trash/{trashId}/restore)
 func (_ Unimplemented) RestoreTrash(w http.ResponseWriter, r *http.Request, trashId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -1015,6 +1043,170 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListArchiveCollections operation middleware
+func (siw *ServerInterfaceWrapper) ListArchiveCollections(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListArchiveCollections(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateArchiveCollection operation middleware
+func (siw *ServerInterfaceWrapper) CreateArchiveCollection(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateArchiveCollection(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteArchiveCollection operation middleware
+func (siw *ServerInterfaceWrapper) DeleteArchiveCollection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "collectionId" -------------
+	var collectionId ArchiveCollectionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "collectionId", chi.URLParam(r, "collectionId"), &collectionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "collectionId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteArchiveCollection(w, r, collectionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetArchiveCollection operation middleware
+func (siw *ServerInterfaceWrapper) GetArchiveCollection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "collectionId" -------------
+	var collectionId ArchiveCollectionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "collectionId", chi.URLParam(r, "collectionId"), &collectionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "collectionId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetArchiveCollection(w, r, collectionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateArchiveCollection operation middleware
+func (siw *ServerInterfaceWrapper) UpdateArchiveCollection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "collectionId" -------------
+	var collectionId ArchiveCollectionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "collectionId", chi.URLParam(r, "collectionId"), &collectionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "collectionId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateArchiveCollection(w, r, collectionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateArchiveField operation middleware
+func (siw *ServerInterfaceWrapper) CreateArchiveField(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "collectionId" -------------
+	var collectionId ArchiveCollectionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "collectionId", chi.URLParam(r, "collectionId"), &collectionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "collectionId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateArchiveField(w, r, collectionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // DeleteArchiveField operation middleware
 func (siw *ServerInterfaceWrapper) DeleteArchiveField(w http.ResponseWriter, r *http.Request) {
@@ -1078,172 +1270,8 @@ func (siw *ServerInterfaceWrapper) UpdateArchiveField(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
-// ListArchiveTypes operation middleware
-func (siw *ServerInterfaceWrapper) ListArchiveTypes(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListArchiveTypes(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateArchiveType operation middleware
-func (siw *ServerInterfaceWrapper) CreateArchiveType(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateArchiveType(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// DeleteArchiveType operation middleware
-func (siw *ServerInterfaceWrapper) DeleteArchiveType(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "typeId" -------------
-	var typeId ArchiveTypeId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "typeId", chi.URLParam(r, "typeId"), &typeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "typeId", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteArchiveType(w, r, typeId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetArchiveType operation middleware
-func (siw *ServerInterfaceWrapper) GetArchiveType(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "typeId" -------------
-	var typeId ArchiveTypeId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "typeId", chi.URLParam(r, "typeId"), &typeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "typeId", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetArchiveType(w, r, typeId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// UpdateArchiveType operation middleware
-func (siw *ServerInterfaceWrapper) UpdateArchiveType(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "typeId" -------------
-	var typeId ArchiveTypeId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "typeId", chi.URLParam(r, "typeId"), &typeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "typeId", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateArchiveType(w, r, typeId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateArchiveField operation middleware
-func (siw *ServerInterfaceWrapper) CreateArchiveField(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "typeId" -------------
-	var typeId ArchiveTypeId
-
-	err = runtime.BindStyledParameterWithOptions("simple", "typeId", chi.URLParam(r, "typeId"), &typeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "typeId", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateArchiveField(w, r, typeId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListArchives operation middleware
-func (siw *ServerInterfaceWrapper) ListArchives(w http.ResponseWriter, r *http.Request) {
+// ListArchiveRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListArchiveRecords(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -1254,7 +1282,7 @@ func (siw *ServerInterfaceWrapper) ListArchives(w http.ResponseWriter, r *http.R
 	r = r.WithContext(ctx)
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params ListArchivesParams
+	var params ListArchiveRecordsParams
 
 	// ------------- Optional query parameter "q" -------------
 
@@ -1264,11 +1292,11 @@ func (siw *ServerInterfaceWrapper) ListArchives(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// ------------- Optional query parameter "typeId" -------------
+	// ------------- Optional query parameter "collectionId" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "typeId", r.URL.Query(), &params.TypeId)
+	err = runtime.BindQueryParameter("form", true, false, "collectionId", r.URL.Query(), &params.CollectionId)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "typeId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "collectionId", Err: err})
 		return
 	}
 
@@ -1297,7 +1325,7 @@ func (siw *ServerInterfaceWrapper) ListArchives(w http.ResponseWriter, r *http.R
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListArchives(w, r, params)
+		siw.Handler.ListArchiveRecords(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1307,8 +1335,8 @@ func (siw *ServerInterfaceWrapper) ListArchives(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// CreateArchive operation middleware
-func (siw *ServerInterfaceWrapper) CreateArchive(w http.ResponseWriter, r *http.Request) {
+// CreateArchiveRecord operation middleware
+func (siw *ServerInterfaceWrapper) CreateArchiveRecord(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
@@ -1317,7 +1345,7 @@ func (siw *ServerInterfaceWrapper) CreateArchive(w http.ResponseWriter, r *http.
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateArchive(w, r)
+		siw.Handler.CreateArchiveRecord(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1327,17 +1355,17 @@ func (siw *ServerInterfaceWrapper) CreateArchive(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
-// TrashArchive operation middleware
-func (siw *ServerInterfaceWrapper) TrashArchive(w http.ResponseWriter, r *http.Request) {
+// TrashArchiveRecord operation middleware
+func (siw *ServerInterfaceWrapper) TrashArchiveRecord(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "archiveId" -------------
-	var archiveId ArchiveId
+	// ------------- Path parameter "recordId" -------------
+	var recordId ArchiveRecordId
 
-	err = runtime.BindStyledParameterWithOptions("simple", "archiveId", chi.URLParam(r, "archiveId"), &archiveId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "recordId", chi.URLParam(r, "recordId"), &recordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
 		return
 	}
 
@@ -1348,7 +1376,7 @@ func (siw *ServerInterfaceWrapper) TrashArchive(w http.ResponseWriter, r *http.R
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.TrashArchive(w, r, archiveId)
+		siw.Handler.TrashArchiveRecord(w, r, recordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1358,17 +1386,17 @@ func (siw *ServerInterfaceWrapper) TrashArchive(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
-// GetArchive operation middleware
-func (siw *ServerInterfaceWrapper) GetArchive(w http.ResponseWriter, r *http.Request) {
+// GetArchiveRecord operation middleware
+func (siw *ServerInterfaceWrapper) GetArchiveRecord(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "archiveId" -------------
-	var archiveId ArchiveId
+	// ------------- Path parameter "recordId" -------------
+	var recordId ArchiveRecordId
 
-	err = runtime.BindStyledParameterWithOptions("simple", "archiveId", chi.URLParam(r, "archiveId"), &archiveId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "recordId", chi.URLParam(r, "recordId"), &recordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
 		return
 	}
 
@@ -1379,7 +1407,7 @@ func (siw *ServerInterfaceWrapper) GetArchive(w http.ResponseWriter, r *http.Req
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetArchive(w, r, archiveId)
+		siw.Handler.GetArchiveRecord(w, r, recordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1389,17 +1417,17 @@ func (siw *ServerInterfaceWrapper) GetArchive(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// UpdateArchive operation middleware
-func (siw *ServerInterfaceWrapper) UpdateArchive(w http.ResponseWriter, r *http.Request) {
+// UpdateArchiveRecord operation middleware
+func (siw *ServerInterfaceWrapper) UpdateArchiveRecord(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "archiveId" -------------
-	var archiveId ArchiveId
+	// ------------- Path parameter "recordId" -------------
+	var recordId ArchiveRecordId
 
-	err = runtime.BindStyledParameterWithOptions("simple", "archiveId", chi.URLParam(r, "archiveId"), &archiveId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "recordId", chi.URLParam(r, "recordId"), &recordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
 		return
 	}
 
@@ -1410,7 +1438,7 @@ func (siw *ServerInterfaceWrapper) UpdateArchive(w http.ResponseWriter, r *http.
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateArchive(w, r, archiveId)
+		siw.Handler.UpdateArchiveRecord(w, r, recordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1425,12 +1453,12 @@ func (siw *ServerInterfaceWrapper) ListArchiveActivity(w http.ResponseWriter, r 
 
 	var err error
 
-	// ------------- Path parameter "archiveId" -------------
-	var archiveId ArchiveId
+	// ------------- Path parameter "recordId" -------------
+	var recordId ArchiveRecordId
 
-	err = runtime.BindStyledParameterWithOptions("simple", "archiveId", chi.URLParam(r, "archiveId"), &archiveId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "recordId", chi.URLParam(r, "recordId"), &recordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
 		return
 	}
 
@@ -1441,7 +1469,7 @@ func (siw *ServerInterfaceWrapper) ListArchiveActivity(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListArchiveActivity(w, r, archiveId)
+		siw.Handler.ListArchiveActivity(w, r, recordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1456,12 +1484,12 @@ func (siw *ServerInterfaceWrapper) ListArchiveAttachments(w http.ResponseWriter,
 
 	var err error
 
-	// ------------- Path parameter "archiveId" -------------
-	var archiveId ArchiveId
+	// ------------- Path parameter "recordId" -------------
+	var recordId ArchiveRecordId
 
-	err = runtime.BindStyledParameterWithOptions("simple", "archiveId", chi.URLParam(r, "archiveId"), &archiveId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "recordId", chi.URLParam(r, "recordId"), &recordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
 		return
 	}
 
@@ -1472,7 +1500,7 @@ func (siw *ServerInterfaceWrapper) ListArchiveAttachments(w http.ResponseWriter,
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListArchiveAttachments(w, r, archiveId)
+		siw.Handler.ListArchiveAttachments(w, r, recordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1487,12 +1515,12 @@ func (siw *ServerInterfaceWrapper) ImportArchiveAttachments(w http.ResponseWrite
 
 	var err error
 
-	// ------------- Path parameter "archiveId" -------------
-	var archiveId ArchiveId
+	// ------------- Path parameter "recordId" -------------
+	var recordId ArchiveRecordId
 
-	err = runtime.BindStyledParameterWithOptions("simple", "archiveId", chi.URLParam(r, "archiveId"), &archiveId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "recordId", chi.URLParam(r, "recordId"), &recordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
 		return
 	}
 
@@ -1503,7 +1531,7 @@ func (siw *ServerInterfaceWrapper) ImportArchiveAttachments(w http.ResponseWrite
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ImportArchiveAttachments(w, r, archiveId)
+		siw.Handler.ImportArchiveAttachments(w, r, recordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1518,12 +1546,12 @@ func (siw *ServerInterfaceWrapper) ListArchiveRelations(w http.ResponseWriter, r
 
 	var err error
 
-	// ------------- Path parameter "archiveId" -------------
-	var archiveId ArchiveId
+	// ------------- Path parameter "recordId" -------------
+	var recordId ArchiveRecordId
 
-	err = runtime.BindStyledParameterWithOptions("simple", "archiveId", chi.URLParam(r, "archiveId"), &archiveId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "recordId", chi.URLParam(r, "recordId"), &recordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
 		return
 	}
 
@@ -1534,7 +1562,7 @@ func (siw *ServerInterfaceWrapper) ListArchiveRelations(w http.ResponseWriter, r
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListArchiveRelations(w, r, archiveId)
+		siw.Handler.ListArchiveRelations(w, r, recordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1549,12 +1577,12 @@ func (siw *ServerInterfaceWrapper) CreateArchiveRelation(w http.ResponseWriter, 
 
 	var err error
 
-	// ------------- Path parameter "archiveId" -------------
-	var archiveId ArchiveId
+	// ------------- Path parameter "recordId" -------------
+	var recordId ArchiveRecordId
 
-	err = runtime.BindStyledParameterWithOptions("simple", "archiveId", chi.URLParam(r, "archiveId"), &archiveId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "recordId", chi.URLParam(r, "recordId"), &recordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
 		return
 	}
 
@@ -1565,7 +1593,7 @@ func (siw *ServerInterfaceWrapper) CreateArchiveRelation(w http.ResponseWriter, 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateArchiveRelation(w, r, archiveId)
+		siw.Handler.CreateArchiveRelation(w, r, recordId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2092,11 +2120,35 @@ func (siw *ServerInterfaceWrapper) ListTasks(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// ------------- Optional query parameter "archiveId" -------------
+	// ------------- Optional query parameter "recordId" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "archiveId", r.URL.Query(), &params.ArchiveId)
+	err = runtime.BindQueryParameter("form", true, false, "recordId", r.URL.Query(), &params.RecordId)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archiveId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recordId", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "includeUnscheduled" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "includeUnscheduled", r.URL.Query(), &params.IncludeUnscheduled)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "includeUnscheduled", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "dueFrom" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "dueFrom", r.URL.Query(), &params.DueFrom)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "dueFrom", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "dueTo" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "dueTo", r.URL.Query(), &params.DueTo)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "dueTo", Err: err})
 		return
 	}
 
@@ -2439,136 +2491,136 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v2/archive-fields/{fieldId}", wrapper.DeleteArchiveField)
+		r.Get(options.BaseURL+"/api/v3/archive-collections", wrapper.ListArchiveCollections)
 	})
 	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/api/v2/archive-fields/{fieldId}", wrapper.UpdateArchiveField)
+		r.Post(options.BaseURL+"/api/v3/archive-collections", wrapper.CreateArchiveCollection)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/archive-types", wrapper.ListArchiveTypes)
+		r.Delete(options.BaseURL+"/api/v3/archive-collections/{collectionId}", wrapper.DeleteArchiveCollection)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/archive-types", wrapper.CreateArchiveType)
+		r.Get(options.BaseURL+"/api/v3/archive-collections/{collectionId}", wrapper.GetArchiveCollection)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v2/archive-types/{typeId}", wrapper.DeleteArchiveType)
+		r.Patch(options.BaseURL+"/api/v3/archive-collections/{collectionId}", wrapper.UpdateArchiveCollection)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/archive-types/{typeId}", wrapper.GetArchiveType)
+		r.Post(options.BaseURL+"/api/v3/archive-collections/{collectionId}/fields", wrapper.CreateArchiveField)
 	})
 	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/api/v2/archive-types/{typeId}", wrapper.UpdateArchiveType)
+		r.Delete(options.BaseURL+"/api/v3/archive-fields/{fieldId}", wrapper.DeleteArchiveField)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/archive-types/{typeId}/fields", wrapper.CreateArchiveField)
+		r.Patch(options.BaseURL+"/api/v3/archive-fields/{fieldId}", wrapper.UpdateArchiveField)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/archives", wrapper.ListArchives)
+		r.Get(options.BaseURL+"/api/v3/archive-records", wrapper.ListArchiveRecords)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/archives", wrapper.CreateArchive)
+		r.Post(options.BaseURL+"/api/v3/archive-records", wrapper.CreateArchiveRecord)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v2/archives/{archiveId}", wrapper.TrashArchive)
+		r.Delete(options.BaseURL+"/api/v3/archive-records/{recordId}", wrapper.TrashArchiveRecord)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/archives/{archiveId}", wrapper.GetArchive)
+		r.Get(options.BaseURL+"/api/v3/archive-records/{recordId}", wrapper.GetArchiveRecord)
 	})
 	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/api/v2/archives/{archiveId}", wrapper.UpdateArchive)
+		r.Patch(options.BaseURL+"/api/v3/archive-records/{recordId}", wrapper.UpdateArchiveRecord)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/archives/{archiveId}/activity", wrapper.ListArchiveActivity)
+		r.Get(options.BaseURL+"/api/v3/archive-records/{recordId}/activity", wrapper.ListArchiveActivity)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/archives/{archiveId}/attachments", wrapper.ListArchiveAttachments)
+		r.Get(options.BaseURL+"/api/v3/archive-records/{recordId}/attachments", wrapper.ListArchiveAttachments)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/archives/{archiveId}/attachments", wrapper.ImportArchiveAttachments)
+		r.Post(options.BaseURL+"/api/v3/archive-records/{recordId}/attachments", wrapper.ImportArchiveAttachments)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/archives/{archiveId}/relations", wrapper.ListArchiveRelations)
+		r.Get(options.BaseURL+"/api/v3/archive-records/{recordId}/relations", wrapper.ListArchiveRelations)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/archives/{archiveId}/relations", wrapper.CreateArchiveRelation)
+		r.Post(options.BaseURL+"/api/v3/archive-records/{recordId}/relations", wrapper.CreateArchiveRelation)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v2/attachments/{attachmentId}", wrapper.DeleteAttachment)
+		r.Delete(options.BaseURL+"/api/v3/attachments/{attachmentId}", wrapper.DeleteAttachment)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/attachments/{attachmentId}/open-target", wrapper.GetAttachmentOpenTarget)
+		r.Get(options.BaseURL+"/api/v3/attachments/{attachmentId}/open-target", wrapper.GetAttachmentOpenTarget)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/backup-settings", wrapper.GetBackupSettings)
+		r.Get(options.BaseURL+"/api/v3/backup-settings", wrapper.GetBackupSettings)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/api/v2/backup-settings", wrapper.UpdateBackupSettings)
+		r.Put(options.BaseURL+"/api/v3/backup-settings", wrapper.UpdateBackupSettings)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/backups", wrapper.ListBackups)
+		r.Get(options.BaseURL+"/api/v3/backups", wrapper.ListBackups)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/backups", wrapper.CreateBackup)
+		r.Post(options.BaseURL+"/api/v3/backups", wrapper.CreateBackup)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/dashboard", wrapper.GetDashboard)
+		r.Get(options.BaseURL+"/api/v3/dashboard", wrapper.GetDashboard)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v2/jobs/{jobId}", wrapper.CancelJob)
+		r.Delete(options.BaseURL+"/api/v3/jobs/{jobId}", wrapper.CancelJob)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/jobs/{jobId}", wrapper.GetJob)
+		r.Get(options.BaseURL+"/api/v3/jobs/{jobId}", wrapper.GetJob)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/jobs/{jobId}/events", wrapper.GetJobEvents)
+		r.Get(options.BaseURL+"/api/v3/jobs/{jobId}/events", wrapper.GetJobEvents)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/meta", wrapper.GetMeta)
+		r.Get(options.BaseURL+"/api/v3/meta", wrapper.GetMeta)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/preferences", wrapper.GetPreferences)
+		r.Get(options.BaseURL+"/api/v3/preferences", wrapper.GetPreferences)
 	})
 	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/api/v2/preferences", wrapper.UpdatePreferences)
+		r.Patch(options.BaseURL+"/api/v3/preferences", wrapper.UpdatePreferences)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v2/relations/{relationId}", wrapper.DeleteRelation)
+		r.Delete(options.BaseURL+"/api/v3/relations/{relationId}", wrapper.DeleteRelation)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/restores", wrapper.CreateRestore)
+		r.Post(options.BaseURL+"/api/v3/restores", wrapper.CreateRestore)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/restores/preflight", wrapper.PreflightRestore)
+		r.Post(options.BaseURL+"/api/v3/restores/preflight", wrapper.PreflightRestore)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/search", wrapper.Search)
+		r.Get(options.BaseURL+"/api/v3/search", wrapper.Search)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/search/rebuild", wrapper.RebuildSearch)
+		r.Post(options.BaseURL+"/api/v3/search/rebuild", wrapper.RebuildSearch)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/search/status", wrapper.GetSearchStatus)
+		r.Get(options.BaseURL+"/api/v3/search/status", wrapper.GetSearchStatus)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/tasks", wrapper.ListTasks)
+		r.Get(options.BaseURL+"/api/v3/tasks", wrapper.ListTasks)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/tasks", wrapper.CreateTask)
+		r.Post(options.BaseURL+"/api/v3/tasks", wrapper.CreateTask)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v2/tasks/{taskId}", wrapper.TrashTask)
+		r.Delete(options.BaseURL+"/api/v3/tasks/{taskId}", wrapper.TrashTask)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/tasks/{taskId}", wrapper.GetTask)
+		r.Get(options.BaseURL+"/api/v3/tasks/{taskId}", wrapper.GetTask)
 	})
 	r.Group(func(r chi.Router) {
-		r.Patch(options.BaseURL+"/api/v2/tasks/{taskId}", wrapper.UpdateTask)
+		r.Patch(options.BaseURL+"/api/v3/tasks/{taskId}", wrapper.UpdateTask)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/trash", wrapper.ListTrash)
+		r.Get(options.BaseURL+"/api/v3/trash", wrapper.ListTrash)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/trash/{trashId}/restore", wrapper.RestoreTrash)
+		r.Post(options.BaseURL+"/api/v3/trash/{trashId}/restore", wrapper.RestoreTrash)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/healthz", wrapper.GetHealth)
@@ -2581,6 +2633,180 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 }
 
 type ProblemApplicationProblemPlusJSONResponse Problem
+
+type ListArchiveCollectionsRequestObject struct {
+}
+
+type ListArchiveCollectionsResponseObject interface {
+	VisitListArchiveCollectionsResponse(w http.ResponseWriter) error
+}
+
+type ListArchiveCollections200JSONResponse []ArchiveCollectionDefinition
+
+func (response ListArchiveCollections200JSONResponse) VisitListArchiveCollectionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListArchiveCollectionsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListArchiveCollectionsdefaultApplicationProblemPlusJSONResponse) VisitListArchiveCollectionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreateArchiveCollectionRequestObject struct {
+	Body *CreateArchiveCollectionJSONRequestBody
+}
+
+type CreateArchiveCollectionResponseObject interface {
+	VisitCreateArchiveCollectionResponse(w http.ResponseWriter) error
+}
+
+type CreateArchiveCollection201JSONResponse ArchiveCollectionDefinition
+
+func (response CreateArchiveCollection201JSONResponse) VisitCreateArchiveCollectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateArchiveCollectiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateArchiveCollectiondefaultApplicationProblemPlusJSONResponse) VisitCreateArchiveCollectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type DeleteArchiveCollectionRequestObject struct {
+	CollectionId ArchiveCollectionId `json:"collectionId"`
+}
+
+type DeleteArchiveCollectionResponseObject interface {
+	VisitDeleteArchiveCollectionResponse(w http.ResponseWriter) error
+}
+
+type DeleteArchiveCollection204Response struct {
+}
+
+func (response DeleteArchiveCollection204Response) VisitDeleteArchiveCollectionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteArchiveCollectiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response DeleteArchiveCollectiondefaultApplicationProblemPlusJSONResponse) VisitDeleteArchiveCollectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetArchiveCollectionRequestObject struct {
+	CollectionId ArchiveCollectionId `json:"collectionId"`
+}
+
+type GetArchiveCollectionResponseObject interface {
+	VisitGetArchiveCollectionResponse(w http.ResponseWriter) error
+}
+
+type GetArchiveCollection200JSONResponse ArchiveCollectionDefinition
+
+func (response GetArchiveCollection200JSONResponse) VisitGetArchiveCollectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetArchiveCollectiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetArchiveCollectiondefaultApplicationProblemPlusJSONResponse) VisitGetArchiveCollectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type UpdateArchiveCollectionRequestObject struct {
+	CollectionId ArchiveCollectionId `json:"collectionId"`
+	Body         *UpdateArchiveCollectionJSONRequestBody
+}
+
+type UpdateArchiveCollectionResponseObject interface {
+	VisitUpdateArchiveCollectionResponse(w http.ResponseWriter) error
+}
+
+type UpdateArchiveCollection200JSONResponse ArchiveCollectionDefinition
+
+func (response UpdateArchiveCollection200JSONResponse) VisitUpdateArchiveCollectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateArchiveCollectiondefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UpdateArchiveCollectiondefaultApplicationProblemPlusJSONResponse) VisitUpdateArchiveCollectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreateArchiveFieldRequestObject struct {
+	CollectionId ArchiveCollectionId `json:"collectionId"`
+	Body         *CreateArchiveFieldJSONRequestBody
+}
+
+type CreateArchiveFieldResponseObject interface {
+	VisitCreateArchiveFieldResponse(w http.ResponseWriter) error
+}
+
+type CreateArchiveField201JSONResponse ArchiveFieldDefinition
+
+func (response CreateArchiveField201JSONResponse) VisitCreateArchiveFieldResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateArchiveFielddefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CreateArchiveFielddefaultApplicationProblemPlusJSONResponse) VisitCreateArchiveFieldResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
 
 type DeleteArchiveFieldRequestObject struct {
 	FieldId string `json:"fieldId"`
@@ -2640,319 +2866,145 @@ func (response UpdateArchiveFielddefaultApplicationProblemPlusJSONResponse) Visi
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
-type ListArchiveTypesRequestObject struct {
+type ListArchiveRecordsRequestObject struct {
+	Params ListArchiveRecordsParams
 }
 
-type ListArchiveTypesResponseObject interface {
-	VisitListArchiveTypesResponse(w http.ResponseWriter) error
+type ListArchiveRecordsResponseObject interface {
+	VisitListArchiveRecordsResponse(w http.ResponseWriter) error
 }
 
-type ListArchiveTypes200JSONResponse []ArchiveTypeDefinition
+type ListArchiveRecords200JSONResponse ArchiveRecordPage
 
-func (response ListArchiveTypes200JSONResponse) VisitListArchiveTypesResponse(w http.ResponseWriter) error {
+func (response ListArchiveRecords200JSONResponse) VisitListArchiveRecordsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListArchiveTypesdefaultApplicationProblemPlusJSONResponse struct {
+type ListArchiveRecordsdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response ListArchiveTypesdefaultApplicationProblemPlusJSONResponse) VisitListArchiveTypesResponse(w http.ResponseWriter) error {
+func (response ListArchiveRecordsdefaultApplicationProblemPlusJSONResponse) VisitListArchiveRecordsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
-type CreateArchiveTypeRequestObject struct {
-	Body *CreateArchiveTypeJSONRequestBody
+type CreateArchiveRecordRequestObject struct {
+	Body *CreateArchiveRecordJSONRequestBody
 }
 
-type CreateArchiveTypeResponseObject interface {
-	VisitCreateArchiveTypeResponse(w http.ResponseWriter) error
+type CreateArchiveRecordResponseObject interface {
+	VisitCreateArchiveRecordResponse(w http.ResponseWriter) error
 }
 
-type CreateArchiveType201JSONResponse ArchiveTypeDefinition
+type CreateArchiveRecord201JSONResponse ArchiveRecord
 
-func (response CreateArchiveType201JSONResponse) VisitCreateArchiveTypeResponse(w http.ResponseWriter) error {
+func (response CreateArchiveRecord201JSONResponse) VisitCreateArchiveRecordResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateArchiveTypedefaultApplicationProblemPlusJSONResponse struct {
+type CreateArchiveRecorddefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response CreateArchiveTypedefaultApplicationProblemPlusJSONResponse) VisitCreateArchiveTypeResponse(w http.ResponseWriter) error {
+func (response CreateArchiveRecorddefaultApplicationProblemPlusJSONResponse) VisitCreateArchiveRecordResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
-type DeleteArchiveTypeRequestObject struct {
-	TypeId ArchiveTypeId `json:"typeId"`
+type TrashArchiveRecordRequestObject struct {
+	RecordId ArchiveRecordId `json:"recordId"`
 }
 
-type DeleteArchiveTypeResponseObject interface {
-	VisitDeleteArchiveTypeResponse(w http.ResponseWriter) error
+type TrashArchiveRecordResponseObject interface {
+	VisitTrashArchiveRecordResponse(w http.ResponseWriter) error
 }
 
-type DeleteArchiveType204Response struct {
+type TrashArchiveRecord204Response struct {
 }
 
-func (response DeleteArchiveType204Response) VisitDeleteArchiveTypeResponse(w http.ResponseWriter) error {
+func (response TrashArchiveRecord204Response) VisitTrashArchiveRecordResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
 	return nil
 }
 
-type DeleteArchiveTypedefaultApplicationProblemPlusJSONResponse struct {
+type TrashArchiveRecorddefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response DeleteArchiveTypedefaultApplicationProblemPlusJSONResponse) VisitDeleteArchiveTypeResponse(w http.ResponseWriter) error {
+func (response TrashArchiveRecorddefaultApplicationProblemPlusJSONResponse) VisitTrashArchiveRecordResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
-type GetArchiveTypeRequestObject struct {
-	TypeId ArchiveTypeId `json:"typeId"`
+type GetArchiveRecordRequestObject struct {
+	RecordId ArchiveRecordId `json:"recordId"`
 }
 
-type GetArchiveTypeResponseObject interface {
-	VisitGetArchiveTypeResponse(w http.ResponseWriter) error
+type GetArchiveRecordResponseObject interface {
+	VisitGetArchiveRecordResponse(w http.ResponseWriter) error
 }
 
-type GetArchiveType200JSONResponse ArchiveTypeDefinition
+type GetArchiveRecord200JSONResponse ArchiveRecord
 
-func (response GetArchiveType200JSONResponse) VisitGetArchiveTypeResponse(w http.ResponseWriter) error {
+func (response GetArchiveRecord200JSONResponse) VisitGetArchiveRecordResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetArchiveTypedefaultApplicationProblemPlusJSONResponse struct {
+type GetArchiveRecorddefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response GetArchiveTypedefaultApplicationProblemPlusJSONResponse) VisitGetArchiveTypeResponse(w http.ResponseWriter) error {
+func (response GetArchiveRecorddefaultApplicationProblemPlusJSONResponse) VisitGetArchiveRecordResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
-type UpdateArchiveTypeRequestObject struct {
-	TypeId ArchiveTypeId `json:"typeId"`
-	Body   *UpdateArchiveTypeJSONRequestBody
+type UpdateArchiveRecordRequestObject struct {
+	RecordId ArchiveRecordId `json:"recordId"`
+	Body     *UpdateArchiveRecordJSONRequestBody
 }
 
-type UpdateArchiveTypeResponseObject interface {
-	VisitUpdateArchiveTypeResponse(w http.ResponseWriter) error
+type UpdateArchiveRecordResponseObject interface {
+	VisitUpdateArchiveRecordResponse(w http.ResponseWriter) error
 }
 
-type UpdateArchiveType200JSONResponse ArchiveTypeDefinition
+type UpdateArchiveRecord200JSONResponse ArchiveRecord
 
-func (response UpdateArchiveType200JSONResponse) VisitUpdateArchiveTypeResponse(w http.ResponseWriter) error {
+func (response UpdateArchiveRecord200JSONResponse) VisitUpdateArchiveRecordResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateArchiveTypedefaultApplicationProblemPlusJSONResponse struct {
+type UpdateArchiveRecorddefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int
 }
 
-func (response UpdateArchiveTypedefaultApplicationProblemPlusJSONResponse) VisitUpdateArchiveTypeResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type CreateArchiveFieldRequestObject struct {
-	TypeId ArchiveTypeId `json:"typeId"`
-	Body   *CreateArchiveFieldJSONRequestBody
-}
-
-type CreateArchiveFieldResponseObject interface {
-	VisitCreateArchiveFieldResponse(w http.ResponseWriter) error
-}
-
-type CreateArchiveField201JSONResponse ArchiveFieldDefinition
-
-func (response CreateArchiveField201JSONResponse) VisitCreateArchiveFieldResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateArchiveFielddefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response CreateArchiveFielddefaultApplicationProblemPlusJSONResponse) VisitCreateArchiveFieldResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type ListArchivesRequestObject struct {
-	Params ListArchivesParams
-}
-
-type ListArchivesResponseObject interface {
-	VisitListArchivesResponse(w http.ResponseWriter) error
-}
-
-type ListArchives200JSONResponse ArchivePage
-
-func (response ListArchives200JSONResponse) VisitListArchivesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListArchivesdefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response ListArchivesdefaultApplicationProblemPlusJSONResponse) VisitListArchivesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type CreateArchiveRequestObject struct {
-	Body *CreateArchiveJSONRequestBody
-}
-
-type CreateArchiveResponseObject interface {
-	VisitCreateArchiveResponse(w http.ResponseWriter) error
-}
-
-type CreateArchive201JSONResponse Archive
-
-func (response CreateArchive201JSONResponse) VisitCreateArchiveResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateArchivedefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response CreateArchivedefaultApplicationProblemPlusJSONResponse) VisitCreateArchiveResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type TrashArchiveRequestObject struct {
-	ArchiveId ArchiveId `json:"archiveId"`
-}
-
-type TrashArchiveResponseObject interface {
-	VisitTrashArchiveResponse(w http.ResponseWriter) error
-}
-
-type TrashArchive204Response struct {
-}
-
-func (response TrashArchive204Response) VisitTrashArchiveResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type TrashArchivedefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response TrashArchivedefaultApplicationProblemPlusJSONResponse) VisitTrashArchiveResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type GetArchiveRequestObject struct {
-	ArchiveId ArchiveId `json:"archiveId"`
-}
-
-type GetArchiveResponseObject interface {
-	VisitGetArchiveResponse(w http.ResponseWriter) error
-}
-
-type GetArchive200JSONResponse Archive
-
-func (response GetArchive200JSONResponse) VisitGetArchiveResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetArchivedefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response GetArchivedefaultApplicationProblemPlusJSONResponse) VisitGetArchiveResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type UpdateArchiveRequestObject struct {
-	ArchiveId ArchiveId `json:"archiveId"`
-	Body      *UpdateArchiveJSONRequestBody
-}
-
-type UpdateArchiveResponseObject interface {
-	VisitUpdateArchiveResponse(w http.ResponseWriter) error
-}
-
-type UpdateArchive200JSONResponse Archive
-
-func (response UpdateArchive200JSONResponse) VisitUpdateArchiveResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type UpdateArchivedefaultApplicationProblemPlusJSONResponse struct {
-	Body       Problem
-	StatusCode int
-}
-
-func (response UpdateArchivedefaultApplicationProblemPlusJSONResponse) VisitUpdateArchiveResponse(w http.ResponseWriter) error {
+func (response UpdateArchiveRecorddefaultApplicationProblemPlusJSONResponse) VisitUpdateArchiveRecordResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 
@@ -2960,7 +3012,7 @@ func (response UpdateArchivedefaultApplicationProblemPlusJSONResponse) VisitUpda
 }
 
 type ListArchiveActivityRequestObject struct {
-	ArchiveId ArchiveId `json:"archiveId"`
+	RecordId ArchiveRecordId `json:"recordId"`
 }
 
 type ListArchiveActivityResponseObject interface {
@@ -2989,7 +3041,7 @@ func (response ListArchiveActivitydefaultApplicationProblemPlusJSONResponse) Vis
 }
 
 type ListArchiveAttachmentsRequestObject struct {
-	ArchiveId ArchiveId `json:"archiveId"`
+	RecordId ArchiveRecordId `json:"recordId"`
 }
 
 type ListArchiveAttachmentsResponseObject interface {
@@ -3018,8 +3070,8 @@ func (response ListArchiveAttachmentsdefaultApplicationProblemPlusJSONResponse) 
 }
 
 type ImportArchiveAttachmentsRequestObject struct {
-	ArchiveId ArchiveId `json:"archiveId"`
-	Body      *ImportArchiveAttachmentsJSONRequestBody
+	RecordId ArchiveRecordId `json:"recordId"`
+	Body     *ImportArchiveAttachmentsJSONRequestBody
 }
 
 type ImportArchiveAttachmentsResponseObject interface {
@@ -3048,7 +3100,7 @@ func (response ImportArchiveAttachmentsdefaultApplicationProblemPlusJSONResponse
 }
 
 type ListArchiveRelationsRequestObject struct {
-	ArchiveId ArchiveId `json:"archiveId"`
+	RecordId ArchiveRecordId `json:"recordId"`
 }
 
 type ListArchiveRelationsResponseObject interface {
@@ -3077,8 +3129,8 @@ func (response ListArchiveRelationsdefaultApplicationProblemPlusJSONResponse) Vi
 }
 
 type CreateArchiveRelationRequestObject struct {
-	ArchiveId ArchiveId `json:"archiveId"`
-	Body      *CreateArchiveRelationJSONRequestBody
+	RecordId ArchiveRecordId `json:"recordId"`
+	Body     *CreateArchiveRelationJSONRequestBody
 }
 
 type CreateArchiveRelationResponseObject interface {
@@ -3906,137 +3958,137 @@ func (response ShutdowndefaultApplicationProblemPlusJSONResponse) VisitShutdownR
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// List custom archive types and field definitions
+	// (GET /api/v3/archive-collections)
+	ListArchiveCollections(ctx context.Context, request ListArchiveCollectionsRequestObject) (ListArchiveCollectionsResponseObject, error)
+	// Create a custom archive type
+	// (POST /api/v3/archive-collections)
+	CreateArchiveCollection(ctx context.Context, request CreateArchiveCollectionRequestObject) (CreateArchiveCollectionResponseObject, error)
+	// Delete an unused archive type
+	// (DELETE /api/v3/archive-collections/{collectionId})
+	DeleteArchiveCollection(ctx context.Context, request DeleteArchiveCollectionRequestObject) (DeleteArchiveCollectionResponseObject, error)
+	// Get a custom archive type
+	// (GET /api/v3/archive-collections/{collectionId})
+	GetArchiveCollection(ctx context.Context, request GetArchiveCollectionRequestObject) (GetArchiveCollectionResponseObject, error)
+	// Update a custom archive type
+	// (PATCH /api/v3/archive-collections/{collectionId})
+	UpdateArchiveCollection(ctx context.Context, request UpdateArchiveCollectionRequestObject) (UpdateArchiveCollectionResponseObject, error)
+	// Add a custom field
+	// (POST /api/v3/archive-collections/{collectionId}/fields)
+	CreateArchiveField(ctx context.Context, request CreateArchiveFieldRequestObject) (CreateArchiveFieldResponseObject, error)
 	// Delete a custom field and its values
-	// (DELETE /api/v2/archive-fields/{fieldId})
+	// (DELETE /api/v3/archive-fields/{fieldId})
 	DeleteArchiveField(ctx context.Context, request DeleteArchiveFieldRequestObject) (DeleteArchiveFieldResponseObject, error)
 	// Update a custom field
-	// (PATCH /api/v2/archive-fields/{fieldId})
+	// (PATCH /api/v3/archive-fields/{fieldId})
 	UpdateArchiveField(ctx context.Context, request UpdateArchiveFieldRequestObject) (UpdateArchiveFieldResponseObject, error)
-	// List custom archive types and field definitions
-	// (GET /api/v2/archive-types)
-	ListArchiveTypes(ctx context.Context, request ListArchiveTypesRequestObject) (ListArchiveTypesResponseObject, error)
-	// Create a custom archive type
-	// (POST /api/v2/archive-types)
-	CreateArchiveType(ctx context.Context, request CreateArchiveTypeRequestObject) (CreateArchiveTypeResponseObject, error)
-	// Delete an unused archive type
-	// (DELETE /api/v2/archive-types/{typeId})
-	DeleteArchiveType(ctx context.Context, request DeleteArchiveTypeRequestObject) (DeleteArchiveTypeResponseObject, error)
-	// Get a custom archive type
-	// (GET /api/v2/archive-types/{typeId})
-	GetArchiveType(ctx context.Context, request GetArchiveTypeRequestObject) (GetArchiveTypeResponseObject, error)
-	// Update a custom archive type
-	// (PATCH /api/v2/archive-types/{typeId})
-	UpdateArchiveType(ctx context.Context, request UpdateArchiveTypeRequestObject) (UpdateArchiveTypeResponseObject, error)
-	// Add a custom field
-	// (POST /api/v2/archive-types/{typeId}/fields)
-	CreateArchiveField(ctx context.Context, request CreateArchiveFieldRequestObject) (CreateArchiveFieldResponseObject, error)
 	// List and filter archives
-	// (GET /api/v2/archives)
-	ListArchives(ctx context.Context, request ListArchivesRequestObject) (ListArchivesResponseObject, error)
+	// (GET /api/v3/archive-records)
+	ListArchiveRecords(ctx context.Context, request ListArchiveRecordsRequestObject) (ListArchiveRecordsResponseObject, error)
 	// Create an archive
-	// (POST /api/v2/archives)
-	CreateArchive(ctx context.Context, request CreateArchiveRequestObject) (CreateArchiveResponseObject, error)
+	// (POST /api/v3/archive-records)
+	CreateArchiveRecord(ctx context.Context, request CreateArchiveRecordRequestObject) (CreateArchiveRecordResponseObject, error)
 	// Move an archive to trash
-	// (DELETE /api/v2/archives/{archiveId})
-	TrashArchive(ctx context.Context, request TrashArchiveRequestObject) (TrashArchiveResponseObject, error)
+	// (DELETE /api/v3/archive-records/{recordId})
+	TrashArchiveRecord(ctx context.Context, request TrashArchiveRecordRequestObject) (TrashArchiveRecordResponseObject, error)
 	// Get an archive
-	// (GET /api/v2/archives/{archiveId})
-	GetArchive(ctx context.Context, request GetArchiveRequestObject) (GetArchiveResponseObject, error)
+	// (GET /api/v3/archive-records/{recordId})
+	GetArchiveRecord(ctx context.Context, request GetArchiveRecordRequestObject) (GetArchiveRecordResponseObject, error)
 	// Update an archive
-	// (PATCH /api/v2/archives/{archiveId})
-	UpdateArchive(ctx context.Context, request UpdateArchiveRequestObject) (UpdateArchiveResponseObject, error)
+	// (PATCH /api/v3/archive-records/{recordId})
+	UpdateArchiveRecord(ctx context.Context, request UpdateArchiveRecordRequestObject) (UpdateArchiveRecordResponseObject, error)
 	// List archive activity
-	// (GET /api/v2/archives/{archiveId}/activity)
+	// (GET /api/v3/archive-records/{recordId}/activity)
 	ListArchiveActivity(ctx context.Context, request ListArchiveActivityRequestObject) (ListArchiveActivityResponseObject, error)
 	// List archive attachments
-	// (GET /api/v2/archives/{archiveId}/attachments)
+	// (GET /api/v3/archive-records/{recordId}/attachments)
 	ListArchiveAttachments(ctx context.Context, request ListArchiveAttachmentsRequestObject) (ListArchiveAttachmentsResponseObject, error)
 	// Import managed attachments
-	// (POST /api/v2/archives/{archiveId}/attachments)
+	// (POST /api/v3/archive-records/{recordId}/attachments)
 	ImportArchiveAttachments(ctx context.Context, request ImportArchiveAttachmentsRequestObject) (ImportArchiveAttachmentsResponseObject, error)
 	// List archive relations
-	// (GET /api/v2/archives/{archiveId}/relations)
+	// (GET /api/v3/archive-records/{recordId}/relations)
 	ListArchiveRelations(ctx context.Context, request ListArchiveRelationsRequestObject) (ListArchiveRelationsResponseObject, error)
 	// Create an archive relation
-	// (POST /api/v2/archives/{archiveId}/relations)
+	// (POST /api/v3/archive-records/{recordId}/relations)
 	CreateArchiveRelation(ctx context.Context, request CreateArchiveRelationRequestObject) (CreateArchiveRelationResponseObject, error)
 	// Remove a managed attachment
-	// (DELETE /api/v2/attachments/{attachmentId})
+	// (DELETE /api/v3/attachments/{attachmentId})
 	DeleteAttachment(ctx context.Context, request DeleteAttachmentRequestObject) (DeleteAttachmentResponseObject, error)
 	// Resolve a managed attachment for native opening
-	// (GET /api/v2/attachments/{attachmentId}/open-target)
+	// (GET /api/v3/attachments/{attachmentId}/open-target)
 	GetAttachmentOpenTarget(ctx context.Context, request GetAttachmentOpenTargetRequestObject) (GetAttachmentOpenTargetResponseObject, error)
 	// Read backup settings
-	// (GET /api/v2/backup-settings)
+	// (GET /api/v3/backup-settings)
 	GetBackupSettings(ctx context.Context, request GetBackupSettingsRequestObject) (GetBackupSettingsResponseObject, error)
 	// Configure or disable backups
-	// (PUT /api/v2/backup-settings)
+	// (PUT /api/v3/backup-settings)
 	UpdateBackupSettings(ctx context.Context, request UpdateBackupSettingsRequestObject) (UpdateBackupSettingsResponseObject, error)
 	// List backup history
-	// (GET /api/v2/backups)
+	// (GET /api/v3/backups)
 	ListBackups(ctx context.Context, request ListBackupsRequestObject) (ListBackupsResponseObject, error)
 	// Start a backup job
-	// (POST /api/v2/backups)
+	// (POST /api/v3/backups)
 	CreateBackup(ctx context.Context, request CreateBackupRequestObject) (CreateBackupResponseObject, error)
 	// Get the today dashboard
-	// (GET /api/v2/dashboard)
+	// (GET /api/v3/dashboard)
 	GetDashboard(ctx context.Context, request GetDashboardRequestObject) (GetDashboardResponseObject, error)
 	// Cancel a running background job
-	// (DELETE /api/v2/jobs/{jobId})
+	// (DELETE /api/v3/jobs/{jobId})
 	CancelJob(ctx context.Context, request CancelJobRequestObject) (CancelJobResponseObject, error)
 	// Get background job state
-	// (GET /api/v2/jobs/{jobId})
+	// (GET /api/v3/jobs/{jobId})
 	GetJob(ctx context.Context, request GetJobRequestObject) (GetJobResponseObject, error)
 	// Subscribe to background job progress
-	// (GET /api/v2/jobs/{jobId}/events)
+	// (GET /api/v3/jobs/{jobId}/events)
 	GetJobEvents(ctx context.Context, request GetJobEventsRequestObject) (GetJobEventsResponseObject, error)
 	// Get service and workspace metadata
-	// (GET /api/v2/meta)
+	// (GET /api/v3/meta)
 	GetMeta(ctx context.Context, request GetMetaRequestObject) (GetMetaResponseObject, error)
 	// Read workspace-scoped UI preferences
-	// (GET /api/v2/preferences)
+	// (GET /api/v3/preferences)
 	GetPreferences(ctx context.Context, request GetPreferencesRequestObject) (GetPreferencesResponseObject, error)
 	// Update workspace-scoped UI preferences
-	// (PATCH /api/v2/preferences)
+	// (PATCH /api/v3/preferences)
 	UpdatePreferences(ctx context.Context, request UpdatePreferencesRequestObject) (UpdatePreferencesResponseObject, error)
 	// Remove an entity relation
-	// (DELETE /api/v2/relations/{relationId})
+	// (DELETE /api/v3/relations/{relationId})
 	DeleteRelation(ctx context.Context, request DeleteRelationRequestObject) (DeleteRelationResponseObject, error)
 	// Restore a backup to a new workspace
-	// (POST /api/v2/restores)
+	// (POST /api/v3/restores)
 	CreateRestore(ctx context.Context, request CreateRestoreRequestObject) (CreateRestoreResponseObject, error)
 	// Validate a backup before restore
-	// (POST /api/v2/restores/preflight)
+	// (POST /api/v3/restores/preflight)
 	PreflightRestore(ctx context.Context, request PreflightRestoreRequestObject) (PreflightRestoreResponseObject, error)
 	// Search workspace entities
-	// (GET /api/v2/search)
+	// (GET /api/v3/search)
 	Search(ctx context.Context, request SearchRequestObject) (SearchResponseObject, error)
 	// Rebuild the full-text search index
-	// (POST /api/v2/search/rebuild)
+	// (POST /api/v3/search/rebuild)
 	RebuildSearch(ctx context.Context, request RebuildSearchRequestObject) (RebuildSearchResponseObject, error)
 	// Check full-text search index health
-	// (GET /api/v2/search/status)
+	// (GET /api/v3/search/status)
 	GetSearchStatus(ctx context.Context, request GetSearchStatusRequestObject) (GetSearchStatusResponseObject, error)
 	// List unified tasks for a view, calendar range, or archive
-	// (GET /api/v2/tasks)
+	// (GET /api/v3/tasks)
 	ListTasks(ctx context.Context, request ListTasksRequestObject) (ListTasksResponseObject, error)
 	// Create a task
-	// (POST /api/v2/tasks)
+	// (POST /api/v3/tasks)
 	CreateTask(ctx context.Context, request CreateTaskRequestObject) (CreateTaskResponseObject, error)
 	// Move a task to trash
-	// (DELETE /api/v2/tasks/{taskId})
+	// (DELETE /api/v3/tasks/{taskId})
 	TrashTask(ctx context.Context, request TrashTaskRequestObject) (TrashTaskResponseObject, error)
 	// Get task details for the inspector
-	// (GET /api/v2/tasks/{taskId})
+	// (GET /api/v3/tasks/{taskId})
 	GetTask(ctx context.Context, request GetTaskRequestObject) (GetTaskResponseObject, error)
 	// Update a task
-	// (PATCH /api/v2/tasks/{taskId})
+	// (PATCH /api/v3/tasks/{taskId})
 	UpdateTask(ctx context.Context, request UpdateTaskRequestObject) (UpdateTaskResponseObject, error)
 	// List trashed entities
-	// (GET /api/v2/trash)
+	// (GET /api/v3/trash)
 	ListTrash(ctx context.Context, request ListTrashRequestObject) (ListTrashResponseObject, error)
 	// Restore a trashed entity
-	// (POST /api/v2/trash/{trashId}/restore)
+	// (POST /api/v3/trash/{trashId}/restore)
 	RestoreTrash(ctx context.Context, request RestoreTrashRequestObject) (RestoreTrashResponseObject, error)
 	// Check whether the sidecar process is alive
 	// (GET /healthz)
@@ -4073,6 +4125,179 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListArchiveCollections operation middleware
+func (sh *strictHandler) ListArchiveCollections(w http.ResponseWriter, r *http.Request) {
+	var request ListArchiveCollectionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListArchiveCollections(ctx, request.(ListArchiveCollectionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListArchiveCollections")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListArchiveCollectionsResponseObject); ok {
+		if err := validResponse.VisitListArchiveCollectionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateArchiveCollection operation middleware
+func (sh *strictHandler) CreateArchiveCollection(w http.ResponseWriter, r *http.Request) {
+	var request CreateArchiveCollectionRequestObject
+
+	var body CreateArchiveCollectionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateArchiveCollection(ctx, request.(CreateArchiveCollectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateArchiveCollection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateArchiveCollectionResponseObject); ok {
+		if err := validResponse.VisitCreateArchiveCollectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteArchiveCollection operation middleware
+func (sh *strictHandler) DeleteArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId) {
+	var request DeleteArchiveCollectionRequestObject
+
+	request.CollectionId = collectionId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteArchiveCollection(ctx, request.(DeleteArchiveCollectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteArchiveCollection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteArchiveCollectionResponseObject); ok {
+		if err := validResponse.VisitDeleteArchiveCollectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetArchiveCollection operation middleware
+func (sh *strictHandler) GetArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId) {
+	var request GetArchiveCollectionRequestObject
+
+	request.CollectionId = collectionId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetArchiveCollection(ctx, request.(GetArchiveCollectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetArchiveCollection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetArchiveCollectionResponseObject); ok {
+		if err := validResponse.VisitGetArchiveCollectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateArchiveCollection operation middleware
+func (sh *strictHandler) UpdateArchiveCollection(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId) {
+	var request UpdateArchiveCollectionRequestObject
+
+	request.CollectionId = collectionId
+
+	var body UpdateArchiveCollectionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateArchiveCollection(ctx, request.(UpdateArchiveCollectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateArchiveCollection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateArchiveCollectionResponseObject); ok {
+		if err := validResponse.VisitUpdateArchiveCollectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateArchiveField operation middleware
+func (sh *strictHandler) CreateArchiveField(w http.ResponseWriter, r *http.Request, collectionId ArchiveCollectionId) {
+	var request CreateArchiveFieldRequestObject
+
+	request.CollectionId = collectionId
+
+	var body CreateArchiveFieldJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateArchiveField(ctx, request.(CreateArchiveFieldRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateArchiveField")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateArchiveFieldResponseObject); ok {
+		if err := validResponse.VisitCreateArchiveFieldResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // DeleteArchiveField operation middleware
@@ -4134,198 +4359,25 @@ func (sh *strictHandler) UpdateArchiveField(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// ListArchiveTypes operation middleware
-func (sh *strictHandler) ListArchiveTypes(w http.ResponseWriter, r *http.Request) {
-	var request ListArchiveTypesRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListArchiveTypes(ctx, request.(ListArchiveTypesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListArchiveTypes")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListArchiveTypesResponseObject); ok {
-		if err := validResponse.VisitListArchiveTypesResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// CreateArchiveType operation middleware
-func (sh *strictHandler) CreateArchiveType(w http.ResponseWriter, r *http.Request) {
-	var request CreateArchiveTypeRequestObject
-
-	var body CreateArchiveTypeJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateArchiveType(ctx, request.(CreateArchiveTypeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateArchiveType")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateArchiveTypeResponseObject); ok {
-		if err := validResponse.VisitCreateArchiveTypeResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// DeleteArchiveType operation middleware
-func (sh *strictHandler) DeleteArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId) {
-	var request DeleteArchiveTypeRequestObject
-
-	request.TypeId = typeId
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteArchiveType(ctx, request.(DeleteArchiveTypeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteArchiveType")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeleteArchiveTypeResponseObject); ok {
-		if err := validResponse.VisitDeleteArchiveTypeResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetArchiveType operation middleware
-func (sh *strictHandler) GetArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId) {
-	var request GetArchiveTypeRequestObject
-
-	request.TypeId = typeId
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetArchiveType(ctx, request.(GetArchiveTypeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetArchiveType")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetArchiveTypeResponseObject); ok {
-		if err := validResponse.VisitGetArchiveTypeResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// UpdateArchiveType operation middleware
-func (sh *strictHandler) UpdateArchiveType(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId) {
-	var request UpdateArchiveTypeRequestObject
-
-	request.TypeId = typeId
-
-	var body UpdateArchiveTypeJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateArchiveType(ctx, request.(UpdateArchiveTypeRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateArchiveType")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UpdateArchiveTypeResponseObject); ok {
-		if err := validResponse.VisitUpdateArchiveTypeResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// CreateArchiveField operation middleware
-func (sh *strictHandler) CreateArchiveField(w http.ResponseWriter, r *http.Request, typeId ArchiveTypeId) {
-	var request CreateArchiveFieldRequestObject
-
-	request.TypeId = typeId
-
-	var body CreateArchiveFieldJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateArchiveField(ctx, request.(CreateArchiveFieldRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateArchiveField")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateArchiveFieldResponseObject); ok {
-		if err := validResponse.VisitCreateArchiveFieldResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListArchives operation middleware
-func (sh *strictHandler) ListArchives(w http.ResponseWriter, r *http.Request, params ListArchivesParams) {
-	var request ListArchivesRequestObject
+// ListArchiveRecords operation middleware
+func (sh *strictHandler) ListArchiveRecords(w http.ResponseWriter, r *http.Request, params ListArchiveRecordsParams) {
+	var request ListArchiveRecordsRequestObject
 
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListArchives(ctx, request.(ListArchivesRequestObject))
+		return sh.ssi.ListArchiveRecords(ctx, request.(ListArchiveRecordsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListArchives")
+		handler = middleware(handler, "ListArchiveRecords")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListArchivesResponseObject); ok {
-		if err := validResponse.VisitListArchivesResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListArchiveRecordsResponseObject); ok {
+		if err := validResponse.VisitListArchiveRecordsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4333,11 +4385,11 @@ func (sh *strictHandler) ListArchives(w http.ResponseWriter, r *http.Request, pa
 	}
 }
 
-// CreateArchive operation middleware
-func (sh *strictHandler) CreateArchive(w http.ResponseWriter, r *http.Request) {
-	var request CreateArchiveRequestObject
+// CreateArchiveRecord operation middleware
+func (sh *strictHandler) CreateArchiveRecord(w http.ResponseWriter, r *http.Request) {
+	var request CreateArchiveRecordRequestObject
 
-	var body CreateArchiveJSONRequestBody
+	var body CreateArchiveRecordJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -4345,18 +4397,18 @@ func (sh *strictHandler) CreateArchive(w http.ResponseWriter, r *http.Request) {
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateArchive(ctx, request.(CreateArchiveRequestObject))
+		return sh.ssi.CreateArchiveRecord(ctx, request.(CreateArchiveRecordRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateArchive")
+		handler = middleware(handler, "CreateArchiveRecord")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateArchiveResponseObject); ok {
-		if err := validResponse.VisitCreateArchiveResponse(w); err != nil {
+	} else if validResponse, ok := response.(CreateArchiveRecordResponseObject); ok {
+		if err := validResponse.VisitCreateArchiveRecordResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4364,25 +4416,25 @@ func (sh *strictHandler) CreateArchive(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TrashArchive operation middleware
-func (sh *strictHandler) TrashArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
-	var request TrashArchiveRequestObject
+// TrashArchiveRecord operation middleware
+func (sh *strictHandler) TrashArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
+	var request TrashArchiveRecordRequestObject
 
-	request.ArchiveId = archiveId
+	request.RecordId = recordId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.TrashArchive(ctx, request.(TrashArchiveRequestObject))
+		return sh.ssi.TrashArchiveRecord(ctx, request.(TrashArchiveRecordRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "TrashArchive")
+		handler = middleware(handler, "TrashArchiveRecord")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(TrashArchiveResponseObject); ok {
-		if err := validResponse.VisitTrashArchiveResponse(w); err != nil {
+	} else if validResponse, ok := response.(TrashArchiveRecordResponseObject); ok {
+		if err := validResponse.VisitTrashArchiveRecordResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4390,25 +4442,25 @@ func (sh *strictHandler) TrashArchive(w http.ResponseWriter, r *http.Request, ar
 	}
 }
 
-// GetArchive operation middleware
-func (sh *strictHandler) GetArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
-	var request GetArchiveRequestObject
+// GetArchiveRecord operation middleware
+func (sh *strictHandler) GetArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
+	var request GetArchiveRecordRequestObject
 
-	request.ArchiveId = archiveId
+	request.RecordId = recordId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetArchive(ctx, request.(GetArchiveRequestObject))
+		return sh.ssi.GetArchiveRecord(ctx, request.(GetArchiveRecordRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetArchive")
+		handler = middleware(handler, "GetArchiveRecord")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetArchiveResponseObject); ok {
-		if err := validResponse.VisitGetArchiveResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetArchiveRecordResponseObject); ok {
+		if err := validResponse.VisitGetArchiveRecordResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4416,13 +4468,13 @@ func (sh *strictHandler) GetArchive(w http.ResponseWriter, r *http.Request, arch
 	}
 }
 
-// UpdateArchive operation middleware
-func (sh *strictHandler) UpdateArchive(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
-	var request UpdateArchiveRequestObject
+// UpdateArchiveRecord operation middleware
+func (sh *strictHandler) UpdateArchiveRecord(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
+	var request UpdateArchiveRecordRequestObject
 
-	request.ArchiveId = archiveId
+	request.RecordId = recordId
 
-	var body UpdateArchiveJSONRequestBody
+	var body UpdateArchiveRecordJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -4430,18 +4482,18 @@ func (sh *strictHandler) UpdateArchive(w http.ResponseWriter, r *http.Request, a
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateArchive(ctx, request.(UpdateArchiveRequestObject))
+		return sh.ssi.UpdateArchiveRecord(ctx, request.(UpdateArchiveRecordRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateArchive")
+		handler = middleware(handler, "UpdateArchiveRecord")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UpdateArchiveResponseObject); ok {
-		if err := validResponse.VisitUpdateArchiveResponse(w); err != nil {
+	} else if validResponse, ok := response.(UpdateArchiveRecordResponseObject); ok {
+		if err := validResponse.VisitUpdateArchiveRecordResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4450,10 +4502,10 @@ func (sh *strictHandler) UpdateArchive(w http.ResponseWriter, r *http.Request, a
 }
 
 // ListArchiveActivity operation middleware
-func (sh *strictHandler) ListArchiveActivity(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+func (sh *strictHandler) ListArchiveActivity(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	var request ListArchiveActivityRequestObject
 
-	request.ArchiveId = archiveId
+	request.RecordId = recordId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListArchiveActivity(ctx, request.(ListArchiveActivityRequestObject))
@@ -4476,10 +4528,10 @@ func (sh *strictHandler) ListArchiveActivity(w http.ResponseWriter, r *http.Requ
 }
 
 // ListArchiveAttachments operation middleware
-func (sh *strictHandler) ListArchiveAttachments(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+func (sh *strictHandler) ListArchiveAttachments(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	var request ListArchiveAttachmentsRequestObject
 
-	request.ArchiveId = archiveId
+	request.RecordId = recordId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListArchiveAttachments(ctx, request.(ListArchiveAttachmentsRequestObject))
@@ -4502,10 +4554,10 @@ func (sh *strictHandler) ListArchiveAttachments(w http.ResponseWriter, r *http.R
 }
 
 // ImportArchiveAttachments operation middleware
-func (sh *strictHandler) ImportArchiveAttachments(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+func (sh *strictHandler) ImportArchiveAttachments(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	var request ImportArchiveAttachmentsRequestObject
 
-	request.ArchiveId = archiveId
+	request.RecordId = recordId
 
 	var body ImportArchiveAttachmentsJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -4535,10 +4587,10 @@ func (sh *strictHandler) ImportArchiveAttachments(w http.ResponseWriter, r *http
 }
 
 // ListArchiveRelations operation middleware
-func (sh *strictHandler) ListArchiveRelations(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+func (sh *strictHandler) ListArchiveRelations(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	var request ListArchiveRelationsRequestObject
 
-	request.ArchiveId = archiveId
+	request.RecordId = recordId
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListArchiveRelations(ctx, request.(ListArchiveRelationsRequestObject))
@@ -4561,10 +4613,10 @@ func (sh *strictHandler) ListArchiveRelations(w http.ResponseWriter, r *http.Req
 }
 
 // CreateArchiveRelation operation middleware
-func (sh *strictHandler) CreateArchiveRelation(w http.ResponseWriter, r *http.Request, archiveId ArchiveId) {
+func (sh *strictHandler) CreateArchiveRelation(w http.ResponseWriter, r *http.Request, recordId ArchiveRecordId) {
 	var request CreateArchiveRelationRequestObject
 
-	request.ArchiveId = archiveId
+	request.RecordId = recordId
 
 	var body CreateArchiveRelationJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

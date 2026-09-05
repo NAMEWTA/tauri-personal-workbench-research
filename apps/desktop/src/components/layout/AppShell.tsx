@@ -26,6 +26,7 @@ import {
 } from '../../features/settings/legacy-preferences'
 import { CommandPalette } from './CommandPalette'
 import { InspectorPanel } from './InspectorPanel'
+import { ReminderScheduler } from '../../features/tasks/ReminderScheduler'
 
 const navigation = [
   { to: '/today', label: '今日', icon: SunMedium },
@@ -304,6 +305,7 @@ export function AppShell() {
         </aside>
       )}
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <ReminderScheduler />
     </div>
   )
 }
