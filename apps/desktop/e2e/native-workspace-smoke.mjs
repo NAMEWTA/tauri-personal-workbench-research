@@ -412,7 +412,10 @@ try {
     readFile(registryPath, 'utf8').then(JSON.parse),
   ])
   assert(databaseA.size > 0 && databaseB.size > 0)
-  assert.equal(registry[0].path.toLowerCase(), realpathSync(workspaceA).toLowerCase())
+  // Windows runner 可能用 8.3 短路径传入临时目录；使用 native realpath
+  // 解析到与 Rust canonicalize 相同的长路径后再比较。
+  const canonicalWorkspaceA = realpathSync.native(workspaceA)
+  assert.equal(registry[0].path.toLowerCase(), canonicalWorkspaceA.toLowerCase())
   assert.deepEqual(Object.keys(registry[0]).sort(), ['lastOpened', 'path'])
   console.log('Native Tauri workspace switch, isolation, and persistence smoke passed')
 } finally {
