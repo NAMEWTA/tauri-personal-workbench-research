@@ -118,13 +118,21 @@ impl SidecarManager {
             inner.bootstrap = Some(bootstrap.clone());
             inner.restart_count = 0;
         }
-        match self.start_once(app, bootstrap, false).await {
-            Ok(connection) => Ok(connection),
-            Err(error) => {
-                self.mark_failed(error.to_string());
-                Err(error)
+        let mut last_error = None;
+        for attempt in 0..2 {
+            match self.start_once(app, bootstrap.clone(), false).await {
+                Ok(connection) => return Ok(connection),
+                Err(error) => {
+                    last_error = Some(error);
+                    if attempt == 0 {
+                        tokio::time::sleep(Duration::from_millis(250)).await;
+                    }
+                }
             }
         }
+        let error = last_error.expect("sidecar startup must produce an error");
+        self.mark_failed(error.to_string());
+        Err(error)
     }
 
     async fn start_once(

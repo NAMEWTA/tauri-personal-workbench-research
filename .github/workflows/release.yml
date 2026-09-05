@@ -94,6 +94,7 @@ jobs:
           sidecar=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'workbenchd*' -print -quit)
           test -n "$sidecar"
           test -x "$sidecar"
+          codesign --force --deep --sign - "$app"
           if ! codesign --verify --deep --strict --verbose=2 "$app"; then
             echo "Strict resource sealing is unavailable for this cross-target ad-hoc bundle; validating nested code signatures instead"
             codesign --verify --deep --verbose=2 "$app"
