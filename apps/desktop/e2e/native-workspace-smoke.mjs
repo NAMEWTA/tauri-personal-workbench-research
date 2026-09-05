@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
@@ -412,7 +412,7 @@ try {
     readFile(registryPath, 'utf8').then(JSON.parse),
   ])
   assert(databaseA.size > 0 && databaseB.size > 0)
-  assert.equal(registry[0].path.toLowerCase(), workspaceA.toLowerCase())
+  assert.equal(registry[0].path.toLowerCase(), realpathSync(workspaceA).toLowerCase())
   assert.deepEqual(Object.keys(registry[0]).sort(), ['lastOpened', 'path'])
   console.log('Native Tauri workspace switch, isolation, and persistence smoke passed')
 } finally {
