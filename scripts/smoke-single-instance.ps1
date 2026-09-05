@@ -26,6 +26,7 @@ if (-not $probeFull.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)
 }
 $configDirectory = Join-Path $probeFull 'config'
 $workspace = Join-Path $probeFull 'workspace'
+$webviewDirectory = Join-Path $probeFull 'webview2'
 
 function Get-InstalledDirectory([string]$Fallback) {
   $uninstallRoot = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
@@ -53,6 +54,7 @@ function Start-ProbeApp([string]$ApplicationPath) {
   $startInfo.UseShellExecute = $false
   $startInfo.EnvironmentVariables['WORKBENCH_DEV_APP_DATA_DIR'] = $probeFull
   $startInfo.EnvironmentVariables['WORKBENCH_DEV_CONFIG_DIR'] = $configDirectory
+  $startInfo.EnvironmentVariables['WEBVIEW2_USER_DATA_FOLDER'] = $webviewDirectory
   return [Diagnostics.Process]::Start($startInfo)
 }
 
@@ -65,7 +67,7 @@ function Stop-ProbeProcess($Process) {
   }
 }
 
-New-Item -ItemType Directory -Force -Path $configDirectory, $workspace | Out-Null
+New-Item -ItemType Directory -Force -Path $configDirectory, $workspace, $webviewDirectory | Out-Null
 $registry = ConvertTo-Json -InputObject @(@{
     path = [IO.Path]::GetFullPath($workspace)
     lastOpened = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
