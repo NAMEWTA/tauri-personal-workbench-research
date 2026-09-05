@@ -303,7 +303,7 @@ try {
       WORKBENCH_DEV_APP_DATA_DIR: appDataDirectory,
       WORKBENCH_DEV_CONFIG_DIR: configDirectory,
       WEBVIEW2_USER_DATA_FOLDER: webviewDirectory,
-      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-address=127.0.0.1 --remote-debugging-port=${port} --remote-allow-origins=*`,
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-allow-origins=*`,
     },
     stdio: ['ignore', 'ignore', 'pipe'],
   })

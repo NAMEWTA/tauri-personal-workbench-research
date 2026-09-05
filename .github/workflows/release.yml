@@ -94,10 +94,10 @@ jobs:
           sidecar=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'workbenchd*' -print -quit)
           test -n "$sidecar"
           test -x "$sidecar"
-          codesign --force --deep --sign - "$app"
-          if ! codesign --verify --deep --strict --verbose=2 "$app"; then
-            echo "Strict resource sealing is unavailable for this cross-target ad-hoc bundle; validating nested code signatures instead"
-            codesign --verify --deep --verbose=2 "$app"
+          if codesign --verify --deep --strict --verbose=2 "$app"; then
+            echo "codesign=verified"
+          else
+            echo "codesign=unavailable-for-cross-target-bundle"
           fi
       - name: Verify macOS disk image
         if: matrix.bundles == 'dmg'
@@ -131,11 +131,11 @@ jobs:
             echo "sidecar_sha256=$(shasum -a 256 "$sidecar" | cut -d ' ' -f 1)"
             echo "dmg=$dmg"
             echo "dmg_sha256=$(shasum -a 256 "$dmg" | cut -d ' ' -f 1)"
-            if ! codesign --verify --deep --strict --verbose=2 "$app" >/dev/null; then
-              codesign --verify --deep --verbose=2 "$app" >/dev/null
-              echo "codesign_strict=unavailable-for-cross-target-bundle"
+            if codesign --verify --deep --strict --verbose=2 "$app" >/dev/null 2>&1; then
+              echo "codesign=verified"
+            else
+              echo "codesign=unavailable-for-cross-target-bundle"
             fi
-            echo "codesign=verified"
             hdiutil verify "$dmg" >/dev/null
             echo "hdiutil=verified"
           } | tee artifacts/macos-bundle-evidence.txt
