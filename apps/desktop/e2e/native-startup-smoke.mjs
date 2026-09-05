@@ -2,11 +2,15 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { chromium } from '@playwright/test'
+import {
+  nativeWebViewOverrideStatus,
+  prepareNativeWebViewOverrides,
+} from './native-webview-overrides.mjs'
 
 const application = resolve(process.argv[2] ?? '')
 const evidenceRoot = process.argv[3] ? resolve(process.argv[3]) : null
@@ -154,6 +158,110 @@ async function removeProbe(directory) {
   }
 }
 
+function safeProcessSnapshot(processHandle) {
+  if (!processHandle) return { started: false }
+  const result = spawnSync(
+    'powershell',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `$process = Get-CimInstance Win32_Process -Filter \"ProcessId = ${processHandle.pid}\" -ErrorAction SilentlyContinue; if ($process) { $process | Select-Object Name,ProcessId,ParentProcessId | ConvertTo-Json -Compress }`,
+    ],
+    { encoding: 'utf8', windowsHide: true },
+  )
+  let process
+  try {
+    process = result.stdout.trim() ? JSON.parse(result.stdout) : null
+  } catch {
+    process = null
+  }
+  return { started: true, pid: processHandle.pid, exitCode: processHandle.exitCode, process }
+}
+
+async function copySafeStartupLogs(probe, evidence) {
+  if (!evidence) return []
+  const destination = join(evidence, 'diagnostics-logs')
+  await mkdir(destination, { recursive: true })
+  const roots = [join(probe, 'app-data'), join(probe, 'config')]
+  const copied = []
+  async function visit(directory, depth = 0) {
+    if (depth > 4) return
+    let entries
+    try {
+      entries = await readdir(directory, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const source = join(directory, entry.name)
+      if (entry.isDirectory()) {
+        await visit(source, depth + 1)
+      } else if (entry.isFile() && /\.(log|txt)$/i.test(entry.name)) {
+        try {
+          const information = await stat(source)
+          if (information.size > 1_000_000) continue
+          const target = join(
+            destination,
+            `${copied.length}-${entry.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+          )
+          await cp(source, target)
+          copied.push(target)
+        } catch {
+          // Diagnostics are best-effort and never mask the acceptance failure.
+        }
+      }
+    }
+  }
+  for (const root of roots) await visit(root)
+  return copied
+}
+
+function captureDesktopScreenshot(target) {
+  if (process.env.CI_NATIVE_DESKTOP_SCREENSHOT !== '1') return false
+  const script = `$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bitmap=New-Object System.Drawing.Bitmap $bounds.Width,$bounds.Height; $graphics=[System.Drawing.Graphics]::FromImage($bitmap); $graphics.CopyFromScreen($bounds.Location,[System.Drawing.Point]::Empty,$bounds.Size); $bitmap.Save('${target.replace(/'/g, "''")}',[System.Drawing.Imaging.ImageFormat]::Png); $graphics.Dispose(); $bitmap.Dispose()`
+  return (
+    spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8',
+      windowsHide: true,
+    }).status === 0
+  )
+}
+
+async function writeFailureDiagnostics({
+  evidence,
+  scenario,
+  phase,
+  processHandle,
+  stderr,
+  probe,
+}) {
+  if (!evidence) return
+  await mkdir(evidence, { recursive: true })
+  const desktopScreenshot = join(evidence, 'desktop-failure.png')
+  const screenshotCaptured = captureDesktopScreenshot(desktopScreenshot)
+  const copiedLogs = await copySafeStartupLogs(probe, evidence)
+  await writeFile(
+    join(evidence, 'failure.json'),
+    `${JSON.stringify(
+      {
+        scenario,
+        phase,
+        applicationAlive: processHandle?.exitCode === null,
+        process: safeProcessSnapshot(processHandle),
+        stderr: stderr.slice(-8_192),
+        desktopScreenshot: screenshotCaptured ? desktopScreenshot : null,
+        copiedLogs,
+        webViewOverride: nativeWebViewOverrideStatus(),
+        recordedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  )
+}
+
 function createSchemaFixture(database) {
   const result = spawnSync('go', ['run', fixtureTool, database, '2'], {
     cwd: join(root, 'services', 'workbenchd'),
@@ -183,6 +291,8 @@ async function runScenario(name, withRecent, defaultIncompatible = true) {
   let processHandle
   let page
   let stderr = ''
+  let phase = 'prepare'
+  let webViewOverrides
   const taskTitle = `startup-${name}-${Date.now()}`
   const sidecar = join(dirname(application), 'workbenchd.exe')
   const applicationHash = await sha256(application)
@@ -198,6 +308,7 @@ async function runScenario(name, withRecent, defaultIncompatible = true) {
       throw new Error(
         `sidecar version ${sidecarVersion} does not match package version ${expectedVersion}`,
       )
+    phase = 'fixture'
     await Promise.all(
       [appData, config, webview, defaultWorkspace, recentWorkspace].map((path) =>
         mkdir(path, { recursive: true }),
@@ -224,7 +335,9 @@ async function runScenario(name, withRecent, defaultIncompatible = true) {
         originalDatabases.map(async (item) => [item.name, await sha256(item.path)]),
       ),
     )
+    phase = 'launch'
     const port = await reserveLoopbackPort()
+    webViewOverrides = prepareNativeWebViewOverrides({ application, port, userDataFolder: webview })
     processHandle = spawn(application, [], {
       cwd: dirname(application),
       env: {
@@ -239,8 +352,11 @@ async function runScenario(name, withRecent, defaultIncompatible = true) {
     processHandle.stderr.on('data', (chunk) => {
       stderr = `${stderr}${chunk}`.slice(-8_192)
     })
+    phase = 'cdp-discovery'
     browser = await waitForBrowser(port, processHandle, () => stderr.trim())
+    phase = 'tauri-page'
     page = await waitForTauriPage(browser)
+    phase = 'ui-ready'
     await page.getByRole('heading', { name: '今日' }).waitFor({ timeout: 30_000 })
     const first = await snapshot(page)
     assert.equal(first.meta.workspaceName, 'workspace-current-2')
@@ -267,11 +383,21 @@ async function runScenario(name, withRecent, defaultIncompatible = true) {
     assert(currentPath && currentPath.toLowerCase().endsWith('workspace-current-2'))
     const freshDatabase = join(currentPath, 'workbench.sqlite3')
     const originalPath = withRecent ? recentWorkspace : defaultWorkspace
+    phase = 'restart-close'
     await gracefulClose(processHandle)
+    await webViewOverrides?.restore()
+    webViewOverrides = undefined
     processHandle = undefined
     await browser.close()
     browser = undefined
+    await webViewOverrides?.restore()
+    webViewOverrides = undefined
     const restartPort = await reserveLoopbackPort()
+    webViewOverrides = prepareNativeWebViewOverrides({
+      application,
+      port: restartPort,
+      userDataFolder: join(probe, 'webview2-restart'),
+    })
     processHandle = spawn(application, [], {
       cwd: dirname(application),
       env: {
@@ -286,8 +412,11 @@ async function runScenario(name, withRecent, defaultIncompatible = true) {
     processHandle.stderr.on('data', (chunk) => {
       stderr = `${stderr}${chunk}`.slice(-8_192)
     })
+    phase = 'restart-cdp-discovery'
     browser = await waitForBrowser(restartPort, processHandle, () => stderr.trim())
+    phase = 'restart-tauri-page'
     page = await waitForTauriPage(browser)
+    phase = 'restart-ui-ready'
     await page.getByRole('heading', { name: '今日' }).waitFor({ timeout: 30_000 })
     await waitForBackend(page)
     const restarted = await snapshot(page)
@@ -334,6 +463,7 @@ async function runScenario(name, withRecent, defaultIncompatible = true) {
       await page
         .screenshot({ path: join(evidence, 'failure.png'), fullPage: true })
         .catch(() => undefined)
+    await writeFailureDiagnostics({ evidence, scenario: name, phase, processHandle, stderr, probe })
     throw error
   } finally {
     if (browser) await browser.close().catch(() => undefined)
@@ -349,6 +479,7 @@ async function runScenario(name, withRecent, defaultIncompatible = true) {
         })
       }
     }
+    await webViewOverrides?.restore().catch(() => undefined)
     await removeProbe(probe)
     if (closeError) throw closeError
   }

@@ -6,6 +6,7 @@ import net from 'node:net'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { chromium } from '@playwright/test'
+import { prepareNativeWebViewOverrides } from './native-webview-overrides.mjs'
 
 const root = resolve(import.meta.dirname, '../../..')
 const target = process.env.TAURI_ENV_TARGET_TRIPLE?.trim()
@@ -280,6 +281,7 @@ let browser
 let page
 let processHandle
 let stderr = ''
+let webViewOverrides
 
 try {
   await Promise.all(
@@ -301,6 +303,11 @@ try {
   )
 
   const port = await reserveLoopbackPort()
+  webViewOverrides = prepareNativeWebViewOverrides({
+    application,
+    port,
+    userDataFolder: webviewDirectory,
+  })
   processHandle = spawn(application, [], {
     cwd: releaseDirectory,
     env: {
@@ -397,6 +404,8 @@ try {
   assert.deepEqual([...apiHosts], ['127.0.0.1'])
 
   await gracefulClose(processHandle)
+  await webViewOverrides?.restore()
+  webViewOverrides = undefined
   const [databaseA, databaseB, registry] = await Promise.all([
     stat(join(workspaceA, 'workbench.sqlite3')),
     stat(join(workspaceB, 'workbench.sqlite3')),
@@ -414,5 +423,6 @@ try {
       windowsHide: true,
     })
   }
+  await webViewOverrides?.restore().catch(() => undefined)
   await removeProbe(probe)
 }
