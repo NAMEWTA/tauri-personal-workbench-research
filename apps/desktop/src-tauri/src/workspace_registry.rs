@@ -1,5 +1,6 @@
 use crate::error::WorkbenchError;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -53,11 +54,16 @@ impl WorkspaceRegistry {
             .lock()
             .expect("workspace registry mutex poisoned");
         inner.config_path = Some(config_path);
+        let mut seen_paths = HashSet::new();
         inner.entries = entries
             .into_iter()
             .filter_map(|entry| {
-                let path = normalize_windows_path(PathBuf::from(&entry.path));
+                let path = canonicalize_workspace_path(Path::new(&entry.path)).ok()?;
                 if !path.is_dir() {
+                    return None;
+                }
+                let key = path.to_string_lossy().to_ascii_lowercase();
+                if !seen_paths.insert(key) {
                     return None;
                 }
                 Some(WorkspaceEntry {
@@ -230,6 +236,39 @@ mod tests {
             .initialize(root.join("workspaces.json"))
             .expect("reload registry");
         assert_eq!(reloaded.entries().len(), 2);
+        fs::remove_dir_all(root).expect("remove registry fixture");
+    }
+
+    #[test]
+    fn canonicalizes_and_deduplicates_persisted_workspace_paths() {
+        let root = std::env::temp_dir().join(format!(
+            "workbench-registry-dedup-{}",
+            rand::random::<u64>()
+        ));
+        let workspace = root.join("workspace");
+        let config = root.join("workspaces.json");
+        fs::create_dir_all(&workspace).expect("create workspace");
+        let path = workspace.to_string_lossy().into_owned();
+        let persisted = serde_json::json!([
+            { "path": path, "lastOpened": 2 },
+            { "path": workspace.to_string_lossy(), "lastOpened": 1 }
+        ]);
+        fs::write(
+            &config,
+            serde_json::to_vec(&persisted).expect("serialize registry"),
+        )
+        .expect("write registry");
+
+        let registry = WorkspaceRegistry::default();
+        registry.initialize(config).expect("initialize registry");
+
+        let entries = registry.entries();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(
+            PathBuf::from(&entries[0].path),
+            canonicalize_workspace_path(&workspace).expect("canonicalize workspace")
+        );
+        assert_eq!(entries[0].last_opened, 2);
         fs::remove_dir_all(root).expect("remove registry fixture");
     }
 
