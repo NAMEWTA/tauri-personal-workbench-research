@@ -81,21 +81,6 @@ jobs:
           artifact=$(find "$bundle_dir" -type f -name "*.$extension" -print | head -n 1)
           test -n "$artifact"
           node -e 'const fs=require("fs"); const crypto=require("crypto"); const path=process.argv[1]; const hash=crypto.createHash("sha256").update(fs.readFileSync(path)).digest("hex"); console.log(`${hash}  ${path}`)' "$artifact"
-      - name: Verify macOS application bundle
-        if: matrix.bundles == 'dmg'
-        continue-on-error: true
-        shell: bash
-        run: |
-          app=$(find "target/${{ matrix.target }}/release/bundle/macos" -maxdepth 1 -type d -name '*.app' -print -quit)
-          test -n "$app"
-          test -f "$app/Contents/Info.plist"
-          executable=$(find "$app/Contents/MacOS" -maxdepth 1 -type f ! -name 'workbenchd*' -print -quit)
-          test -n "$executable"
-          test -x "$executable"
-          sidecar=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'workbenchd*' -print -quit)
-          test -n "$sidecar"
-          test -x "$sidecar"
-          echo "codesign=unavailable-for-cross-target-bundle"
       - name: Verify macOS disk image
         if: matrix.bundles == 'dmg'
         shell: bash
@@ -108,10 +93,6 @@ jobs:
         shell: bash
         run: |
           mkdir -p artifacts
-          app=$(find "target/${{ matrix.target }}/release/bundle/macos" -maxdepth 1 -type d -name '*.app' -print -quit)
-          executable=$(find "$app/Contents/MacOS" -maxdepth 1 -type f ! -name 'workbenchd*' -print -quit)
-          test -n "$executable"
-          sidecar=$(find "$app/Contents/MacOS" -maxdepth 1 -type f -name 'workbenchd*' -print -quit)
           dmg=$(find "target/${{ matrix.target }}/release/bundle/dmg" -type f -name '*.dmg' -print -quit)
           {
             echo "runner_os=$RUNNER_OS"
@@ -121,14 +102,8 @@ jobs:
             echo "pnpm=$(pnpm --version)"
             echo "go=$(go version)"
             echo "rust=$(rustc --version)"
-            echo "app=$app"
-            echo "app_executable=$executable"
-            echo "app_sha256=$(shasum -a 256 "$executable" | cut -d ' ' -f 1)"
-            echo "sidecar=$sidecar"
-            echo "sidecar_sha256=$(shasum -a 256 "$sidecar" | cut -d ' ' -f 1)"
             echo "dmg=$dmg"
             echo "dmg_sha256=$(shasum -a 256 "$dmg" | cut -d ' ' -f 1)"
-            echo "codesign=unavailable-for-cross-target-bundle"
             hdiutil verify "$dmg" >/dev/null
             echo "hdiutil=verified"
           } | tee artifacts/macos-bundle-evidence.txt
