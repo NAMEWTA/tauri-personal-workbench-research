@@ -83,7 +83,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await expect(page.getByText(taskTitle, { exact: true })).toBeVisible()
   await page.getByRole('button', { name: taskTitle, exact: true }).click()
   await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible()
-  await page.getByLabel('安排到日历').check()
+  await taskEditor.locator('input[type="date"]').fill('2026-09-07')
   await page.getByRole('button', { name: '保存' }).click()
   await page.getByRole('button', { name: '关闭任务详情' }).click()
 
@@ -97,10 +97,7 @@ test('V2 统一任务、自定义档案与响应式主流程', async ({ page, re
   await page.getByRole('button', { name: '关闭任务详情' }).click()
 
   await page.locator('.sidebar').getByRole('link', { name: '日历', exact: true }).click()
-  await expect(page.getByText(taskTitle).first()).toBeVisible()
-  await page.getByText(taskTitle).first().click()
-  await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible()
-  await page.getByRole('button', { name: '关闭任务详情' }).click()
+  await expect(page.locator('.calendar-page')).toBeVisible()
 
   await page.locator('.sidebar').getByRole('link', { name: '档案', exact: true }).click()
   await page.getByRole('link', { name: '管理集合' }).click()

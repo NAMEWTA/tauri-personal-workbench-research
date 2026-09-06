@@ -435,6 +435,7 @@ type Task struct {
 	AllDay          bool                `json:"allDay"`
 	CompletedAt     *time.Time          `json:"completedAt"`
 	CreatedAt       time.Time           `json:"createdAt"`
+	DueAt           *time.Time          `json:"dueAt"`
 	DueOn           *openapi_types.Date `json:"dueOn"`
 	EndsAt          *time.Time          `json:"endsAt"`
 	EstimateMinutes *int                `json:"estimateMinutes"`
@@ -462,6 +463,7 @@ type TaskStatus string
 // TaskInput defines model for TaskInput.
 type TaskInput struct {
 	AllDay          bool                `json:"allDay"`
+	DueAt           *time.Time          `json:"dueAt"`
 	DueOn           *openapi_types.Date `json:"dueOn"`
 	EndsAt          *time.Time          `json:"endsAt"`
 	EstimateMinutes *int                `json:"estimateMinutes"`

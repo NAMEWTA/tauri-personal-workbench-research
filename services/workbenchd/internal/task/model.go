@@ -14,6 +14,7 @@ type Task struct {
 	StartsAt     *time.Time `json:"startsAt"`
 	EndsAt       *time.Time `json:"endsAt"`
 	DueOn        *string    `json:"dueOn"`
+	DueAt        *time.Time `json:"dueAt"`
 	AllDay       bool       `json:"allDay"`
 	Timezone     string     `json:"timezone"`
 	RecordID     *string    `json:"recordId"`
@@ -35,6 +36,7 @@ type Input struct {
 	StartsAt     *time.Time `json:"startsAt"`
 	EndsAt       *time.Time `json:"endsAt"`
 	DueOn        *string    `json:"dueOn"`
+	DueAt        *time.Time `json:"dueAt"`
 	AllDay       bool       `json:"allDay"`
 	Timezone     string     `json:"timezone"`
 	RecordID     *string    `json:"recordId"`
@@ -71,6 +73,9 @@ func (in Input) Valid() bool {
 		if _, err := time.Parse("2006-01-02", *in.DueOn); err != nil {
 			return false
 		}
+	}
+	if in.DueAt != nil && in.Timezone != "" && !validTimezone(in.Timezone) {
+		return false
 	}
 	if len(in.Recurrence) > 500 || len(in.Reminders) > 20 {
 		return false

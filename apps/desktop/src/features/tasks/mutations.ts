@@ -29,6 +29,7 @@ export function useUpdateTask() {
               startsAt: task.startsAt,
               endsAt: task.endsAt,
               dueOn: task.dueOn,
+              dueAt: task.dueAt,
               allDay: task.allDay,
               timezone: task.timezone,
               recordId: task.recordId,

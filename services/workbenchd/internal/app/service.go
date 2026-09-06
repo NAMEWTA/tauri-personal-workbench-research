@@ -308,6 +308,9 @@ func (s *Service) Dashboard(ctx context.Context, timezone string) (Dashboard, er
 	result := Dashboard{OverdueTasks: []task.Task{}, TodayTasks: today, TomorrowTasks: tomorrow, RecentArchives: archives.Items}
 	for _, item := range all {
 		overdue := item.DueOn != nil && *item.DueOn < todayKey
+		if item.DueAt != nil && item.DueAt.Before(start) {
+			overdue = true
+		}
 		if item.EndsAt != nil && !item.EndsAt.After(start) {
 			overdue = true
 		}

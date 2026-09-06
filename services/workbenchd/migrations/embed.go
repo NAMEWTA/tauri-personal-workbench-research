@@ -2,7 +2,7 @@ package migrations
 
 import "embed"
 
-const CurrentVersion int64 = 1
+const CurrentVersion int64 = 2
 
 // FS contains immutable forward-only database migrations.
 //

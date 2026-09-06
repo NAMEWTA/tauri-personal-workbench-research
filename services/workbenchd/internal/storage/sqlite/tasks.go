@@ -14,7 +14,7 @@ import (
 	"github.com/personal-workbench/workbenchd/internal/task"
 )
 
-const taskColumns = `t.id,t.title,t.status,t.priority,t.starts_at,t.ends_at,t.due_on,t.all_day,t.timezone,t.archive_id,COALESCE(a.title,''),t.notes,t.recurrence_json,t.reminders_json,t.parent_id,t.estimate_minutes,t.completed_at,t.created_at,t.updated_at`
+const taskColumns = `t.id,t.title,t.status,t.priority,t.starts_at,t.ends_at,t.due_on,t.due_at,t.all_day,t.timezone,t.archive_id,COALESCE(a.title,''),t.notes,t.recurrence_json,t.reminders_json,t.parent_id,t.estimate_minutes,t.completed_at,t.created_at,t.updated_at`
 
 func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task, error) {
 	location := time.Local
@@ -33,21 +33,21 @@ func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task,
 	case "", "all":
 		condition += ` AND t.status<>'done'`
 	case "inbox":
-		condition += ` AND t.status<>'done' AND t.starts_at IS NULL AND t.due_on IS NULL`
+		condition += ` AND t.status<>'done' AND t.starts_at IS NULL AND t.due_on IS NULL AND t.due_at IS NULL`
 	case "upcoming":
-		condition += ` AND t.status<>'done' AND (t.due_on>=? OR t.starts_at>=?)`
-		args = append(args, now.Format("2006-01-02"), platform.TimeText(now.UTC()))
+		condition += ` AND t.status<>'done' AND (t.due_on>=? OR t.due_at>=? OR t.starts_at>=?)`
+		args = append(args, now.Format("2006-01-02"), platform.TimeText(now.UTC()), platform.TimeText(now.UTC()))
 	case "today":
-		condition += ` AND t.status<>'done' AND (t.due_on=? OR (t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?))`
-		args = append(args, now.Format("2006-01-02"), platform.TimeText(todayEnd), platform.TimeText(todayStart))
+		condition += ` AND t.status<>'done' AND (t.due_on=? OR (t.due_at IS NOT NULL AND t.due_at>=? AND t.due_at<?) OR (t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?))`
+		args = append(args, now.Format("2006-01-02"), platform.TimeText(todayStart.UTC()), platform.TimeText(todayEnd.UTC()), platform.TimeText(todayEnd), platform.TimeText(todayStart))
 	case "tomorrow":
 		tomorrowStart := todayEnd
 		tomorrowEnd := tomorrowStart.In(location).AddDate(0, 0, 1).UTC()
-		condition += ` AND t.status<>'done' AND (t.due_on=? OR (t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?))`
-		args = append(args, tomorrowStart.In(location).Format("2006-01-02"), platform.TimeText(tomorrowEnd), platform.TimeText(tomorrowStart))
+		condition += ` AND t.status<>'done' AND (t.due_on=? OR (t.due_at IS NOT NULL AND t.due_at>=? AND t.due_at<?) OR (t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?))`
+		args = append(args, tomorrowStart.In(location).Format("2006-01-02"), platform.TimeText(tomorrowStart.UTC()), platform.TimeText(tomorrowEnd.UTC()), platform.TimeText(tomorrowEnd), platform.TimeText(tomorrowStart))
 	case "calendar":
 		// Calendar is a time projection and includes completed scheduled tasks.
-		condition += ` AND t.starts_at IS NOT NULL AND t.ends_at IS NOT NULL`
+		condition += ` AND (t.due_on IS NOT NULL OR t.due_at IS NOT NULL OR (t.starts_at IS NOT NULL AND t.ends_at IS NOT NULL))`
 	case "completed":
 		condition += ` AND t.status='done'`
 	default:
@@ -57,8 +57,8 @@ func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task,
 		if filter.From == nil || filter.To == nil || !filter.To.After(*filter.From) {
 			return nil, app.ErrValidation
 		}
-		condition += ` AND t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?`
-		args = append(args, platform.TimeText(*filter.To), platform.TimeText(*filter.From))
+		condition += ` AND ((t.due_at IS NOT NULL AND t.due_at>=? AND t.due_at<?) OR (t.due_on IS NOT NULL AND t.due_on>=date(?) AND t.due_on<date(?)) OR (t.starts_at IS NOT NULL AND t.starts_at<? AND t.ends_at>?))`
+		args = append(args, platform.TimeText(*filter.From), platform.TimeText(*filter.To), platform.TimeText(*filter.From), platform.TimeText(*filter.To), platform.TimeText(*filter.To), platform.TimeText(*filter.From))
 	}
 	if filter.RecordID != "" {
 		condition += ` AND t.archive_id=?`
@@ -68,15 +68,15 @@ func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task,
 		if _, err := time.Parse("2006-01-02", filter.DueFrom); err != nil {
 			return nil, app.ErrValidation
 		}
-		condition += ` AND t.due_on>=?`
-		args = append(args, filter.DueFrom)
+		condition += ` AND (t.due_on>=? OR t.due_at>=?)`
+		args = append(args, filter.DueFrom, filter.DueFrom+"T00:00:00Z")
 	}
 	if filter.DueTo != "" {
 		if _, err := time.Parse("2006-01-02", filter.DueTo); err != nil {
 			return nil, app.ErrValidation
 		}
-		condition += ` AND t.due_on<=?`
-		args = append(args, filter.DueTo)
+		condition += ` AND (t.due_on<=? OR t.due_at<?)`
+		args = append(args, filter.DueTo, filter.DueTo+"T23:59:59Z")
 	}
 	if !filter.IncludeUnscheduled && filter.View == "calendar" {
 		condition += ` AND t.starts_at IS NOT NULL`
@@ -86,7 +86,7 @@ func (s *Store) ListTasks(ctx context.Context, filter task.Filter) ([]task.Task,
 		pattern := "%" + query + "%"
 		args = append(args, pattern, pattern)
 	}
-	order := `CASE WHEN t.status='done' THEN 1 ELSE 0 END,CASE WHEN t.starts_at IS NULL THEN 1 ELSE 0 END,t.starts_at,t.updated_at DESC,t.id`
+	order := `CASE WHEN t.status='done' THEN 1 ELSE 0 END,CASE WHEN COALESCE(t.due_at,t.starts_at) IS NULL AND t.due_on IS NULL THEN 1 ELSE 0 END,COALESCE(t.due_at,t.starts_at) DESC,t.due_on DESC,t.updated_at DESC,t.id`
 	rows, err := s.db.QueryContext(ctx, `SELECT `+taskColumns+` FROM tasks t LEFT JOIN archive_records a ON a.id=t.archive_id AND a.deleted_at IS NULL WHERE `+condition+` ORDER BY `+order, args...)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (s *Store) CreateTask(ctx context.Context, input task.Input) (task.Task, er
 	id := platform.NewID()
 	err := s.withTx(ctx, func(tx *sql.Tx) error {
 		reminders, _ := json.Marshal(input.Reminders)
-		if _, err := tx.ExecContext(ctx, `INSERT INTO tasks(id,title,status,priority,starts_at,ends_at,due_on,all_day,timezone,archive_id,notes,recurrence_json,reminders_json,parent_id,estimate_minutes,completed_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, strings.TrimSpace(input.Title), input.Status, input.Priority, nullableTime(input.StartsAt), nullableTime(input.EndsAt), nullableString(input.DueOn), input.AllDay, timezone, input.RecordID, input.Notes, input.Recurrence, string(reminders), input.ParentID, input.EstimateMins, nullableTime(completedAt), platform.TimeText(now), platform.TimeText(now)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO tasks(id,title,status,priority,starts_at,ends_at,due_on,due_at,all_day,timezone,archive_id,notes,recurrence_json,reminders_json,parent_id,estimate_minutes,completed_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, strings.TrimSpace(input.Title), input.Status, input.Priority, nullableTime(input.StartsAt), nullableTime(input.EndsAt), nullableString(input.DueOn), nullableTime(input.DueAt), input.AllDay, timezone, input.RecordID, input.Notes, input.Recurrence, string(reminders), input.ParentID, input.EstimateMins, nullableTime(completedAt), platform.TimeText(now), platform.TimeText(now)); err != nil {
 			return err
 		}
 		return writeChange(ctx, tx, "task", id, "create", now)
@@ -177,7 +177,7 @@ func (s *Store) UpdateTask(ctx context.Context, id string, input task.Input) (ta
 	}
 	err = s.withTx(ctx, func(tx *sql.Tx) error {
 		reminders, _ := json.Marshal(input.Reminders)
-		result, err := tx.ExecContext(ctx, `UPDATE tasks SET title=?,status=?,priority=?,starts_at=?,ends_at=?,due_on=?,all_day=?,timezone=?,archive_id=?,notes=?,recurrence_json=?,reminders_json=?,parent_id=?,estimate_minutes=?,completed_at=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, strings.TrimSpace(input.Title), input.Status, input.Priority, nullableTime(input.StartsAt), nullableTime(input.EndsAt), nullableString(input.DueOn), input.AllDay, timezone, input.RecordID, input.Notes, input.Recurrence, string(reminders), input.ParentID, input.EstimateMins, nullableTime(completedAt), platform.TimeText(now), id)
+		result, err := tx.ExecContext(ctx, `UPDATE tasks SET title=?,status=?,priority=?,starts_at=?,ends_at=?,due_on=?,due_at=?,all_day=?,timezone=?,archive_id=?,notes=?,recurrence_json=?,reminders_json=?,parent_id=?,estimate_minutes=?,completed_at=?,updated_at=? WHERE id=? AND deleted_at IS NULL`, strings.TrimSpace(input.Title), input.Status, input.Priority, nullableTime(input.StartsAt), nullableTime(input.EndsAt), nullableString(input.DueOn), nullableTime(input.DueAt), input.AllDay, timezone, input.RecordID, input.Notes, input.Recurrence, string(reminders), input.ParentID, input.EstimateMins, nullableTime(completedAt), platform.TimeText(now), id)
 		if err != nil {
 			return err
 		}
@@ -228,8 +228,13 @@ func createNextRecurringTask(ctx context.Context, tx *sql.Tx, input task.Input, 
 		nextStart, nextEnd := shift(*input.StartsAt), shift(*input.EndsAt)
 		starts, ends = &nextStart, &nextEnd
 	}
+	var dueAt *time.Time
+	if input.DueAt != nil {
+		next := shift(*input.DueAt)
+		dueAt = &next
+	}
 	reminders, _ := json.Marshal(input.Reminders)
-	_, err := tx.ExecContext(ctx, `INSERT INTO tasks(id,title,status,priority,starts_at,ends_at,due_on,all_day,timezone,archive_id,notes,recurrence_json,reminders_json,parent_id,estimate_minutes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, platform.NewID(), strings.TrimSpace(input.Title), "todo", input.Priority, nullableTime(starts), nullableTime(ends), nullableString(dueOn), input.AllDay, input.Timezone, input.RecordID, input.Notes, input.Recurrence, string(reminders), input.ParentID, input.EstimateMins, platform.TimeText(now), platform.TimeText(now))
+	_, err := tx.ExecContext(ctx, `INSERT INTO tasks(id,title,status,priority,starts_at,ends_at,due_on,due_at,all_day,timezone,archive_id,notes,recurrence_json,reminders_json,parent_id,estimate_minutes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, platform.NewID(), strings.TrimSpace(input.Title), "todo", input.Priority, nullableTime(starts), nullableTime(ends), nullableString(dueOn), nullableTime(dueAt), input.AllDay, input.Timezone, input.RecordID, input.Notes, input.Recurrence, string(reminders), input.ParentID, input.EstimateMins, platform.TimeText(now), platform.TimeText(now))
 	return err
 }
 
@@ -297,12 +302,13 @@ func (s *Store) validateParent(ctx context.Context, parentID *string, taskID str
 
 func scanTask(row scanner) (task.Task, error) {
 	var item task.Task
-	var starts, ends, dueOn, remindersJSON, completed sql.NullString
+	var starts, ends, dueOn, dueAt, remindersJSON, completed sql.NullString
 	var archiveID sql.NullString
 	var parentID sql.NullString
 	var estimate sql.NullInt64
 	var created, updated string
-	if err := row.Scan(&item.ID, &item.Title, &item.Status, &item.Priority, &starts, &ends, &dueOn, &item.AllDay, &item.Timezone, &archiveID, &item.RecordTitle, &item.Notes, &item.Recurrence, &remindersJSON, &parentID, &estimate, &completed, &created, &updated); err != nil {
+	var err error
+	if err := row.Scan(&item.ID, &item.Title, &item.Status, &item.Priority, &starts, &ends, &dueOn, &dueAt, &item.AllDay, &item.Timezone, &archiveID, &item.RecordTitle, &item.Notes, &item.Recurrence, &remindersJSON, &parentID, &estimate, &completed, &created, &updated); err != nil {
 		return task.Task{}, err
 	}
 	if archiveID.Valid {
@@ -310,6 +316,9 @@ func scanTask(row scanner) (task.Task, error) {
 	}
 	if dueOn.Valid {
 		item.DueOn = &dueOn.String
+	}
+	if item.DueAt, err = parseNullableTime(dueAt); err != nil {
+		return task.Task{}, err
 	}
 	if parentID.Valid {
 		item.ParentID = &parentID.String
@@ -326,7 +335,6 @@ func scanTask(row scanner) (task.Task, error) {
 	if item.Reminders == nil {
 		item.Reminders = []string{}
 	}
-	var err error
 	if item.StartsAt, err = parseNullableTime(starts); err != nil {
 		return task.Task{}, err
 	}

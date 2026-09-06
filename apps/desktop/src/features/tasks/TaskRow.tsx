@@ -1,4 +1,4 @@
-import { CalendarClock, Circle, CircleCheck, Flag } from 'lucide-react'
+﻿import { CalendarClock, Circle, CircleCheck, Flag } from 'lucide-react'
 import type { Task } from '../../generated/api/types.gen'
 import { useUpdateTask } from './mutations'
 import { useLayoutStore } from '../../stores/layout'
@@ -31,10 +31,19 @@ export function TaskRow({
   const done = task.status === 'done'
   const pending = pendingProp ?? (!onToggle && update.isPending)
   const failed = errorProp ?? (!onToggle && update.isError)
+  const open = () => (onSelect ? onSelect() : selectTask(task.id))
   return (
     <div
       className={`task-row ${done ? 'completed' : ''}`}
-      onClick={() => (onSelect ? onSelect() : selectTask(task.id))}
+      onClick={open}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          open()
+        }
+      }}
     >
       <button
         type="button"
@@ -57,36 +66,21 @@ export function TaskRow({
           className="task-title-button"
           onClick={(event) => {
             event.stopPropagation()
-            if (onSelect) onSelect()
-            else selectTask(task.id)
+            open()
           }}
         >
           {task.title}
         </button>
         <div>
-          {task.dueOn && (
+          {(task.dueOn || task.dueAt) && (
             <span className="task-deadline">
-              截止{' '}
-              {new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(
-                new Date(`${task.dueOn}T00:00:00`),
-              )}
+              <CalendarClock size={12} /> 截止 {task.dueAt ? dateText(task.dueAt) : task.dueOn}
             </span>
           )}
           {task.priority !== 'normal' && (
             <span className={`priority ${task.priority}`}>
               <Flag size={12} />
               {task.priority === 'urgent' ? '紧急' : task.priority === 'high' ? '高' : '低'}
-            </span>
-          )}
-          {task.startsAt && (
-            <span>
-              <CalendarClock size={12} />
-              {dateText(task.startsAt)}
-            </span>
-          )}
-          {task.endsAt && (
-            <span className="task-due">
-              <CalendarClock size={12} />至 {dateText(task.endsAt)}
             </span>
           )}
         </div>

@@ -128,6 +128,7 @@ export type Task = {
     startsAt?: string | null;
     endsAt?: string | null;
     dueOn?: string | null;
+    dueAt?: string | null;
     allDay: boolean;
     timezone: string;
     recordId?: string | null;
@@ -149,6 +150,7 @@ export type TaskInput = {
     startsAt?: string | null;
     endsAt?: string | null;
     dueOn?: string | null;
+    dueAt?: string | null;
     allDay: boolean;
     timezone: string;
     recordId?: string | null;

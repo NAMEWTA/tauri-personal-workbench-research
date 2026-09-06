@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Personal Workbench API
-  version: 0.2.12
+  version: 0.2.13
   description: Local loopback API owned by the workbenchd sidecar.
   license:
     name: Private use
@@ -964,6 +964,8 @@ components:
           { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
         dueOn:
           { oneOf: [{ type: string, format: date }, { type: "null" }] }
+        dueAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
         allDay: { type: boolean }
         timezone: { type: string }
         recordId: { oneOf: [{ type: string, format: uuid }, { type: "null" }] }
@@ -992,6 +994,8 @@ components:
           { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
         dueOn:
           { oneOf: [{ type: string, format: date }, { type: "null" }] }
+        dueAt:
+          { oneOf: [{ type: string, format: date-time }, { type: "null" }] }
         allDay: { type: boolean }
         timezone: { type: string, maxLength: 100 }
         recordId: { oneOf: [{ type: string, format: uuid }, { type: "null" }] }

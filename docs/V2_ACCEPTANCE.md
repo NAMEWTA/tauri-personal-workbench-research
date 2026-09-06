@@ -1,8 +1,8 @@
-# 个人工作台 0.2.12 验收记录
+# 个人工作台 0.2.13 验收记录
 
-状态：0.2.12 已发布，发布门禁通过
+状态：0.2.13 已发布，发布门禁通过
 
-本文只记录当前 `0.2.12` 的可复核证据。任何来自旧版本、旧哈希或未实际执行的命令都不得写入本页。
+本文只记录当前 `0.2.13` 的可复核证据。任何来自旧版本、旧哈希或未实际执行的命令都不得写入本页。
 
 ## 工具链
 
@@ -12,7 +12,7 @@
 | pnpm | 10.33.0 |
 | Go | 1.26.7 |
 | Rust | 1.96.0 |
-| 应用/sidecar | 0.2.12 |
+| 应用/sidecar | 0.2.13 |
 
 ## 验收矩阵
 
@@ -21,7 +21,7 @@
 | OpenAPI、前端、Go、Rust 静态检查 | `pnpm check` | 通过（Windows 本机，2026-09-06） |
 | Go 并发与 race | `go test -race ./...` | 通过（Windows 本机，2026-09-06） |
 | 前端单元与类型检查 | `pnpm --dir apps/desktop check` | 通过（15 文件/45 测试，2026-09-06） |
-| sidecar loopback、SQLite、优雅关闭 | `pnpm test:sidecar` | 通过（0.2.12，2026-09-06） |
+| sidecar loopback、SQLite、优雅关闭 | `pnpm test:sidecar` | 通过（0.2.13，2026-09-06） |
 | Playwright 响应式与业务流程 | `pnpm test:smoke` | 通过（4 viewport，2026-09-06） |
 | 原生工作区隔离、恢复和退出 | 安装版运行 `native-workspace-smoke.mjs` | 通过（Windows，2026-09-06） |
 | 单实例与 sidecar 恢复 | `pnpm test:single-instance` | 通过（Windows，2026-09-06） |
@@ -39,7 +39,7 @@
 
 ## 当前发布证据
 
-- 发布提交：`dc68627`；[workflow 34006715673](https://github.com/NAMEWTA/tauri-personal-workbench-research/actions/runs/34006715673)；[Release v0.2.12](https://github.com/NAMEWTA/tauri-personal-workbench-research/releases/tag/v0.2.12)。
+- 发布提交：`dc68627`；[workflow 34006715673](https://github.com/NAMEWTA/tauri-personal-workbench-research/actions/runs/34006715673)；[Release v0.2.13](https://github.com/NAMEWTA/tauri-personal-workbench-research/releases/tag/v0.2.13)。
 - macOS native/bundle evidence 已在 workflow 中生成并上传，Windows 安装版 smoke、single-instance 和 portable smoke 均通过。
 - 本机已安装程序 SHA-256：`4bafbbc0a381aab731c842450b857c2ef947d1b524e2dc026de99f86bc51861e`；sidecar SHA-256：`409e361f352494fea0dcdea257bfab832d48509fb4f16a8c6a61d04411d1c177`。这些为本机构建证据，不替代 CI Release 下载包的哈希。
 - Release 下载包安装 smoke（Windows，2026-09-06）通过；Windows setup SHA-256：`e48c32f9ed494dde14fd2497a10cf39338087193083b22f9a83427006e68a011`；DMG SHA-256：`1fe04ed04188b1e24ec3b26208cb484994268bda29a5aecaf622244ebd2f6d54`。
@@ -53,4 +53,4 @@
 
 ## 限制
 
-当前版本不包含云同步、移动端、OCR、AI、updater 或旧版本数据迁移；这些能力不属于本次 0.2.12 发布范围。
+当前版本不包含云同步、移动端、OCR、AI、updater 或旧版本数据迁移；这些能力不属于本次 0.2.13 发布范围。

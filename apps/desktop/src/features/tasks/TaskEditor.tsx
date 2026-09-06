@@ -1,33 +1,24 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { Save, Trash2, X } from 'lucide-react'
+﻿import { Save, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { trashTask } from '../../generated/api/sdk.gen'
 import type { Task, TaskInput } from '../../generated/api/types.gen'
-import { ArchivePicker } from '../archives/ArchivePicker'
 import { useUpdateTask } from './mutations'
 import { taskKeys } from './queries'
+import { ArchivePicker } from '../archives/ArchivePicker'
 import { useLayoutStore } from '../../stores/layout'
-
-const localTime = (value?: string | null) =>
-  value
-    ? new Date(new Date(value).getTime() - new Date(value).getTimezoneOffset() * 60_000)
-        .toISOString()
-        .slice(0, 16)
-    : ''
+import { useNavigate } from '@tanstack/react-router'
 
 export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void }) {
-  const setEditorDirty = useLayoutStore((state) => state.setEditorDirty)
-  const [recordTitle, setArchiveTitle] = useState(task.recordTitle)
+  const [recordTitle, setRecordTitle] = useState(task.recordTitle)
   const [draft, setDraft] = useState<TaskInput>({
     title: task.title,
     status: task.status,
     priority: task.priority,
-    startsAt: task.startsAt,
-    endsAt: task.endsAt,
-    dueOn: task.dueOn,
-    allDay: task.allDay,
     timezone: task.timezone,
+    allDay: false,
+    dueOn: task.dueOn,
+    dueAt: task.dueAt,
     recordId: task.recordId,
     notes: task.notes,
     recurrence: task.recurrence ?? '',
@@ -38,36 +29,38 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
   const update = useUpdateTask()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const scheduled = Boolean(draft.startsAt && draft.endsAt)
-  const dirty = !sameTaskDraft(draft, task)
-  useEffect(() => {
-    setEditorDirty(dirty)
-    return () => setEditorDirty(false)
-  }, [dirty, setEditorDirty])
+  const setEditorDirty = useLayoutStore((state) => state.setEditorDirty)
   const remove = useMutation({
     mutationFn: async () => {
       await trashTask({ path: { taskId: task.id }, throwOnError: true })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: taskKeys.all })
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      await queryClient.invalidateQueries({ queryKey: ['calendar-tasks'] })
       setEditorDirty(false)
       onClose()
     },
   })
-  const setTime = (key: 'startsAt' | 'endsAt', value: string) =>
-    setDraft({ ...draft, [key]: value ? new Date(value).toISOString() : null })
-  const toggleSchedule = (enabled: boolean) => {
-    if (!enabled) {
-      setDraft({ ...draft, startsAt: null, endsAt: null, allDay: false })
-      return
-    }
-    const start = new Date()
-    start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0)
-    const end = new Date(start.getTime() + 60 * 60_000)
-    setDraft({ ...draft, startsAt: start.toISOString(), endsAt: end.toISOString() })
-  }
+  const dirty =
+    JSON.stringify(draft) !==
+    JSON.stringify({
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      timezone: task.timezone,
+      allDay: false,
+      dueOn: task.dueOn,
+      dueAt: task.dueAt,
+      recordId: task.recordId,
+      notes: task.notes,
+      recurrence: task.recurrence ?? '',
+      reminders: task.reminders ?? [],
+      parentId: task.parentId,
+      estimateMinutes: task.estimateMinutes,
+    })
+  useEffect(() => {
+    setEditorDirty(dirty)
+    return () => setEditorDirty(false)
+  }, [dirty, setEditorDirty])
   return (
     <form
       className="task-editor inspector-editor"
@@ -121,52 +114,32 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
           </select>
         </label>
       </div>
-      <label className="checkbox-field">
-        <input
-          type="checkbox"
-          checked={scheduled}
-          onChange={(event) => toggleSchedule(event.target.checked)}
-        />
-        安排到日历
-      </label>
-      {scheduled && (
-        <>
-          <div className="field-pair">
-            <label>
-              开始时间
-              <input
-                type="datetime-local"
-                value={localTime(draft.startsAt)}
-                onChange={(event) => setTime('startsAt', event.target.value)}
-              />
-            </label>
-            <label>
-              结束时间
-              <input
-                type="datetime-local"
-                value={localTime(draft.endsAt)}
-                onChange={(event) => setTime('endsAt', event.target.value)}
-              />
-            </label>
-          </div>
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              checked={draft.allDay}
-              onChange={(event) => setDraft({ ...draft, allDay: event.target.checked })}
-            />
-            全天任务
-          </label>
-        </>
-      )}
-      <label>
-        截止日期
-        <input
-          type="date"
-          value={draft.dueOn ?? ''}
-          onChange={(event) => setDraft({ ...draft, dueOn: event.target.value || null })}
-        />
-      </label>
+      <div className="field-pair">
+        <label>
+          截止日期
+          <input
+            type="date"
+            value={draft.dueOn ?? ''}
+            onChange={(event) => setDraft({ ...draft, dueOn: event.target.value || null })}
+          />
+        </label>
+        <label>
+          截止时间
+          <input
+            type="time"
+            value={draft.dueAt ? new Date(draft.dueAt).toISOString().slice(11, 16) : ''}
+            onChange={(event) =>
+              setDraft({
+                ...draft,
+                dueAt:
+                  event.target.value && draft.dueOn
+                    ? new Date(`${draft.dueOn}T${event.target.value}:00`).toISOString()
+                    : null,
+              })
+            }
+          />
+        </label>
+      </div>
       <div className="field-pair">
         <label>
           重复规则
@@ -201,7 +174,7 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
           value={draft.recordId}
           valueTitle={recordTitle}
           onChange={(id, title) => {
-            setArchiveTitle(title ?? '')
+            setRecordTitle(title ?? '')
             setDraft({ ...draft, recordId: id })
           }}
           onOpen={(id) => void navigate({ to: '/archives/$recordId', params: { recordId: id } })}
@@ -215,8 +188,8 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
           onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
         />
       </label>
-      {update.isError && <p className="form-error">保存失败，请检查标题和时间范围。</p>}
-      {remove.isError && <p className="form-error">删除失败，请稍后重试。</p>}
+      {update.isError && <p className="form-error">保存失败，请重试。</p>}
+      {remove.isError && <p className="form-error">删除失败，请重试。</p>}
       <div className="editor-actions">
         <button
           type="button"
@@ -229,37 +202,11 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
           <Trash2 size={15} />
           删除
         </button>
-        <button
-          className="button primary"
-          disabled={
-            !draft.title.trim() ||
-            update.isPending ||
-            (scheduled && (!draft.startsAt || !draft.endsAt))
-          }
-        >
+        <button className="button primary" disabled={!draft.title.trim() || update.isPending}>
           <Save size={16} />
           保存
         </button>
       </div>
     </form>
-  )
-}
-
-function sameTaskDraft(draft: TaskInput, task: Task) {
-  return (
-    draft.title === task.title &&
-    draft.status === task.status &&
-    draft.priority === task.priority &&
-    draft.startsAt === task.startsAt &&
-    draft.endsAt === task.endsAt &&
-    (draft.dueOn ?? null) === (task.dueOn ?? null) &&
-    draft.allDay === task.allDay &&
-    draft.timezone === task.timezone &&
-    (draft.recordId ?? null) === (task.recordId ?? null) &&
-    (draft.notes ?? '') === (task.notes ?? '') &&
-    (draft.recurrence ?? '') === (task.recurrence ?? '') &&
-    JSON.stringify(draft.reminders ?? []) === JSON.stringify(task.reminders ?? []) &&
-    (draft.parentId ?? null) === (task.parentId ?? null) &&
-    (draft.estimateMinutes ?? null) === (task.estimateMinutes ?? null)
   )
 }

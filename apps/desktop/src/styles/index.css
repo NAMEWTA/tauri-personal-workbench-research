@@ -616,12 +616,21 @@ textarea::placeholder {
   gap: 10px;
   padding: 8px 5px;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.task-row:hover,
+.task-row:focus-within {
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
 }
 .task-row.completed {
   color: var(--muted);
 }
-.task-row.completed .task-copy strong {
+.task-row.completed .task-title-button {
   text-decoration: line-through;
+}
+.task-title-button {
+  cursor: pointer;
 }
 .task-check {
   display: grid;
@@ -1461,6 +1470,16 @@ textarea::placeholder {
 .fc .calendar-entry-due {
   border-color: var(--warning);
   background: var(--warning);
+}
+.fc .calendar-entry {
+  cursor: pointer;
+}
+.fc .calendar-entry-completed {
+  opacity: 0.62;
+  text-decoration: line-through;
+}
+.fc .calendar-entry-completed .fc-event-title {
+  text-decoration: line-through;
 }
 
 .trash-list,
