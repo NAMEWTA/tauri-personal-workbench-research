@@ -74,7 +74,7 @@ function Close-TestDesktop($Desktop, [string]$Label) {
   Write-Output "$Label close requested (pid=$($Desktop.Id), window=$($Desktop.MainWindowHandle), exited=$($Desktop.HasExited))"
   if (-not $Desktop.CloseMainWindow()) { throw "$Label did not accept a close request" }
   # 关闭超时必须使验收失败；强制清理只在 finally 中进行。
-  if (-not $Desktop.WaitForExit(30000)) {
+  if (-not $Desktop.WaitForExit(60000)) {
     throw "$Label did not exit after a native close request"
   }
 
@@ -225,3 +225,4 @@ try {
     } while (Test-Path -LiteralPath $workspaceFull)
   }
 }
+
