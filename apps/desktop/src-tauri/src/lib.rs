@@ -11,20 +11,26 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-#[cfg(target_os = "windows")]
 use std::time::Duration;
 use tauri::Manager;
 use workspace_registry::WorkspaceRegistry;
 
 fn shutdown(handle: tauri::AppHandle) {
     std::thread::spawn(move || {
-        tauri::async_runtime::block_on(handle.state::<SidecarManager>().stop());
-        handle.exit(0);
+        let _ = tauri::async_runtime::block_on(async {
+            tokio::time::timeout(
+                Duration::from_secs(10),
+                handle.state::<SidecarManager>().stop(),
+            )
+            .await
+        });
         #[cfg(target_os = "windows")]
         {
-            // sidecar 已停止；为 WebView2 原生窗口销毁偶发阻塞设置有界退出兜底。
-            std::thread::sleep(Duration::from_secs(2));
             std::process::exit(0);
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = handle.exit(0);
         }
     });
 }
