@@ -30,7 +30,7 @@ fn shutdown(handle: tauri::AppHandle) {
         }
         #[cfg(not(target_os = "windows"))]
         {
-            let _ = handle.exit(0);
+            handle.exit(0);
         }
     });
 }
