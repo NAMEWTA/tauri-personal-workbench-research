@@ -31,7 +31,7 @@
     "sbom": "node scripts/generate-sbom.mjs"
   },
   "devDependencies": {
-    "@redocly/cli": "2.49.0",
+    "@redocly/cli": "2.51.1",
     "yaml": "2.8.1"
   }
 }
