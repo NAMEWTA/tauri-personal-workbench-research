@@ -93,6 +93,7 @@ const (
 const (
 	PreferencesThemeDark   PreferencesTheme = "dark"
 	PreferencesThemeLight  PreferencesTheme = "light"
+	PreferencesThemePaper  PreferencesTheme = "paper"
 	PreferencesThemeSystem PreferencesTheme = "system"
 )
 
@@ -100,6 +101,7 @@ const (
 const (
 	PreferencesUpdateThemeDark   PreferencesUpdateTheme = "dark"
 	PreferencesUpdateThemeLight  PreferencesUpdateTheme = "light"
+	PreferencesUpdateThemePaper  PreferencesUpdateTheme = "paper"
 	PreferencesUpdateThemeSystem PreferencesUpdateTheme = "system"
 )
 

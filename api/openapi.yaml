@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Personal Workbench API
-  version: 0.2.11
+  version: 0.2.12
   description: Local loopback API owned by the workbenchd sidecar.
   license:
     name: Private use
@@ -1078,7 +1078,7 @@ components:
       type: object
       required: [theme, sidebarCollapsed, inspectorWidth, recentSearches]
       properties:
-        theme: { type: string, enum: [light, dark, system] }
+        theme: { type: string, enum: [light, dark, system, paper] }
         sidebarCollapsed: { type: boolean }
         inspectorWidth: { type: integer, minimum: 300, maximum: 480 }
         recentSearches:
@@ -1089,7 +1089,7 @@ components:
       type: object
       additionalProperties: false
       properties:
-        theme: { type: string, enum: [light, dark, system] }
+        theme: { type: string, enum: [light, dark, system, paper] }
         sidebarCollapsed: { type: boolean }
         inspectorWidth: { type: integer, minimum: 300, maximum: 480 }
         recentSearches:

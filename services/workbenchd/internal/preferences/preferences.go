@@ -46,5 +46,5 @@ func (u Update) Validate() error {
 }
 
 func ValidTheme(value string) bool {
-	return value == "light" || value == "dark" || value == "system"
+	return value == "light" || value == "dark" || value == "system" || value == "paper"
 }

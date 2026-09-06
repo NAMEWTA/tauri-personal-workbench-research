@@ -49,6 +49,30 @@
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
 
+:root[data-theme='paper'] {
+  color: #3e3327;
+  background: #f4ebdd;
+  --background: #f4ebdd;
+  --chrome: #eee2d0;
+  --sidebar: #eadbc5;
+  --surface: #fff9ef;
+  --surface-muted: #f1e6d5;
+  --foreground: #3e3327;
+  --muted: #806f5c;
+  --border: #d8c6ad;
+  --border-strong: #c6ad8e;
+  --primary: #a66a2c;
+  --primary-hover: #875221;
+  --primary-soft: #f2dfc3;
+  --info: #54757a;
+  --info-soft: #dfeceb;
+  --warning: #a56b25;
+  --warning-soft: #f6e6c8;
+  --danger: #a84e43;
+  --danger-soft: #f3dcd6;
+  --shadow: 0 12px 32px rgba(86, 57, 29, 0.12);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -962,15 +986,35 @@ textarea::placeholder {
   padding-left: 34px;
 }
 .archive-list.table {
+  overflow-x: auto;
   border-top: 1px solid var(--border);
 }
+.archive-table-head,
 .archive-list.table > a {
   display: grid;
   min-height: 62px;
-  grid-template-columns: 38px minmax(180px, 1.4fr) repeat(4, minmax(80px, 0.7fr)) 80px 80px;
+  grid-template-columns:
+    38px minmax(180px, 1.4fr) repeat(var(--archive-field-count), minmax(120px, 0.7fr))
+    90px 90px;
   align-items: center;
   gap: 10px;
   padding: 7px 5px;
+  min-width: max-content;
+}
+.archive-table-head {
+  min-height: 34px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+.archive-table-head > span,
+.archive-table-head > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.archive-list.table > a {
   border-bottom: 1px solid var(--border);
 }
 .archive-list a:hover {
@@ -1184,6 +1228,34 @@ textarea::placeholder {
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+.custom-field-group {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.custom-field-group legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.context-chip {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+.context-chip strong {
+  color: var(--foreground);
+}
 .required-mark {
   color: var(--danger);
 }
@@ -1284,6 +1356,24 @@ textarea::placeholder {
 .field-options {
   display: flex;
   gap: 18px;
+}
+.field-section-presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.field-section-presets .button {
+  min-height: 28px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
+.field-section-presets .button.active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .checkbox-field {
   display: flex;
@@ -1930,6 +2020,15 @@ textarea::placeholder {
   .archive-list.table > a {
     grid-template-columns: 38px minmax(0, 1fr) 60px;
   }
+  .archive-table-head {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .archive-table-head > span {
+    display: none;
+  }
+  .archive-table-head > span:first-child {
+    display: block;
+  }
   .archive-list.table .archive-field-value,
   .archive-list.table .archive-type {
     display: none;
@@ -1942,6 +2041,9 @@ textarea::placeholder {
     flex-direction: column;
   }
   .calendar-form {
+    grid-template-columns: 1fr;
+  }
+  .custom-field-group {
     grid-template-columns: 1fr;
   }
   .calendar-workspace {

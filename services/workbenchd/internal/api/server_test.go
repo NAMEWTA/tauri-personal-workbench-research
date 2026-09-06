@@ -32,7 +32,7 @@ func testHandler(t *testing.T) http.Handler {
 func testHandlerWithStore(t *testing.T) (http.Handler, *workbenchsqlite.Store) {
 	t.Helper()
 	workspace := t.TempDir()
-	store, err := workbenchsqlite.Open(context.Background(), workspace, "API 测试", "0.2.11")
+	store, err := workbenchsqlite.Open(context.Background(), workspace, "API 测试", "0.2.12")
 	if err != nil {
 		t.Fatal(err)
 	}

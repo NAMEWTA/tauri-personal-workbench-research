@@ -76,13 +76,19 @@ export function SettingsPage() {
             <span>跟随系统或使用固定外观。</span>
           </div>
           <div className="segmented">
-            {(['system', 'light', 'dark'] as const).map((value) => (
+            {(['system', 'light', 'dark', 'paper'] as const).map((value) => (
               <button
                 key={value}
                 className={theme === value ? 'active' : ''}
                 onClick={() => setTheme(value)}
               >
-                {value === 'system' ? '跟随系统' : value === 'light' ? '浅色' : '深色'}
+                {value === 'system'
+                  ? '跟随系统'
+                  : value === 'light'
+                    ? '浅色'
+                    : value === 'dark'
+                      ? '深色'
+                      : '纸张暖色'}
               </button>
             ))}
           </div>

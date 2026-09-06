@@ -15,6 +15,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useBackend } from '../../app/backend-context'
 import { useLayoutStore } from '../../stores/layout'
+import type { Theme } from '../../stores/layout'
 import { usePreferences, useUpdatePreferences } from '../../features/settings/preferences'
 import { CommandPalette } from './CommandPalette'
 import { InspectorPanel } from './InspectorPanel'
@@ -32,7 +33,7 @@ const navigation = [
 ] as const
 
 type LayoutPreferences = {
-  theme: 'light' | 'dark' | 'system'
+  theme: Theme
   sidebarCollapsed: boolean
   inspectorWidth: number
 }

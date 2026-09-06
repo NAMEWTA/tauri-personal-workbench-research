@@ -377,6 +377,19 @@ export function ArchiveTypesPage() {
                       />
                     </label>
                   </div>
+                  <div className="field-section-presets" aria-label="字段分区">
+                    <span>字段分区</span>
+                    {['基础属性', '扩展属性'].map((group) => (
+                      <button
+                        type="button"
+                        key={group}
+                        className={`button ${fieldDraft.group === group ? 'active' : ''}`}
+                        onClick={() => setFieldDraft({ ...fieldDraft, group })}
+                      >
+                        {group}
+                      </button>
+                    ))}
+                  </div>
                   {(fieldDraft.valueType === 'select' ||
                     fieldDraft.valueType === 'multiSelect') && (
                     <label>

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-type Theme = 'light' | 'dark' | 'system'
+export type Theme = 'light' | 'dark' | 'system' | 'paper'
 type InspectorSelection = { kind: 'task'; id: string } | { kind: 'archive'; id: string }
 type LayoutStore = {
   sidebarCollapsed: boolean

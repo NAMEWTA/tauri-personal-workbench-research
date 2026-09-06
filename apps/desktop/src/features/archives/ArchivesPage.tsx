@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Archive, Grid2X2, List, Plus, Search, Settings2 } from 'lucide-react'
 import { useState } from 'react'
+import type { CSSProperties } from 'react'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/StateView'
 import { ArchiveForm } from './ArchiveForm'
 import { archiveTypesQuery, archivesQuery } from './queries'
@@ -18,7 +19,7 @@ export function ArchivesPage() {
   const query = useQuery(archivesQuery(q, collectionId, sort, limit, offset))
   const items = query.data?.items ?? []
   const activeType = types.data?.find((item) => item.id === collectionId)
-  const visibleFields = activeType?.fields.slice(0, 4) ?? []
+  const visibleFields = activeType?.fields ?? []
   return (
     <div className="page">
       <div className="page-header">
@@ -118,7 +119,23 @@ export function ArchivesPage() {
         ) : items.length === 0 ? (
           <EmptyState title="没有匹配的档案" detail="选择一种档案类型来集中管理资料。" />
         ) : (
-          <div className={`archive-list ${mode}`}>
+          <div
+            className={`archive-list ${mode}`}
+            style={{ '--archive-field-count': Math.max(visibleFields.length, 1) } as CSSProperties}
+          >
+            {mode === 'table' && (
+              <div className="archive-table-head" role="row">
+                <span role="columnheader" />
+                <strong role="columnheader">名称</strong>
+                {visibleFields.map((field) => (
+                  <span role="columnheader" key={field.id}>
+                    {field.label}
+                  </span>
+                ))}
+                <span role="columnheader">类型</span>
+                <span role="columnheader">更新时间</span>
+              </div>
+            )}
             {items.map((item) => (
               <Link key={item.id} to="/archives/$recordId" params={{ recordId: item.id }}>
                 <span
@@ -178,7 +195,7 @@ export function ArchivesPage() {
           </button>
         </div>
       )}
-      {form && <ArchiveForm onClose={() => setForm(false)} />}
+      {form && <ArchiveForm initialCollectionId={collectionId} onClose={() => setForm(false)} />}
     </div>
   )
 }

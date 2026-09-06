@@ -206,14 +206,14 @@ export type BackupSettings = {
 };
 
 export type Preferences = {
-    theme: 'light' | 'dark' | 'system';
+    theme: 'light' | 'dark' | 'system' | 'paper';
     sidebarCollapsed: boolean;
     inspectorWidth: number;
     recentSearches: Array<RecentSearch>;
 };
 
 export type PreferencesUpdate = {
-    theme?: 'light' | 'dark' | 'system';
+    theme?: 'light' | 'dark' | 'system' | 'paper';
     sidebarCollapsed?: boolean;
     inspectorWidth?: number;
     recentSearches?: Array<RecentSearch>;

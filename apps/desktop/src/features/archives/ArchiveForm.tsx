@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save, X } from 'lucide-react'
 import { useState } from 'react'
 import { createArchiveRecord } from '../../generated/api/sdk.gen'
-import type { ArchiveRecordInput } from '../../generated/api/types.gen'
+import type { ArchiveFieldDefinition, ArchiveRecordInput } from '../../generated/api/types.gen'
 import { requireData } from '../../lib/http/client'
 import { ErrorState, LoadingState } from '../../components/ui/StateView'
 import { ArchiveFieldControl } from './ArchiveFieldControl'
@@ -10,14 +10,31 @@ import { initialFieldValue } from './fieldValues'
 import { archiveTypesQuery } from './queries'
 import { invalidateWorkbenchQueries } from '../../app/queryKeys'
 
-export function ArchiveForm({ onClose }: { onClose: () => void }) {
+export function ArchiveForm({
+  onClose,
+  initialCollectionId = '',
+}: {
+  onClose: () => void
+  initialCollectionId?: string
+}) {
   const definitions = useQuery(archiveTypesQuery)
-  const [collectionId, setTypeId] = useState('')
+  const [collectionId, setTypeId] = useState(initialCollectionId)
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [fields, setFields] = useState<Record<string, unknown>>({})
   const activeTypeId = collectionId || definitions.data?.[0]?.id || ''
   const selectedDefinition = definitions.data?.find((item) => item.id === activeTypeId)
+  const fieldGroups = Array.from(
+    (selectedDefinition?.fields ?? [])
+      .reduce((groups, field) => {
+        const group = field.group.trim() || '扩展属性'
+        const fieldsInGroup = groups.get(group) ?? []
+        fieldsInGroup.push(field)
+        groups.set(group, fieldsInGroup)
+        return groups
+      }, new Map<string, ArchiveFieldDefinition[]>())
+      .entries(),
+  )
   const queryClient = useQueryClient()
   const effectiveFields = selectedDefinition
     ? Object.fromEntries(
@@ -75,28 +92,39 @@ export function ArchiveForm({ onClose }: { onClose: () => void }) {
           <ErrorState error={definitions.error} retry={() => void definitions.refetch()} />
         ) : (
           <>
-            <label>
-              所属集合
-              <select value={activeTypeId} onChange={(event) => selectType(event.target.value)}>
-                {definitions.data.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {(selectedDefinition?.fields.length ?? 0) > 0 && (
+            {initialCollectionId ? (
+              <p className="context-chip">
+                当前类型：<strong>{selectedDefinition?.name ?? '加载中'}</strong>
+              </p>
+            ) : (
+              <label>
+                所属集合
+                <select value={activeTypeId} onChange={(event) => selectType(event.target.value)}>
+                  {definitions.data.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {fieldGroups.length > 0 && (
               <div className="custom-fields">
-                {selectedDefinition?.fields.map((field) => (
-                  <label key={field.id}>
-                    {field.label}
-                    {field.required && <span className="required-mark"> *</span>}
-                    <ArchiveFieldControl
-                      field={field}
-                      value={effectiveFields[field.key]}
-                      onChange={(value) => setFields({ ...fields, [field.key]: value })}
-                    />
-                  </label>
+                {fieldGroups.map(([group, groupFields]) => (
+                  <fieldset className="custom-field-group" key={group}>
+                    <legend>{group}</legend>
+                    {groupFields.map((field) => (
+                      <label key={field.id}>
+                        {field.label}
+                        {field.required && <span className="required-mark"> *</span>}
+                        <ArchiveFieldControl
+                          field={field}
+                          value={effectiveFields[field.key]}
+                          onChange={(value) => setFields({ ...fields, [field.key]: value })}
+                        />
+                      </label>
+                    ))}
+                  </fieldset>
                 ))}
               </div>
             )}

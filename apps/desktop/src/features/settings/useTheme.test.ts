@@ -1,5 +1,6 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { useTheme } from './useTheme'
+import type { Theme } from '../../stores/layout'
 
 describe('useTheme', () => {
   let media: EventTarget & { matches: boolean }
@@ -34,10 +35,9 @@ describe('useTheme', () => {
   })
 
   it('keeps an explicit theme and resumes following the system when selected', () => {
-    const { rerender } = renderHook(
-      ({ theme }: { theme: 'light' | 'dark' | 'system' }) => useTheme(theme),
-      { initialProps: { theme: 'dark' } },
-    )
+    const { rerender } = renderHook(({ theme }: { theme: Theme }) => useTheme(theme), {
+      initialProps: { theme: 'dark' },
+    })
     act(() => {
       media.dispatchEvent(new Event('change'))
     })
@@ -50,5 +50,15 @@ describe('useTheme', () => {
       media.dispatchEvent(new Event('change'))
     })
     expect(document.documentElement.dataset.theme).toBe('light')
+  })
+
+  it('applies the paper theme without following system changes', () => {
+    renderHook(() => useTheme('paper'))
+    expect(document.documentElement.dataset.theme).toBe('paper')
+    act(() => {
+      media.matches = true
+      media.dispatchEvent(new Event('change'))
+    })
+    expect(document.documentElement.dataset.theme).toBe('paper')
   })
 })
