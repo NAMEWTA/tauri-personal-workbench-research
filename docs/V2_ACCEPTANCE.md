@@ -1,8 +1,8 @@
-# 个人工作台 0.2.11 验收记录
+# 个人工作台 0.2.12 验收记录
 
-状态：0.2.11 已发布，发布门禁通过
+状态：0.2.12 发布门禁执行中
 
-本文只记录当前 `0.2.11` 的可复核证据。任何来自旧版本、旧哈希或未实际执行的命令都不得写入本页。
+本文只记录当前 `0.2.12` 的可复核证据。任何来自旧版本、旧哈希或未实际执行的命令都不得写入本页。
 
 ## 工具链
 
@@ -12,7 +12,7 @@
 | pnpm | 10.33.0 |
 | Go | 1.26.7 |
 | Rust | 1.96.0 |
-| 应用/sidecar | 0.2.11 |
+| 应用/sidecar | 0.2.12 |
 
 ## 验收矩阵
 
@@ -20,14 +20,14 @@
 | --- | --- | --- |
 | OpenAPI、前端、Go、Rust 静态检查 | `pnpm check` | 通过（Windows 本机，2026-09-05） |
 | Go 并发与 race | `go test -race ./...` | 通过（Windows 本机，2026-09-05） |
-| 前端单元与类型检查 | `pnpm --dir apps/desktop check` | 通过（15 文件/44 测试，2026-09-05） |
-| sidecar loopback、SQLite、优雅关闭 | `pnpm test:sidecar` | 通过（0.2.11，2026-09-05） |
+| 前端单元与类型检查 | `pnpm --dir apps/desktop check` | 通过（15 文件/45 测试，2026-09-06） |
+| sidecar loopback、SQLite、优雅关闭 | `pnpm test:sidecar` | 通过（0.2.12，2026-09-05） |
 | Playwright 响应式与业务流程 | `pnpm test:smoke` | 通过（4 viewport，2026-09-05） |
 | 原生工作区隔离、恢复和退出 | 安装版运行 `native-workspace-smoke.mjs` | 通过（Windows，2026-09-05） |
 | 单实例与 sidecar 恢复 | `pnpm test:single-instance` | 通过（Windows，2026-09-05） |
 | Windows 安装包与实际 WebView2 操作 | `scripts/smoke-installed.ps1` | 通过（三种 schema 2 启动场景，2026-09-05） |
 | Windows portable ZIP | 解压后运行 `native-workspace-smoke.mjs` | 通过（Windows，2026-09-05） |
-| macOS sidecar、app、DMG | CI native/bundle artifacts | 通过（workflow 33976658637，2026-09-05） |
+| macOS sidecar、app、DMG | CI native/bundle artifacts | 待 CI workflow |
 | 生成代码无漂移 | `pnpm generate` + deterministic rerun | 通过（2026-09-05） |
 
 ## 证据规则
@@ -39,7 +39,7 @@
 
 ## 当前发布证据
 
-- 发布提交：`ce73f764873712325b6b0d16ec2e29c809dbc031`；[workflow 33976658637](https://github.com/NAMEWTA/tauri-personal-workbench-research/actions/runs/33976658637)；[Release v0.2.11](https://github.com/NAMEWTA/tauri-personal-workbench-research/releases/tag/v0.2.11)。
+- 发布提交：`eba6aac`；v0.2.12 workflow 与 Release 链接将在 CI 成功后补充。
 - macOS native/bundle evidence 已在 workflow 中生成并上传，Windows 安装版 smoke、single-instance 和 portable smoke 均通过。
 - 本机已安装程序 SHA-256：`4bafbbc0a381aab731c842450b857c2ef947d1b524e2dc026de99f86bc51861e`；sidecar SHA-256：`409e361f352494fea0dcdea257bfab832d48509fb4f16a8c6a61d04411d1c177`。这些为本机构建证据，不替代 CI Release 下载包的哈希。
 - Release 下载包安装 smoke（Windows，2026-09-06）通过，安装包 SHA-256 由 Release checksums 提供。
@@ -53,4 +53,4 @@
 
 ## 限制
 
-当前版本不包含云同步、移动端、OCR、AI、updater 或旧版本数据迁移；这些能力不属于本次 0.2.11 发布范围。
+当前版本不包含云同步、移动端、OCR、AI、updater 或旧版本数据迁移；这些能力不属于本次 0.2.12 发布范围。
