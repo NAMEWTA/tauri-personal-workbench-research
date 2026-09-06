@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict'
+import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, realpathSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
@@ -212,17 +212,17 @@ async function switchWorkspace(page, name) {
 }
 
 async function createTask(page, title) {
-  await page.locator('.sidebar').getByRole('link', { name: '浠婃棩', exact: true }).click()
-  await page.getByLabel('浠诲姟鏍囬').fill(title)
+  await page.locator('.sidebar').getByRole('link', { name: '今日', exact: true }).click()
+  await page.getByLabel('任务标题').fill(title)
   await Promise.all([
     page.waitForResponse(
       (response) =>
         response.url().endsWith('/api/v3/tasks') && response.request().method() === 'POST',
     ),
-    page.getByRole('button', { name: '娣诲姞' }).click(),
+    page.getByRole('button', { name: '添加' }).click(),
   ])
   await page.getByRole('heading', { name: title }).waitFor()
-  await page.getByRole('button', { name: '鍏抽棴浠诲姟璇︽儏' }).click()
+  await page.getByRole('button', { name: '关闭任务详情' }).click()
 }
 
 async function gracefulClose(processHandle) {
@@ -329,7 +329,7 @@ try {
     const url = new URL(request.url())
     if (url.pathname.startsWith('/api/')) apiHosts.add(url.hostname)
   })
-  await page.getByRole('heading', { name: '浠婃棩' }).waitFor({ timeout: 60_000 })
+  await page.getByRole('heading', { name: '今日' }).waitFor({ timeout: 60_000 })
 
   const initial = await backendSnapshot(page)
   assert.equal(new URL(initial.backendUrl).hostname, '127.0.0.1')
@@ -364,13 +364,13 @@ try {
     await window.__TAURI_INTERNALS__.invoke('open_workspace', { path })
   }, restoredWorkspace)
   await page.reload()
-  await page.locator('.sidebar').getByRole('link', { name: '璁剧疆', exact: true }).click()
-  await page.getByRole('heading', { name: '璁剧疆' }).waitFor({ timeout: 60_000 })
+  await page.locator('.sidebar').getByRole('link', { name: '设置', exact: true }).click()
+  await page.getByRole('heading', { name: '设置' }).waitFor({ timeout: 60_000 })
   await waitForWorkspace(page, basename(restoredWorkspace), initial.backendUrl)
-  await page.locator('.sidebar').getByRole('link', { name: '浠诲姟', exact: true }).click()
+  await page.locator('.sidebar').getByRole('link', { name: '任务', exact: true }).click()
   await page.getByText(taskA, { exact: true }).waitFor()
 
-  await page.locator('.sidebar').getByRole('link', { name: '璁剧疆', exact: true }).click()
+  await page.locator('.sidebar').getByRole('link', { name: '设置', exact: true }).click()
   await waitForWorkspace(page, basename(restoredWorkspace))
   await switchWorkspace(page, basename(workspaceA))
   const restoredA = await stableBackendSnapshot(page)
@@ -381,7 +381,7 @@ try {
       (response) =>
         response.url().endsWith('/api/v3/preferences') && response.request().method() === 'PATCH',
     ),
-    page.getByRole('button', { name: '娣辫壊' }).click(),
+    page.getByRole('button', { name: '深色' }).click(),
   ])
   await switchWorkspace(page, basename(workspaceB))
 
@@ -389,16 +389,16 @@ try {
   assert.equal(new URL(openedB.backendUrl).hostname, '127.0.0.1')
   assert.equal(openedB.meta.workspaceName, basename(workspaceB))
   assert.equal(openedB.preferences.theme, 'system')
-  await page.locator('.sidebar').getByRole('link', { name: '浠诲姟', exact: true }).click()
+  await page.locator('.sidebar').getByRole('link', { name: '任务', exact: true }).click()
   assert.equal(await page.getByText(taskA, { exact: true }).count(), 0)
   await createTask(page, taskB)
 
-  await page.locator('.sidebar').getByRole('link', { name: '璁剧疆', exact: true }).click()
+  await page.locator('.sidebar').getByRole('link', { name: '设置', exact: true }).click()
   await switchWorkspace(page, basename(workspaceA))
   const reopenedA = await stableBackendSnapshot(page)
   assert.equal(reopenedA.meta.workspaceName, basename(workspaceA))
   assert.equal(reopenedA.preferences.theme, 'dark')
-  await page.locator('.sidebar').getByRole('link', { name: '浠诲姟', exact: true }).click()
+  await page.locator('.sidebar').getByRole('link', { name: '任务', exact: true }).click()
   await page.getByText(taskA, { exact: true }).waitFor()
   assert.equal(await page.getByText(taskB, { exact: true }).count(), 0)
   assert.deepEqual([...apiHosts], ['127.0.0.1'])
@@ -412,8 +412,9 @@ try {
     readFile(registryPath, 'utf8').then(JSON.parse),
   ])
   assert(databaseA.size > 0 && databaseB.size > 0)
-  // Windows runner 鍙兘鐢?8.3 鐭矾寰勪紶鍏ヤ复鏃剁洰褰曪紱浣跨敤 native realpath
-  // 瑙ｆ瀽鍒颁笌 Rust canonicalize 鐩稿悓鐨勯暱璺緞鍚庡啀姣旇緝銆?  const canonicalWorkspaceA = realpathSync.native(workspaceA)
+  // Windows runner 可能用 8.3 短路径传入临时目录；使用 native realpath
+  // 解析到与 Rust canonicalize 相同的长路径后再比较。
+  const canonicalWorkspaceA = realpathSync.native(workspaceA)
   assert.equal(registry[0].path.toLowerCase(), canonicalWorkspaceA.toLowerCase())
   assert.deepEqual(Object.keys(registry[0]).sort(), ['lastOpened', 'path'])
   console.log('Native Tauri workspace switch, isolation, and persistence smoke passed')
@@ -428,4 +429,3 @@ try {
   await webViewOverrides?.restore().catch(() => undefined)
   await removeProbe(probe)
 }
-
