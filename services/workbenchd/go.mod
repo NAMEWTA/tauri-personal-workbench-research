@@ -1,13 +1,13 @@
 module github.com/personal-workbench/workbenchd
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/google/uuid v1.6.0
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/pressly/goose/v3 v3.26.0
-	golang.org/x/sys v0.39.0
+	golang.org/x/sys v0.49.0
 	modernc.org/sqlite v1.39.1
 )
 
